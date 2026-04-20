@@ -47,7 +47,7 @@ function download(url, dest) {
 			res.pipe(file);
 			file.on('finish', () => file.close(resolve));
 		}).on('error', (err) => {
-			fs.unlink(dest, () => {});
+			fs.unlink(dest, () => { });
 			reject(err);
 		});
 	});
@@ -64,7 +64,7 @@ function unzip(zipPath, destDir) {
 
 function cleanup(...paths) {
 	for (const p of paths) {
-		try { rmSync(p, { recursive: true, force: true }); } catch {}
+		try { rmSync(p, { recursive: true, force: true }); } catch { }
 	}
 }
 
@@ -103,7 +103,7 @@ function cleanup(...paths) {
 	console.log('\n⚙️  [2/7] 配置 channel ...');
 
 	oc('config set "channels.ciwei-ai.enabled" true');
-	oc(`config set "channels.ciwei-ai.accountId" "\\"${accountId}\\""`);
+	oc(`config set "channels.ciwei-ai.accountId" "'${accountId}'"`);
 	oc(`config set "channels.ciwei-ai.token" "${token}"`);
 
 	console.log('✅ channel 配置完成');
@@ -116,47 +116,62 @@ function cleanup(...paths) {
 		console.error('❌ 无法读取 agents.defaults.workspace,请检查 openclaw 配置');
 		process.exit(1);
 	}
+	const ocRoot = path.dirname(wsResult.stdout);
+	const agentDir = path.join(ocRoot, 'ciwei-ai');
+	const soulPath = path.join(agentDir, 'SOUL.md');
 
-	const ocRoot    = path.dirname(wsResult.stdout);
-	const agentDir  = path.join(ocRoot, 'ciwei-ai');
+	if (!fs.existsSync(agentDir)) {
+		mkdirSync(agentDir, { recursive: true });
+		oc(`agents add ciwei-ai --workspace "${agentDir}" --bind "ciwei-ai:*"`);
 
-	mkdirSync(agentDir, { recursive: true });
-	oc(`agents add ciwei-ai --workspace "${agentDir}" --bind "ciwei-ai:*"`);
-
-	// 等待 OpenClaw 完成默认模板文件的生成
-	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-	await sleep(2000);
+		// 轮询等待 OpenClaw 完成默认模板文件的生成
+		console.log('⏳ 等待 Agent 模板初始化...');
+		let retries = 10;
+		while (retries > 0 && !fs.existsSync(soulPath)) {
+			await new Promise(r => setTimeout(r, 500));
+			retries--;
+		}
+	} else {
+		console.log('⏭️  Agent 目录已存在，跳过创建');
+	}
 
 	console.log('✅ agent 创建完成');
 
 	// ── 4. 追加 SOUL.md 身份设定 ──────────────────────────────────────────────────
 	console.log('\n📝 [4/7] 追加 SOUL.md 身份设定 ...');
 
-	const soulPath = path.join(agentDir, 'SOUL.md');
 	let soulExisting = '';
-	try { soulExisting = fs.readFileSync(soulPath, 'utf8'); } catch {}
-	if (!soulExisting.trim()) {
-		soulExisting = 
-		`# SOUL.md - Who You Are
+	try { soulExisting = fs.readFileSync(soulPath, 'utf8'); } catch { }
+
+	const soulIdentityFlag = '## 身份设定 (Identity)';
+	if (soulExisting.includes(soulIdentityFlag)) {
+		console.log('⏭️  SOUL.md 已包含身份设定，跳过追加');
+	} else {
+		if (!soulExisting.trim()) {
+			soulExisting =
+				`# SOUL.md - Who You Are
 
 _You're not a chatbot. You're becoming someone._
 ## Vibe
 
 Be the assistant you'd actually want to talk to. Concise when needed, thorough when it matters. Not a corporate drone. Not a sycophant. Just... good.
 `;
+		}
+		const soulContent = `\n\n${soulIdentityFlag}\n我是一名经验丰富的金融投资专家，拥有资深的数据分析、财务分析、基本面分析和量化交易经验，并拥有股票、期货、期权、数字货币、债券等多领域投资经历。务必基于客观事实、数据、逻辑推理进行分析，不要为了完成任务而虚假输出。在分析市场因素的影响时，尽量从利好利空两方面考虑，不要仅仅为了满足用户的偏好而倾向性输出。\n`;
+		fs.writeFileSync(soulPath, soulExisting + soulContent, 'utf8');
+		console.log('✅ SOUL.md 写入完成');
 	}
-	const soulContent = `\n\n## 身份设定 (Identity)\n我是一名经验丰富的金融投资专家，拥有资深的数据分析、财务分析、基本面分析和量化交易经验，并拥有股票、期货、期权、数字货币、债券等多领域投资经历。务必基于客观事实、数据、逻辑推理进行分析，不要为了完成任务而虚假输出。在分析市场因素的影响时，尽量从利好利空两方面考虑，不要仅仅为了满足用户的偏好而倾向性输出。\n `;
-	fs.writeFileSync(soulPath, soulExisting + soulContent, 'utf8');
-
-	console.log('✅ SOUL.md 写入完成');
 
 	// ── 5. 写入独立业务协议与调度流水线 ────────────────────────────────────────
 	console.log('\n📝 [5/7] 写入独立协议库与 AGENTS.md 调度逻辑 ...');
 
 	const protocolsDir = path.join(agentDir, 'protocols');
-	mkdirSync(protocolsDir, { recursive: true });
+	if (!fs.existsSync(protocolsDir)) {
+		mkdirSync(protocolsDir, { recursive: true });
+	}
 
 	// 规则 1: 整合版上下文、记忆与输出规范
+	const contextLoaderPath = path.join(protocolsDir, 'context_loader.md');
 	const contextLoaderContent = `
 # ciwei-ai 上下文与记忆加载规范
 
@@ -171,18 +186,22 @@ Be the assistant you'd actually want to talk to. Concise when needed, thorough w
 	- 在输出的文中要放置的位置标注出\`{图1}\`、\`{图2}\`这样的格式，前后都要换行处理。
 	- 在输出的结尾追加ECharts option JSON 格式的图表内容，格式\`{图1}: {"data": [], "chart": "ECharts option JSON"}\`.
 `;
-	fs.writeFileSync(path.join(protocolsDir, 'context_loader.md'), contextLoaderContent.trim(), 'utf8');
+	fs.writeFileSync(contextLoaderPath, contextLoaderContent.trim(), 'utf8');
 
 	// 规则 2: 主 Agent 转型为 调度器 (Dispatcher)
-	// 安全追加：先读取现有内容再写入
 	const agentsPath = path.join(agentDir, 'AGENTS.md');
 	let agentsExisting = '';
-	try { agentsExisting = fs.readFileSync(agentsPath, 'utf8'); } catch {}
-	if (agentsExisting.trim() && !agentsExisting.endsWith('\n')) {
-		agentsExisting += '\n';
-	}
-	const agentsContent = `
-## 核心调度流水线 (Dispatcher Rules)
+	try { agentsExisting = fs.readFileSync(agentsPath, 'utf8'); } catch { }
+
+	const dispatchFlag = '## 核心调度流水线 (Dispatcher Rules)';
+	if (agentsExisting.includes(dispatchFlag)) {
+		console.log('⏭️  AGENTS.md 已包含调度规则，跳过追加');
+	} else {
+		if (agentsExisting.trim() && !agentsExisting.endsWith('\n')) {
+			agentsExisting += '\n';
+		}
+		const agentsContent = `
+${dispatchFlag}
 
 你是整个系统的调度中枢。请严格按照以下流水线顺序处理任务：
 
@@ -195,9 +214,9 @@ Be the assistant you'd actually want to talk to. Concise when needed, thorough w
 3. **【阶段 3：严格执行输出】**
    - 严格按照阶段 1 中解析的 \`cw_output\` 规则进行图表标记占位与 JSON 数据拼接，确保前端解析稳定。
 `;
-	fs.writeFileSync(agentsPath, agentsExisting + agentsContent.trim(), 'utf8');
-
-	console.log('✅ AGENTS.md 与独立协议库写入完成');
+		fs.writeFileSync(agentsPath, agentsExisting + agentsContent.trim() + '\n', 'utf8');
+		console.log('✅ AGENTS.md 与独立协议库写入完成');
+	}
 
 	// ── 6. 安装 ciwei-skills-guide skill ─────────────────────────────────────────
 	console.log('\n📦 [6/7] 安装 ciwei-skills-guide skill ...');
