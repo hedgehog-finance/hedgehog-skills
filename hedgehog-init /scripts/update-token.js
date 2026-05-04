@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * update-token.js — 更新 ciwei-ai channel 的 token 并重启 Gateway
+ * update-token.js — 更新 hedgehog-finance channel 的 token 并重启 Gateway
  *
  * 用法:
  * node update-token.js <new_token>
  *
  * 参数:
- * new_token  新的 ciwei-ai token
+ * new_token  新的 hedgehog-app token
  */
 
 'use strict';
@@ -34,7 +34,7 @@ function oc(args) {
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 console.log('⚙️  [1/2] 更新 token 配置 ...');
 
-const result = oc(`config set "channels.ciwei-ai.token" "${newToken}"`);
+const result = oc(`config set "channels.hedgehog_finance.token" "${newToken}"`);
 if (!result.ok) {
 	console.error(`❌ token 更新失败：${result.stderr}`);
 	process.exit(1);
