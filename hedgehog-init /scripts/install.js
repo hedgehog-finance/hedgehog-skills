@@ -102,9 +102,9 @@ function cleanup(...paths) {
 	// ── 2. 写入 channel 配置 ─────────────────────────────────────────────────────
 	console.log('\n⚙️  [2/7] 配置 channel ...');
 
-	oc('config set "channels.hedgehog_finance.enabled" true');
-	oc(`config set "channels.hedgehog_finance.accountId" "'${accountId}'"`);
-	oc(`config set "channels.hedgehog_finance.token" "${token}"`);
+	oc('config set "channels.hedgehog-finance.enabled" true');
+	oc(`config set "channels.hedgehog-finance.accountId" "'${accountId}'"`);
+	oc(`config set "channels.hedgehog-finance.token" "${token}"`);
 
 	console.log('✅ channel 配置完成');
 

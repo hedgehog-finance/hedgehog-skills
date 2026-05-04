@@ -34,7 +34,7 @@ function oc(args) {
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 console.log('⚙️  [1/2] 更新 token 配置 ...');
 
-const result = oc(`config set "channels.hedgehog_finance.token" "${newToken}"`);
+const result = oc(`config set "channels.hedgehog-finance.token" "${newToken}"`);
 if (!result.ok) {
 	console.error(`❌ token 更新失败：${result.stderr}`);
 	process.exit(1);
