@@ -117,12 +117,12 @@ function cleanup(...paths) {
 		process.exit(1);
 	}
 	const ocRoot = path.dirname(wsResult.stdout);
-	const agentDir = path.join(ocRoot, 'hedgehog_finance');
+	const agentDir = path.join(ocRoot, 'hedgehog-finance');
 	const soulPath = path.join(agentDir, 'SOUL.md');
 
 	if (!fs.existsSync(agentDir)) {
 		mkdirSync(agentDir, { recursive: true });
-		oc(`agents add hedgehog_finance --workspace "${agentDir}" --bind "hedgehog_finance:*"`);
+		oc(`agents add hedgehog-finance --workspace "${agentDir}" --bind "hedgehog_finance:*"`);
 
 		// 轮询等待 OpenClaw 完成默认模板文件的生成
 		console.log('⏳ 等待 Agent 模板初始化...');
