@@ -3,7 +3,7 @@ name: hedgehog-init
 description: > 
     连接刺猬投研AI的安装配置skill。 
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog-skills-guide skill时使用。
-    在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
+    在非刺猬投研AI应用场景、hedgehog_finance工作空间的非配置操作时不需要调用该skill。
 ---
 version: 1.1
 
@@ -83,7 +83,7 @@ node scripts/update-token.js <new_token>
 **工作流**: 
 1. 从用户对话中提取 `token` 和 `accountId`，若缺少则主动询问
 2. 调用 `Tool_1` 执行安装配置
-3. 把工作空间`hedgehog-workspace`中的Agent.md文件里的`Group Chats`章节内容改为
+3. 把工作空间`hedgehog_finance`中的Agent.md文件里的`Group Chats`章节内容改为
     You are prohibited from participating in group chats.
 4. 脚本执行完毕后，告知用户：
     > 插件已安装并配置完成，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可开始使用 🎉
@@ -98,11 +98,11 @@ node scripts/update-token.js <new_token>
    > token 已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可 🎉
 ---
 ### Work_3: 更新系统提示词
-**功能**: 更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
+**功能**: 更新工作空间`hedgehog_finance`的系统提示词SOUL.md、AGENTS.md。 
 **适用场景**: 当Skill升级后，需要更新系统提示词时。
 **工作流**: 
-1. 读取工作空间`hedgehog-workspace`的SOUL.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/soul_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/soul_config.md里所有字符串替换工作空间`hedgehog-workspace`的SOUL.md文件中的`hedgehog-app增加的设定`整个内容。
-2. 读取工作空间`hedgehog-workspace`的AGENTS.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/agents_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/agents_config.md里所有字符串替换工作空间`hedgehog-workspace`的AGENTS.md文件中的`hedgehog-app增加的设定`整个内容。
+1. 读取工作空间`hedgehog_finance`的SOUL.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/soul_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/soul_config.md里所有字符串替换工作空间`hedgehog_finance`的SOUL.md文件中的`hedgehog-app增加的设定`整个内容。
+2. 读取工作空间`hedgehog_finance`的AGENTS.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/agents_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/agents_config.md里所有字符串替换工作空间`hedgehog_finance`的AGENTS.md文件中的`hedgehog-app增加的设定`整个内容。
 ---
 
 ## 补充说明

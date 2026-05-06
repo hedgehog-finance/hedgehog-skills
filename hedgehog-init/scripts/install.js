@@ -117,7 +117,7 @@ function cleanup(...paths) {
 		process.exit(1);
 	}
 	const ocRoot = path.dirname(wsResult.stdout);
-	const agentDir = path.join(ocRoot, 'hedgehog-workspace');
+	const agentDir = path.join(ocRoot, 'hedgehog_finance');
 	const soulPath = path.join(agentDir, 'SOUL.md');
 
 	if (!fs.existsSync(agentDir)) {
