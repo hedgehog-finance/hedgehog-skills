@@ -56,7 +56,7 @@ node scripts/install.js <token> <accountId>
 
 **功能**: 
 更新用户token（重新配置用户token）。 
-1. 更新 `channels.hedgehog-finance.token` 配置项
+1. 更新 `channels.hedgehog_finance.token` 配置项
 2. 重启 Gateway 使新 token 生效
 
 **适用场景**: 

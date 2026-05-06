@@ -102,9 +102,9 @@ function cleanup(...paths) {
 	// ── 2. 写入 channel 配置 ─────────────────────────────────────────────────────
 	console.log('\n⚙️  [2/7] 配置 channel ...');
 
-	oc('config set "channels.hedgehog-finance.enabled" true');
-	oc(`config set "channels.hedgehog-finance.accountId" "'${accountId}'"`);
-	oc(`config set "channels.hedgehog-finance.token" "${token}"`);
+	oc('config set "channels.hedgehog_finance.enabled" true');
+	oc(`config set "channels.hedgehog_finance.accountId" "'${accountId}'"`);
+	oc(`config set "channels.hedgehog_finance.token" "${token}"`);
 
 	console.log('✅ channel 配置完成');
 
@@ -122,7 +122,7 @@ function cleanup(...paths) {
 
 	if (!fs.existsSync(agentDir)) {
 		mkdirSync(agentDir, { recursive: true });
-		oc(`agents add hedgehog-finance --workspace "${agentDir}" --bind "hedgehog-finance:*"`);
+		oc(`agents add hedgehog_finance --workspace "${agentDir}" --bind "hedgehog_finance:*"`);
 
 		// 轮询等待 OpenClaw 完成默认模板文件的生成
 		console.log('⏳ 等待 Agent 模板初始化...');
