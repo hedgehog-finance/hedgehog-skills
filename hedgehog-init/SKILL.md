@@ -19,7 +19,8 @@ version: 1.1
 所有Tools可执行的脚本逻辑位于 `scripts/` 目录：
 scripts/
 ├── install.js        // 首次安装 / 重新配置
-└── update-token.js   // 仅更新用户token
+├── update-token.js   // 仅更新用户token
+└── update-prompts.js // 更新系统提示词 (SOUL/AGENTS)
 相关知识、规则、流程的MD文件放在`references/`目录：
 references/
 ├── soul_config.md                // 用于设定Agent人格
@@ -73,6 +74,29 @@ node scripts/update-token.js <new_token>
 ```
 ---
 
+---
+### Tool_3: 更新系统提示词
+
+**功能**: 
+升级/更新工作空间的系统提示词（SOUL.md、AGENTS.md）。 
+1. 获取最新的系统提示词模板
+2. 对比版本并按需同步至工作空间 `hedgehog-finance`
+3. 重启 Gateway 使新系统提示词生效
+
+**适用场景**: 
+仅需同步更新系统提示词，无需重新安装插件或重新配置账号。
+
+**调用参数 (Parameters)**: 
+| 参数名 | 类型 | 必填 | 描述 | 默认值 | 
+| :--- | :--- | :--- | :--- | :--- | 
+| N/A | N/A | N/A | 该工具无需额外参数 | N/A | 
+
+**执行方法**: 
+```
+node scripts/update-prompts.js
+```
+---
+
 ## 核心功能工作流(Workflow)
 
 ---
@@ -89,6 +113,7 @@ node scripts/update-token.js <new_token>
     > 插件已安装并配置完成，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可开始使用 🎉
 ---
 ### Work_2: 更新用户Token
+
 **功能**: 更新用户的hedgehog-app Token。 
 **适用场景**: 当用户要求更新token时。
 **工作流**: 
@@ -98,11 +123,16 @@ node scripts/update-token.js <new_token>
    > token 已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可 🎉
 ---
 ### Work_3: 更新系统提示词
-**功能**: 更新工作空间`hedgehog-finance`的系统提示词SOUL.md、AGENTS.md。 
-**适用场景**: 当Skill升级后，需要更新系统提示词时。
+
+**功能**: 更新工作空间`hedgehog-finance`的系统提示词。 
+**适用场景**: 当用户要求更新系统提示词，或提示词模板升级时。
 **工作流**: 
-1. 读取工作空间`hedgehog-finance`的SOUL.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/soul_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/soul_config.md里所有字符串替换工作空间`hedgehog-finance`的SOUL.md文件中的`hedgehog-app增加的设定`整个内容。
-2. 读取工作空间`hedgehog-finance`的AGENTS.md文件中的`hedgehog-app增加的设定`章节里的version版本号，与references/agents_config.md里的version版本号对比。如果一致则不需要执行升级；如果不一致，则用references/agents_config.md里所有字符串替换工作空间`hedgehog-finance`的AGENTS.md文件中的`hedgehog-app增加的设定`整个内容。
+1. 调用 `Tool_3` 执行更新
+2. **故障处理 (熔断机制)**:
+   - 若脚本执行失败：必须立即终止当前工作流，直接将脚本报错信息作为最终回复告知用户。
+3. **结果告知 (仅限脚本成功时)**:
+   - 若检测到已是最新版本：告知用户无需更新。
+   - 若执行了更新：告知用户系统提示词已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可
 ---
 
 ## 补充说明
@@ -119,7 +149,8 @@ node scripts/update-token.js <new_token>
 帮我更新一下刺猬投研插件的 token，新 token 是 xxx
 
 #### 更新系统提示词（触发Work_3）
-Skill升级了，帮我更新一下系统提示词到最新版本
+Skill升级了，帮我更新`hedgehog-finance`系统提示词到最新版本
+
 
 ### 注意事项
 
