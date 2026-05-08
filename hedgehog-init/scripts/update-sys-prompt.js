@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * update-prompts.js - 更新 hedgehog-finance 工作空间的系统提示词 (SOUL.md / AGENTS.md)
+ * update-sys-prompt.js - 更新 hedgehog-workspace 工作空间的系统提示词 (SOUL.md / AGENTS.md)
  *
  * 用法:
- * node update-prompts.js
+ * node update-sys-prompt.js
  *
  * 参数:
  * 无
@@ -133,7 +133,7 @@ function cleanup(...paths) {
         process.exit(1);
     }
     const ocRoot = path.dirname(wsResult.stdout);
-    const agentDir = path.join(ocRoot, 'hedgehog-finance');
+    const agentDir = path.join(ocRoot, 'hedgehog-workspace');
 
     if (!fs.existsSync(agentDir)) {
         console.error(`目标工作空间目录不存在: ${agentDir}`);

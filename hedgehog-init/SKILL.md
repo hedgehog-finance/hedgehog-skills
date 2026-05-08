@@ -3,7 +3,7 @@ name: hedgehog-init
 description: > 
     连接刺猬投研AI的安装配置skill。 
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog-skills-guide skill时使用。
-    在非刺猬投研AI应用场景、hedgehog-finance工作空间的非配置操作时不需要调用该skill。
+    在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
 ---
 version: 1.1
 
@@ -20,12 +20,11 @@ version: 1.1
 scripts/
 ├── install.js        // 首次安装 / 重新配置
 ├── update-token.js   // 仅更新用户token
-└── update-prompts.js // 更新系统提示词 (SOUL/AGENTS)
+└── update-sys-prompt.js // 更新Agents.md和SOUL.md系统提示词
 相关知识、规则、流程的MD文件放在`references/`目录：
 references/
 ├── soul_config.md                // 用于设定Agent人格
 └── agents_config.md               // 用于添加系统提示词
----
 
 ### Tool_1: 接入安装配置 
 
@@ -53,6 +52,7 @@ references/
 node scripts/install.js <token> <accountId>
 ```
 ---
+
 ### Tool_2: 更新用户token
 
 **功能**: 
@@ -74,13 +74,12 @@ node scripts/update-token.js <new_token>
 ```
 ---
 
----
 ### Tool_3: 更新系统提示词
 
 **功能**: 
 升级/更新工作空间的系统提示词（SOUL.md、AGENTS.md）。 
 1. 获取最新的系统提示词模板
-2. 对比版本并按需同步至工作空间 `hedgehog-finance`
+2. 对比版本并按需同步至工作空间 `hedgehog-workspace`
 3. 重启 Gateway 使新系统提示词生效
 
 **适用场景**: 
@@ -93,7 +92,7 @@ node scripts/update-token.js <new_token>
 
 **执行方法**: 
 ```
-node scripts/update-prompts.js
+node scripts/update-sys-prompt.js
 ```
 ---
 
@@ -107,7 +106,7 @@ node scripts/update-prompts.js
 **工作流**: 
 1. 从用户对话中提取 `token` 和 `accountId`，若缺少则主动询问
 2. 调用 `Tool_1` 执行安装配置
-3. 把工作空间`hedgehog-finance`中的Agent.md文件里的`Group Chats`章节内容改为
+3. 把工作空间`hedgehog-workspace`中的Agent.md文件里的`Group Chats`章节内容改为
     You are prohibited from participating in group chats.
 4. 脚本执行完毕后，告知用户：
     > 插件已安装并配置完成，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可开始使用 🎉
@@ -124,8 +123,8 @@ node scripts/update-prompts.js
 ---
 ### Work_3: 更新系统提示词
 
-**功能**: 更新工作空间`hedgehog-finance`的系统提示词。 
-**适用场景**: 当用户要求更新系统提示词，或提示词模板升级时。
+**功能**: 使用Tool_3更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
+**适用场景**: 当Skill升级后，需要更新系统提示词时。
 **工作流**: 
 1. 调用 `Tool_3` 执行更新
 2. **故障处理 (熔断机制)**:
@@ -133,6 +132,7 @@ node scripts/update-prompts.js
 3. **结果告知 (仅限脚本成功时)**:
    - 若检测到已是最新版本：告知用户无需更新。
    - 若执行了更新：告知用户系统提示词已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可
+
 ---
 
 ## 补充说明
@@ -149,8 +149,7 @@ node scripts/update-prompts.js
 帮我更新一下刺猬投研插件的 token，新 token 是 xxx
 
 #### 更新系统提示词（触发Work_3）
-Skill升级了，帮我更新`hedgehog-finance`系统提示词到最新版本
-
+Skill升级了，帮我更新`hedgehog-workspace`系统提示词到最新版本
 
 ### 注意事项
 
