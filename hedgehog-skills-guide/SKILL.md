@@ -19,13 +19,14 @@ version: 1.2
 本技能下的References文件夹里放了许多文档，是为整个workspace准备的，内容包括：
 references/
 ├── financial-report-income.md       // 现金流量表字段说明
-├── xxx.md        // xxxxx
-├── xxx.md        // xxxxx
-├── xxx.md        // xxxxx
-├── xxx.md        // xxxxx
-├── xxx.md        // xxxxx
-├── xxx.md        // xxxxx
-└── yyy.md       // cccccc
+├── financial-report-balancesheet.md        // 资产负债表字段说明
+├── financial-report-cashflow.md        // 现金流量表字段说明
+├── finance-analysis-keypoints.md        // 不同公司类型的财务报表分析方法和要点
+├── stock-moneyflow.md        // 股票每日资金流向数据
+├── company-valuation.md        // 上市公司估值方法
+├── convention_concept.md        // 刺猬投研概念定义、重要原则
+├── industry_theme.md        // 股票的行业和主题分类
+└── cn_stock_list.json       // A股（中国股市）所有股票列表，仅用于本地脚本调用，决不允许将文件加载放入提示词
 
 ## 技能目录
 
@@ -35,6 +36,23 @@ references/
 
 股票分析技能：需要分析股票/上市公司时调用，可以进行多维度全面分析，也可以针对基本面（含财务分析）、情绪/消息面、技术面进行专项分析。
 输出一份专业的研究报告。
+
+### 信息处理类
+
+- hedgehog-daily-morning-briefing
+
+每日早报信息降噪技能：在开盘前高效率完成信息降噪，提供高信噪比的宏观及自选股情报。
+输出信息简报。
+
+- hedgehog-information-verification
+
+信息求证核实技能：针对市场传闻、未证实的新闻或小道消息进行多源交叉验证，量化信息置信度。
+输出评估报告。
+
+- hedgehog-in-depth-analysis
+
+重要事件深度推演技能：针对高势能突发事件（宏观异动、产业黑天鹅、地缘博弈、重要政策），采用5阶二分法进行概率树推演，剥离长尾噪音，预测高胜率演进路径并输出影响分析。
+输出评估报告。
 
 ### 金融工具类
 
@@ -53,9 +71,10 @@ references/
 - hedgehog-news-and-reports
 
 资讯、研报、公告等信息类数据库查询技能：需要宏观、行业、股票相关的文字类信息时，需要查询相关主题最新信息时调用。
+注意：资讯数据中含有相关Tag、相关股票、重要性评分规则。其中包括重要性评分importance_score（0～5）、市场情绪影响market_sentiment_score（-5～5）、长短期影响horizon_impact_score（0～5）、相关股票影响评分stock_impact_score（-5，5）。资讯类信息主要分为四类：快讯（Flash）、新闻资讯（News）、研报（Research）、公告（Announcements）。
 输出文字类信息列表或者内容。
 
-- hedgehog-company-data
+- hedgehog-company-and-index-data
 
 上市公司基本信息、财务数据、行情数据、资金流向等结构化数据库查询技能：需要查询上市公司/股票相关结构化信息，或者各种交易数据、资金数据统计信息时调用。
 
@@ -64,6 +83,10 @@ references/
 宏观经济数据（含中国、美国等）序列数据库查询技能：需要查询利率、CPI、PPI、PMI、国债收益率等等宏观金融数据时调用，该数据特点是官方机构公布的时间序列数据。
 输出序列数据。
 
+## 公共功能
+
+### 查询股票名称或代码
+[待开发]
 
 ## 重要注意事项
 
