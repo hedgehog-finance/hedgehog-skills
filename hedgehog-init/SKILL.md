@@ -5,7 +5,7 @@ description: >
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog-skills-guide skill时使用。
     在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
 ---
-version: 1.1
+version: 1.2
 
 # 安装刺猬投研AI插件及配置
 
@@ -26,7 +26,7 @@ references/
 ├── soul_config.md                // 用于设定Agent人格
 └── agents_config.md               // 用于添加系统提示词
 
-### Tool_1: 接入安装配置 
+### Tool-1: 接入安装配置 
 
 **功能**: 
 刺猬投研AI连接安装配置。 
@@ -53,7 +53,7 @@ node scripts/install.js <token> <accountId>
 ```
 ---
 
-### Tool_2: 更新用户token
+### Tool-2: 更新用户token
 
 **功能**: 
 更新用户token（重新配置用户token）。 
@@ -74,7 +74,7 @@ node scripts/update-token.js <new_token>
 ```
 ---
 
-### Tool_3: 更新系统提示词
+### Tool-3: 更新系统提示词
 
 **功能**: 
 升级/更新工作空间的系统提示词（SOUL.md、AGENTS.md）。 
@@ -94,39 +94,97 @@ node scripts/update-token.js <new_token>
 ```
 node scripts/update-sys-prompt.js
 ```
+
 ---
+
+### Tool-4: 查询Agent当前状态
+
+**功能**: 
+查询本Agent当前状态：包括Agent类型及版本、首次连接时间、操作系统、Node版本、Python版本、已安装的skill列表。
+
+**适用场景**: 
+查询Agent当前状态；查询OpenClaw当前状态。
+
+**执行指令**: 
+获取当前Agent类型和版本、当前channel首次连接时间、当前操作系统、Node版本（如果没安装填None）、Python版本（如果没安装填None），以及获取当前已安装的skill列表。
+
+**返回值**：
+返回JSON结构
+```
+{
+  "agent_info": {
+    "type": "string",
+    "version": "string",
+    "first_connected_at": "string (ISO 8601 format)"
+  },
+  "environment": {
+    "os": "string",
+    "node_version": "string",
+    "python_version": "string"
+  },
+  "skills": [
+    {
+      "name": "string",
+      "version": "string"
+    }
+  ]
+}
+```
+
+---
+
+### Tool-5: 用户数据备份
+
+**功能**: 
+备份用户核心的投研数据（用户本地数据库文件备份）
+
+**适用场景**: 
+用户数据备份；投研数据备份。
+
+**执行方法**: 
+暂时未实现，无需执行
+
+**返回值**：
+Err: 暂时未实现.
+
+---
+
 
 ## 核心功能工作流(Workflow)
 
 ---
-### Work_1: 首次接入安装 / 重新配置
+
+### Work-1: 首次接入安装 / 重新配置
 
 **功能**: 首次接入安装刺猬投研AI，或者重新配置。 
 **适用场景**: 当用户要求接入安装hedgehog-plugin，或者要求重新配置时。
 **工作流**: 
 1. 从用户对话中提取 `token` 和 `accountId`，若缺少则主动询问
-2. 调用 `Tool_1` 执行安装配置
+2. 调用 `Tool-1` 执行安装配置
 3. 把工作空间`hedgehog-workspace`中的Agent.md文件里的`Group Chats`章节内容改为
     You are prohibited from participating in group chats.
-4. 脚本执行完毕后，告知用户：
-    > 插件已安装并配置完成，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可开始使用 🎉
+4. 执行Tool-4，并返回JSON格式结果。
+
 ---
-### Work_2: 更新用户Token
+
+### Work-2: 更新用户Token
 
 **功能**: 更新用户的hedgehog-app Token。 
 **适用场景**: 当用户要求更新token时。
 **工作流**: 
 1. 从用户对话中提取新 `token`，若未提供则主动询问
-2. 调用 `Tool_2` 更新配置
+2. 调用 `Tool-2` 更新配置
 3. 脚本执行完毕后，告知用户：
    > token 已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可 🎉
----
-### Work_3: 更新系统提示词
 
-**功能**: 使用Tool_3更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
-**适用场景**: 当Skill升级后，需要更新系统提示词时。
+---
+
+### Work-3: 更新系统提示词
+
+**功能**: 使用Tool-3更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
+**适用场景**: 当hedgehog-init Skill升级后，需要更新系统提示词时。
 **工作流**: 
-1. 调用 `Tool_3` 执行更新
+1. 调用 `Tool-3` 执行更新
 2. **故障处理 (熔断机制)**:
    - 若脚本执行失败：必须立即终止当前工作流，直接将脚本报错信息作为最终回复告知用户。
 3. **结果告知 (仅限脚本成功时)**:
@@ -135,21 +193,28 @@ node scripts/update-sys-prompt.js
 
 ---
 
+
 ## 补充说明
 
 ### 用户触发示例
 
-#### 首次接入安装（触发Work_1）
+#### 首次接入安装（触发Work-1）
 帮我通过hedgehog-init安装hedgehog-plugin插件，我的 token 是 xxx，accountId 是 xxx
 
-#### 重新配置（触发Work_1）
+#### 重新配置（触发Work-1）
 帮我重新配置接入刺猬投研，我的 token 是 xxx，accountId 是 xxx
 
-#### 更新用户token（触发Work_2）
+#### 更新用户token（触发Work-2）
 帮我更新一下刺猬投研插件的 token，新 token 是 xxx
 
-#### 更新系统提示词（触发Work_3）
+#### 更新系统提示词（触发Work-3）
 Skill升级了，帮我更新`hedgehog-workspace`系统提示词到最新版本
+
+#### 查询Agent当前状态（触发Tool-4）
+帮我查询Agent当前状态
+
+#### 备份用户数据（触发Tool-5）
+帮我备份用户数据
 
 ### 注意事项
 
