@@ -2,7 +2,7 @@
 name: hedgehog-init
 description: > 
     连接刺猬投研AI的安装配置skill。 
-    刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog-skills-guide skill时使用。
+    刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog skills时使用。
     在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
 ---
 version: 1.2
@@ -35,7 +35,8 @@ references/
 3. 创建独立 agent 与 workspace（路径隔离）
 4. 修改`SOUL.md` 身份设定（金融投资专家角色）
 5. 修改AGENTS.md
-6. 安装 `hedgehog-skills-guide` skill（GitHub 优先，失败后自动切换备用 zip 地址）
+6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）：
+   `hedgehog-skills-guide`、`hedgehog-calculator`、`hedgehog-company-index-data`、`hedgehog-macro-industry-data`、`hedgehog-news-reports`、`hedgehog-stock-research`、`hedgehog-tech-indicator`
 7. 重启 Gateway 使配置生效
 
 **适用场景**: 
@@ -220,4 +221,4 @@ Skill升级了，帮我更新`hedgehog-workspace`系统提示词到最新版本
 
 - **accountId 类型**：配置文件中始终以字符串写入（`"138xxxx8888"`），防止纯数字被解析为整型导致接入失败。
 - **网络兜底**：插件与 skill 均支持两级安装链路——npm / GitHub 优先，失败后自动切换备用 zip 地址，无需人工干预。
-- **hedgehog-skills-guide 安装失败**：不会中断整体流程，脚本会给出警告提示，用户可事后手动安装。
+- **hedgehog skills 安装失败**：不会中断整体流程，脚本会给出警告提示，用户可事后手动安装。
