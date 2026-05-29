@@ -37,15 +37,31 @@ function oc(args) {
 	}
 }
 
-function download(url, dest) {
+function download(url, dest, redirects = 0) {
 	return new Promise((resolve, reject) => {
-		const file = createWriteStream(dest);
 		https.get(url, (res) => {
+			if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+				res.resume();
+				if (!res.headers.location) {
+					return reject(new Error(`HTTP ${res.statusCode} without location`));
+				}
+				if (redirects >= 5) {
+					return reject(new Error('Too many redirects'));
+				}
+				const redirectUrl = new URL(res.headers.location, url).toString();
+				return resolve(download(redirectUrl, dest, redirects + 1));
+			}
 			if (res.statusCode !== 200) {
+				res.resume();
 				return reject(new Error(`HTTP ${res.statusCode}`));
 			}
+			const file = createWriteStream(dest);
 			res.pipe(file);
 			file.on('finish', () => file.close(resolve));
+			file.on('error', (err) => {
+				fs.unlink(dest, () => { });
+				reject(err);
+			});
 		}).on('error', (err) => {
 			fs.unlink(dest, () => { });
 			reject(err);
@@ -68,11 +84,118 @@ function cleanup(...paths) {
 	}
 }
 
+function findSkillSourceDir(baseDir, skillName) {
+	const stack = [baseDir];
+
+	while (stack.length) {
+		const current = stack.pop();
+		let entries = [];
+		try {
+			entries = fs.readdirSync(current, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+
+		for (const entry of entries) {
+			if (!entry.isDirectory() || entry.name === '__MACOSX' || entry.name.startsWith('.')) {
+				continue;
+			}
+
+			const dir = path.join(current, entry.name);
+			if (entry.name === skillName && fs.existsSync(path.join(dir, 'SKILL.md'))) {
+				return dir;
+			}
+			stack.push(dir);
+		}
+	}
+
+	return null;
+}
+
+const hedgehogSkills = [
+	'hedgehog-skills-guide',
+	'hedgehog-calculator',
+	'hedgehog-company-index-data',
+	'hedgehog-macro-industry-data',
+	'hedgehog-news-reports',
+	'hedgehog-stock-research',
+	'hedgehog-tech-indicator',
+];
+
+function copySkill(skillName, sourceDir, agentDir, installSource) {
+	const skillsDir = path.join(agentDir, 'skills');
+	const targetSkillDir = path.join(skillsDir, skillName);
+	mkdirSync(skillsDir, { recursive: true });
+
+	fs.cpSync(sourceDir, targetSkillDir, { recursive: true, force: true });
+	console.log(`✅ ${skillName} 安装成功(${installSource})`);
+}
+
+async function installSkillsFromGithub(agentDir) {
+	const tmpRepoZip = path.join(os.tmpdir(), 'hedgehog-skills.zip');
+	const tmpRepoDir = path.join(os.tmpdir(), 'hedgehog-skills-pkg');
+	const installed = new Set();
+
+	try {
+		console.log('🔄 正在尝试从 GitHub 下载 hedgehog-skills 仓库包...');
+		cleanup(tmpRepoZip, tmpRepoDir);
+
+		await download('https://github.com/hedgehog-finance/hedgehog-skills/archive/refs/heads/main.zip', tmpRepoZip);
+		unzip(tmpRepoZip, tmpRepoDir);
+
+		for (const skillName of hedgehogSkills) {
+			const sourceDir = findSkillSourceDir(tmpRepoDir, skillName);
+			if (sourceDir) {
+				copySkill(skillName, sourceDir, agentDir, 'GitHub');
+				installed.add(skillName);
+			} else {
+				console.warn(`⚠️ GitHub 仓库包中未找到 ${skillName}，稍后尝试备用 ZIP 地址...`);
+			}
+		}
+	} catch (e) {
+		console.warn(`⚠️ GitHub 下载失败 (${e.message}),尝试备用 ZIP 地址...`);
+	} finally {
+		cleanup(tmpRepoZip, tmpRepoDir);
+	}
+
+	return installed;
+}
+
+async function installSkillsFromFallback(agentDir, skillNames) {
+	const tmpRepoZip = path.join(os.tmpdir(), 'hedgehog-skills-fallback.zip');
+	const tmpRepoDir = path.join(os.tmpdir(), 'hedgehog-skills-fallback-pkg');
+	const installed = new Set();
+
+	try {
+		console.log('🔄 正在从备用地址下载 hedgehog-skills 技能包...');
+		cleanup(tmpRepoZip, tmpRepoDir);
+
+		await download('https://ciweiai.com/skills/hedgehog-skills.zip', tmpRepoZip);
+		unzip(tmpRepoZip, tmpRepoDir);
+
+		for (const skillName of skillNames) {
+			const sourceDir = findSkillSourceDir(tmpRepoDir, skillName);
+			if (sourceDir) {
+				copySkill(skillName, sourceDir, agentDir, '备用地址');
+				installed.add(skillName);
+			} else {
+				console.warn(`⚠️ 备用技能包中未找到 ${skillName}，请事后手动安装。`);
+			}
+		}
+	} catch (e) {
+		console.warn(`⚠️ 备用技能包安装失败:${e.message},请事后手动安装缺失的 skill。`);
+	} finally {
+		cleanup(tmpRepoZip, tmpRepoDir);
+	}
+
+	return installed;
+}
+
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 (async () => {
 
 	console.log(`🔍 操作系统:${os.type()} ${os.release()} (${process.platform})`);
-
+	await installSkillsFromGithub('main');
 	// ── 1. 安装插件 ──────────────────────────────────────────────────────────────
 	console.log('\n📦 [1/7] 安装插件 @hedgehog-finance/hedgehog-plugin ...');
 
@@ -185,62 +308,13 @@ function cleanup(...paths) {
 	} else {
 		console.warn('⚠️ 未找到 references/agents_config.md，跳过 AGENTS.md 追加');
 	}
-	// ── 6. 安装 hedgehog-skills-guide skill ─────────────────────────────────────────
-	console.log('\n📦 [6/7] 安装 hedgehog-skills-guide skill ...');
+	// ── 6. 安装 hedgehog skills ─────────────────────────────────────────
+	console.log('\n📦 [6/7] 安装 hedgehog skills ...');
 
-	const targetSkillDir = path.join(agentDir, 'skills', 'hedgehog-skills-guide');
-	mkdirSync(path.join(agentDir, 'skills'), { recursive: true });
-
-	let githubSuccess = false;
-	const tmpSkillZip = path.join(os.tmpdir(), 'hedgehog-skills-guide.zip');
-	const tmpSkillDir = path.join(os.tmpdir(), 'hedgehog-skills-guide-pkg');
-
-	try {
-		console.log('🔄 正在尝试从 GitHub 下载技能包...');
-		cleanup(tmpSkillZip, tmpSkillDir);
-
-		await download('https://github.com/hedgehog-finance/hedgehog-skills/archive/refs/heads/main.zip', tmpSkillZip);
-		unzip(tmpSkillZip, tmpSkillDir);
-
-		const githubSkillPath = path.join(tmpSkillDir, 'hedgehog-skills-main', 'hedgehog-skills-guide');
-
-		if (fs.existsSync(path.join(githubSkillPath, 'SKILL.md'))) {
-			fs.cpSync(githubSkillPath, targetSkillDir, { recursive: true, force: true });
-			console.log('✅ hedgehog-skills-guide 安装成功(GitHub)');
-			githubSuccess = true;
-		} else {
-			throw new Error('解压后未找到 hedgehog-skills-guide 目录');
-		}
-	} catch (e) {
-		console.warn(`⚠️ GitHub 下载失败 (${e.message}),尝试备用 ZIP 地址...`);
-	} finally {
-		cleanup(tmpSkillZip, tmpSkillDir);
-	}
-
-	if (!githubSuccess) {
-		try {
-			console.log('🔄 正在从备用地址下载技能包...');
-			cleanup(tmpSkillZip, tmpSkillDir);
-
-			await download('https://ciweiai.com/hedgehog-skills-guide.zip', tmpSkillZip);
-			unzip(tmpSkillZip, tmpSkillDir);
-
-			let realSkillDir = tmpSkillDir;
-			const contents = fs.readdirSync(tmpSkillDir).filter(n => n !== '__MACOSX' && !n.startsWith('.'));
-			if (contents.length === 1 && fs.statSync(path.join(tmpSkillDir, contents[0])).isDirectory()) {
-				realSkillDir = path.join(tmpSkillDir, contents[0]);
-			}
-			if (!fs.existsSync(path.join(realSkillDir, 'SKILL.md'))) {
-				throw new Error('下载的备用包中未找到 SKILL.md');
-			}
-
-			fs.cpSync(realSkillDir, targetSkillDir, { recursive: true, force: true });
-			console.log('✅ hedgehog-skills-guide 安装成功(备用地址)');
-		} catch (e) {
-			console.warn(`⚠️ hedgehog-skills-guide 安装失败:${e.message},请事后手动安装。`);
-		} finally {
-			cleanup(tmpSkillZip, tmpSkillDir);
-		}
+	const installedSkills = await installSkillsFromGithub(agentDir);
+	const missingSkills = hedgehogSkills.filter(name => !installedSkills.has(name));
+	if (missingSkills.length) {
+		await installSkillsFromFallback(agentDir, missingSkills);
 	}
 
 	// ── 7. 重启 Gateway ───────────────────────────────────────────────────────────
