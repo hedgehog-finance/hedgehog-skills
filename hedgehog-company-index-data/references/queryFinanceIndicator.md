@@ -6,13 +6,13 @@
 
 分页结构 `{ total, page, page_size, db_source, items[] }`，`db_source = "finance_indicator"`，`items` 按 `end_date` 倒序返回。
 
-> 脚本已将后端字段 `stock_code` 重命名为 `ts_code` 输出。
+> 输出字段 `stock_code` 与后端一致，不做重命名。
 
 ## data.items[] 字段（常用）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| ts_code | string | 股票代码 |
+| stock_code | string | 股票代码 |
 | ann_date | string(date) | 公告日期 |
 | end_date | string(date) | 报告期 |
 | eps | float | 基本每股收益 |

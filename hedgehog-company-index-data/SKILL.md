@@ -206,10 +206,10 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 **各公司类型返回字段**：
 
-- **1 一般工商业**：`ts_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, total_revenue, revenue, oper_cost, sell_exp, admin_exp, rd_exp, fin_exp, operate_profit, ebit, ebitda, assets_impair_loss, credit_impa_loss`
-- **2 银行**：`ts_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, int_income, int_exp, comm_income, comm_exp, n_commis_income, credit_impa_loss`
-- **3 保险**：`ts_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, prem_earned, prem_income, out_prem, compens_payout, reser_insur_liab, une_prem_reser, invest_income, fv_value_chg_gain`
-- **4 证券**：`ts_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, n_sec_tb_income, n_sec_uw_income, n_asset_mg_income, int_income, invest_income, fv_value_chg_gain`
+- **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, total_revenue, revenue, oper_cost, sell_exp, admin_exp, rd_exp, fin_exp, operate_profit, ebit, ebitda, assets_impair_loss, credit_impa_loss`
+- **2 银行**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, int_income, int_exp, comm_income, comm_exp, n_commis_income, credit_impa_loss`
+- **3 保险**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, prem_earned, prem_income, out_prem, compens_payout, reser_insur_liab, une_prem_reser, invest_income, fv_value_chg_gain`
+- **4 证券**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, n_sec_tb_income, n_sec_uw_income, n_asset_mg_income, int_income, invest_income, fv_value_chg_gain`
 
 **返回 data 字段说明**：见 guide 技能文档。
 
@@ -253,10 +253,10 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 **各公司类型返回字段**：
 
-- **1 一般工商业**：`ts_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, accounts_receiv, inventories, contract_assets, fix_assets_total, cip_total, intan_assets, goodwill, st_borr, lt_borr, accounts_pay, contract_liab`
-- **2 银行**：`ts_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, cash_reser_cb, depos_in_oth_bfi, loanto_oth_bank_fi, decr_in_disbur, trad_asset, cb_borr, depos, depos_oth_bfi, loan_oth_bank`
-- **3 保险**：`ts_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, premium_receiv, fair_value_fin_assets, cost_fin_assets, invest_real_estate, rsrv_insur_cont, indem_payable, policy_div_payable`
-- **4 证券**：`ts_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, client_depos, client_prov, lending_funds, trad_asset, pur_resale_fa, acting_trading_sec, acting_uw_sec, st_fin_payable, sold_for_repur_fa, bond_payable`
+- **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, accounts_receiv, inventories, contract_assets, fix_assets_total, cip_total, intan_assets, goodwill, st_borr, lt_borr, accounts_pay, contract_liab`
+- **2 银行**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, cash_reser_cb, depos_in_oth_bfi, loanto_oth_bank_fi, decr_in_disbur, trad_asset, cb_borr, depos, depos_oth_bfi, loan_oth_bank`
+- **3 保险**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, premium_receiv, fair_value_fin_assets, cost_fin_assets, invest_real_estate, rsrv_insur_cont, indem_payable, policy_div_payable`
+- **4 证券**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, client_depos, client_prov, lending_funds, trad_asset, pur_resale_fa, acting_trading_sec, acting_uw_sec, st_fin_payable, sold_for_repur_fa, bond_payable`
 
 **返回 data 字段说明**：见 guide 技能文档。
 
@@ -302,10 +302,10 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 **各公司类型返回字段**：
 
-- **1 一般工商业**：`ts_code, ann_date, end_date, comp_type, net_profit, c_fr_sale_sg, c_paid_goods_s, c_paid_to_for_empl, n_cashflow_act, c_pay_acq_const_fiolta, free_cashflow, n_cashflow_inv_act, c_recp_borrow, c_prepay_amt_borr, c_pay_dist_dpcp_int_exp, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
-- **2 银行**：`ts_code, ann_date, end_date, comp_type, net_profit, n_depos_incr_fi, n_incr_loans_cb, n_inc_borr_oth_fi, n_incr_clt_loan_adv, n_incr_dep_cbob, n_cashflow_act, n_cashflow_inv_act, proc_issue_bonds, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
-- **3 保险**：`ts_code, ann_date, end_date, comp_type, net_profit, prem_fr_orig_contr, n_reinsur_prem, c_pay_claims_orig_inco, pay_comm_insur_plcy, n_cashflow_act, c_paid_invest, c_recp_return_invest, n_cashflow_inv_act, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
-- **4 证券**：`ts_code, ann_date, end_date, comp_type, net_profit, net_cash_rece_sec, ifc_cash_incr, n_cap_incr_repur, n_incr_disp_tfa, n_cashflow_act, c_paid_invest, c_recp_return_invest, n_cashflow_inv_act, proc_issue_bonds, c_recp_borrow, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
+- **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, net_profit, c_fr_sale_sg, c_paid_goods_s, c_paid_to_for_empl, n_cashflow_act, c_pay_acq_const_fiolta, free_cashflow, n_cashflow_inv_act, c_recp_borrow, c_prepay_amt_borr, c_pay_dist_dpcp_int_exp, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
+- **2 银行**：`stock_code, ann_date, end_date, comp_type, net_profit, n_depos_incr_fi, n_incr_loans_cb, n_inc_borr_oth_fi, n_incr_clt_loan_adv, n_incr_dep_cbob, n_cashflow_act, n_cashflow_inv_act, proc_issue_bonds, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
+- **3 保险**：`stock_code, ann_date, end_date, comp_type, net_profit, prem_fr_orig_contr, n_reinsur_prem, c_pay_claims_orig_inco, pay_comm_insur_plcy, n_cashflow_act, c_paid_invest, c_recp_return_invest, n_cashflow_inv_act, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
+- **4 证券**：`stock_code, ann_date, end_date, comp_type, net_profit, net_cash_rece_sec, ifc_cash_incr, n_cap_incr_repur, n_incr_disp_tfa, n_cashflow_act, c_paid_invest, c_recp_return_invest, n_cashflow_inv_act, proc_issue_bonds, c_recp_borrow, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
 
 **返回 data 字段说明**：见 guide 技能文档。
 
@@ -353,7 +353,7 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 | 字段 | 说明 |
 |------|------|
-| ts_code | 股票代码 |
+| stock_code | 股票代码 |
 | ann_date | 公告日期 |
 | end_date | 报告期 |
 | audit_result | 审计意见类型 |
@@ -384,7 +384,7 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 | 字段 | 说明 |
 |------|------|
-| ts_code | 股票代码 |
+| stock_code | 股票代码 |
 | end_date | 报告期 |
 | bz_item | 主营业务名称 |
 | bz_sales | 主营业务收入（元） |
