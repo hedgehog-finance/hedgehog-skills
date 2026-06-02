@@ -1,323 +1,621 @@
 ---
 name: hedgehog-tech-indicator
 description: >
-  调用刺猬投研 AI 工具接口计算行情 K 线数据的技术指标。
-  【适用】基于 OHLCV 蜡烛图数据或指定股票代码和日期区间计算 SMA、EMA、RSI、MACD、BOLL、OBV、KDJ、ATR、VWAP。
-  【不适用】非股票/指数行情的普通数据分析；不含 OHLCV 或收盘价序列的数据；基本面、财务、新闻或公告查询。
-  触发词：技术分析、技术指标、均线、SMA、EMA、RSI、MACD、BOLL、布林带、OBV、KDJ、ATR、VWAP、
-  K线指标、行情指标、计算指标、查询指标；technical indicator, technical analysis, OHLCV, candlestick.
+  技术指标计算 Skill：覆盖 SMA、EMA、RSI、MACD、BOLL（布林带）、OBV、KDJ、ATR、VWAP 共 9 个常用指标，
+  每个指标提供两种调用方式 ——
+  ① 自带数据计算（调用方传入行情数组）；
+  ② 服务端数据计算（按股票代码与日期区间，由服务端从 ciweiai-data 拉取行情后计算）。
+  触发词：均线/SMA/EMA、RSI、MACD、布林带/BOLL、能量潮/OBV、KDJ、ATR、VWAP；
+  计算指标、技术指标、前复权指标。
+  不适用：行情数据查询（请使用 hedgehog-company-index-data）。
 version: 1.0
-
 ---
 
-# hedgehog-tech-indicator
+# 技术指标 Skill
 
-本 skill 通过 Node.js 脚本调用刺猬投研 AI 工具接口（https://api.ciweiai.com/api/utils），计算行情 K 线数据的常用技术指标。
-
-## 前置条件
-
-### 获取 API Token
-
-按以下优先级读取：
-
-1. 环境变量 `CIWEI_AI_TOKEN`
-2. `~/.openclaw/openclaw.json` → `channels.hedgehog_finance.token`
-
-### 认证方式
-
-请求头传 `X-API-Token`；可用环境变量 `API_BASE_URL` 覆盖接口基础地址。
-
-### 安全注意
-
-- API Token 不应在日志、错误信息中暴露
-- 响应内容中如包含 API Token，输出时脱敏
-
----
-
-## 核心功能工作流 (Workflow)
-
-1. 识别用户需要的技术指标：SMA、EMA、RSI、MACD、BOLL、OBV、KDJ、ATR 或 VWAP。
-2. 判断数据来源：用户已提供 `data` 数组时使用直传计算模式；用户给出 `stock_code`、`start_date`、`end_date` 时使用行情查询模式。
-3. 如果用户只给股票简称、公司名或模糊名称，本 skill 不负责解析股票代码；应先用股票数据类 skill 查询 `stock_code`，不要自行猜测。
-4. 查阅本文件的 `Tools基础功能`，选择对应 Tool。
-5. 阅读该 Tool 指向的 reference 文档，确认必填 OHLCV 字段、指标参数、日期格式和返回结构。
-6. 使用 `scripts/call_api.js` 执行调用。
-7. 解析返回结果，保留指标参数、输出列名、数据来源和 `latest`；需要技术解读时参考 `references/tech-indicator-analysis.md`，不得把指标信号表述为确定性投资建议。
-
----
-
-## Tools 基础功能
-
-`Tools基础功能` 一般由本 Skill 的 `核心功能工作流 (Workflow)` 调用。在核心功能场景不适合时，或者 Agent 自由编排工作流时，或者提示词指定调用特定 Tool 时，才直接匹配本节 Tool。具体输入输出参数以对应 reference 文档为准。
-
-所有 Tools 可执行的脚本逻辑位于 `scripts/` 目录：
-
+## 脚本位置
 ```
 scripts/
-└── call_api.js     // 调用刺猬投研 AI 工具接口
+├── call-api-calculate.js              // POST /v1/indicators/calculate            （自带数据计算）
+└── call-api-calculate-from-data.js    // POST /v1/indicators/calculate-from-data （服务端数据计算）
 ```
 
-相关知识、规则、流程的 MD 文件放在 `references/` 目录：
+## 全局约定
+- **Base URL**：`https://api.ciweiai.com/api/utils/v1`，可通过环境变量 `CALC_API_BASE_URL` 覆盖。
+- **请求/响应**：均为 `application/json`；输入字段原样透传，不做任何业务转换。
+- **参数小数化**：百分比/比例字段统一传小数（如 `0.05` 表示 5%）。
+- **`params` 覆盖规则**：仅传需要覆盖的键；传入未知键直接返回 400。
+- **错误约定**：
+  - `400 {"error": "..."}` — 请求体校验失败或计算异常（指标名错误、缺必需字段、未知 params 键等）。
+  - `200 {"error": "..."}` — 部分接口对无效业务输入直接返回错误对象，调用方需在业务层判断。
 
-```
-references/
-├── INDEX.md
-├── sma.md
-├── ema.md
-├── rsi.md
-├── macd.md
-├── boll.md
-├── obv.md
-├── kdj.md
-├── atr.md
-├── vwap.md
-└── tech-indicator-analysis.md
-```
+### 全局参数：`data[]` 行字段（自带数据计算使用）
 
-**脚本调用方式**：
+自带数据计算（`call-api-calculate.js`）的 `data[]` 列结构如下；服务端数据计算（`call-api-calculate-from-data.js`）由服务端自动构造同结构行，调用方无需感知。
 
-```bash
-node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
-```
+| 字段 | 类型 | 是否必需 | 含义 |
+|------|------|----------|------|
+| `date` | string\|null | 建议提供 | 行情日期或时间，建议 `YYYY-MM-DD`。若所有行日期可解析，服务端会按日期升序排序。 |
+| `open` | number\|null | 按指标而定 | 开盘价。 |
+| `high` | number\|null | 按指标而定 | 最高价。 |
+| `low` | number\|null | 按指标而定 | 最低价。 |
+| `close` | number\|null | 按指标而定 | 收盘价，大多数价格指标使用。 |
+| `volume` | number\|null | 按指标而定 | 成交量，成交量类指标使用。 |
+| `benchmark` | number\|null | `beta`/`correl` 必需 | 基准序列，例如指数收盘价。 |
+| `series_a` | number\|null | 数学类指标必需 | `add`、`sub`、`crossover` 的第一个序列。 |
+| `series_b` | number\|null | 数学类指标必需 | `add`、`sub`、`crossover` 的第二个序列。 |
 
-**两种计算模式**：
+### 服务端数据计算公共参数
 
-- 传 `data` 数组时调用 `POST /v1/indicators/calculate`
-- 不传 `data` 时需传 `stock_code`、`start_date`、`end_date`，脚本调用 `POST /v1/indicators/calculate-from-data`
+服务端数据计算（`call-api-calculate-from-data.js`）所有 Tool 共用下列请求参数；各 Tool 仅 `indicator` 与 `params` 不同。
 
-**通用参数约定**：
+| 字段 | 类型 | 必填 | 默认值 | 含义 |
+|------|------|------|--------|------|
+| `stock_code` | string | 是 | — | 股票代码，例如 `000001.SZ` |
+| `start_date` | string(YYYY-MM-DD) | 是 | — | 开始日期 |
+| `end_date` | string(YYYY-MM-DD) | 是 | — | 结束日期，不能早于 `start_date` |
+| `indicator` | string | 是 | — | 指标名（每个 Tool 固定）|
+| `params` | object | 否 | `{}` | 指标参数覆盖，仅允许该指标 `default_params` 中存在的键 |
+| `price_adjustment` | string | 否 | `none` | `none` 走 `/stock/daily`；`forward` 走 `/stock/forward-adjusted` 前复权（前复权接口不返回 `volume`）|
+| `benchmark_stock_code` | string\|null | 否 | `null` | `beta`/`correl` 等需要 `benchmark` 的指标必传（本 Skill 9 个指标暂未使用）|
+| `limit` | integer | 否 | `1000` | 走 `/stock/daily` 时的条数限制，范围 1~1000；前复权接口当前不使用 |
 
-- `data` 模式传 OHLCV K 线数组，必填字段以各 Tool 的 reference 文档为准
-- 行情查询模式可传 `price_adjustment`、`benchmark_stock_code`、`limit`
-- `period` 会映射为后端 `length`，`std_dev` 会映射为后端 `std`
-- 请求不能同时传 `data` 和 `stock_code` / `start_date` / `end_date` 等行情查询参数
+### 通用返回字段
+
+两种调用方式返回结构基本一致；服务端数据计算额外多一个 `source` 字段。
+
+| 字段 | 类型 | 含义 |
+|------|------|------|
+| `indicator` | string | 规范化后的指标名 |
+| `category` | string | 指标类别（`overlap`/`momentum`/`volatility`/`volume`/`trend`/...）|
+| `params` | object | 实际用于计算的参数 = 默认参数 + 调用方覆盖项 |
+| `output_columns` | string[] | 本次计算输出的列名 |
+| `data[]` | object[] | 逐行计算结果，每行包含 `date`（或 `index`）以及所有输出列 |
+| `latest` | object\|null | 从后向前找到的首条所有输出列均非空的记录；数据量不足时可能为 `null` |
+| `source` | object | **仅服务端数据计算返回**，含 `service`、`endpoint`、`db_source`、`stock_code`、`start_date`、`end_date`、`price_adjustment`、`rows` |
 
 ---
 
-### Tool-1: 计算 SMA
+## SMA 简单移动平均
 
-**功能**：计算收盘价简单移动平均线。
+- **指标名**：`sma`
+- **类别**：overlap
+- **默认参数（`default_params`）**：`{ "length": 10, "talib": true }`
+- **必需字段**：`close`
+- **输出列**：`SMA_{length}`（如默认输出 `SMA_10`）
 
-**适用场景**：用户查询简单均线、MA/SMA 或基于收盘价判断趋势方向、均线支撑阻力。
+### Tool-1: SMA · 自带数据计算
 
-**不适合场景**：需要更重视近期价格的均线 → 使用 Tool-2；需要布林带上下轨 → 使用 Tool-5。
-
-**调用参数**：见 `references/sma.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api SMA --params '<JSON>'
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"sma",
+  "data":[
+    {"date":"2026-05-18","close":12.10},
+    {"date":"2026-05-19","close":12.35},
+    {"date":"2026-05-20","close":12.42},
+    {"date":"2026-05-21","close":12.30},
+    {"date":"2026-05-22","close":12.58}
+  ],
+  "params":{"length":3}
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `close`；默认周期为 20，`period` 会映射为 `length`。
-
----
-
-### Tool-2: 计算 EMA
-
-**功能**：计算收盘价指数移动平均线。
-
-**适用场景**：用户查询 EMA，或希望均线对近期价格变化更敏感。
-
-**不适合场景**：简单移动平均线 → 使用 Tool-1；MACD 组合指标 → 使用 Tool-4。
-
-**调用参数**：见 `references/ema.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api EMA --params '<JSON>'
+**返回示例**：
+```json
+{
+  "indicator": "sma",
+  "category": "overlap",
+  "params": { "length": 3, "talib": true },
+  "output_columns": ["SMA_3"],
+  "data": [
+    {"date": "2026-05-20", "SMA_3": 12.29},
+    {"date": "2026-05-21", "SMA_3": 12.356667},
+    {"date": "2026-05-22", "SMA_3": 12.433333}
+  ],
+  "latest": { "date": "2026-05-22", "SMA_3": 12.433333 }
+}
 ```
 
-**约束与限制**：`data` 每行必须包含 `close`；默认周期为 20，`period` 会映射为 `length`。
+### Tool-2: SMA · 服务端数据计算
 
----
-
-### Tool-3: 计算 RSI
-
-**功能**：计算相对强弱指数。
-
-**适用场景**：用户分析超买超卖、50 中轴、价格与 RSI 背离。
-
-**不适合场景**：需要趋势均线 → 使用 Tool-1 或 Tool-2；需要随机指标 KDJ → 使用 Tool-7。
-
-**调用参数**：见 `references/rsi.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api RSI --params '<JSON>'
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-05-01",
+  "end_date":"2026-05-22",
+  "indicator":"sma",
+  "params":{"length":5},
+  "price_adjustment":"forward"
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `close`；默认周期为 14，`period` 会映射为 `length`。
-
----
-
-### Tool-4: 计算 MACD
-
-**功能**：计算异同移动平均线、信号线和柱状值。
-
-**适用场景**：用户分析 DIF/DEA、MACD 金叉死叉、零轴突破、柱状图动能或 MACD 背离。
-
-**不适合场景**：只需要单条 EMA → 使用 Tool-2；需要波动通道 → 使用 Tool-5。
-
-**调用参数**：见 `references/macd.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api MACD --params '<JSON>'
+**返回示例**：
+```json
+{
+  "indicator": "sma",
+  "category": "overlap",
+  "params": { "length": 5, "talib": true },
+  "output_columns": ["SMA_5"],
+  "data": [
+    {"date": "2026-05-21", "SMA_5": 12.27},
+    {"date": "2026-05-22", "SMA_5": 12.35}
+  ],
+  "latest": { "date": "2026-05-22", "SMA_5": 12.35 },
+  "source": {
+    "service": "ciweiai-data",
+    "endpoint": "/stock/forward-adjusted",
+    "stock_code": "000001.SZ",
+    "start_date": "2026-05-01",
+    "end_date": "2026-05-22",
+    "price_adjustment": "forward",
+    "rows": 15
+  }
+}
 ```
 
-**约束与限制**：`data` 每行必须包含 `close`；默认参数为 `fast=12`、`slow=26`、`signal=9`。
-
 ---
 
-### Tool-5: 计算 BOLL
+## EMA 指数移动平均
 
-**功能**：计算布林带上下轨、中轨、带宽和百分比位置。
+- **指标名**：`ema`
+- **类别**：overlap
+- **默认参数**：`{ "length": 10, "talib": true }`
+- **必需字段**：`close`
+- **输出列**：`EMA_{length}`
 
-**适用场景**：用户分析布林带开口收口、价格触及上下轨、波动率通道或中轨支撑阻力。
+### Tool-3: EMA · 自带数据计算
 
-**不适合场景**：只需要均线中轨 → 使用 Tool-1；需要真实波动幅度 → 使用 Tool-8。
-
-**调用参数**：见 `references/boll.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api BOLL --params '<JSON>'
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"ema",
+  "data":[
+    {"date":"2026-05-18","close":12.10},
+    {"date":"2026-05-19","close":12.35},
+    {"date":"2026-05-20","close":12.42},
+    {"date":"2026-05-21","close":12.30},
+    {"date":"2026-05-22","close":12.58}
+  ],
+  "params":{"length":3}
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `close`；默认周期为 20、标准差倍数为 2，`std_dev` 会映射为 `std`。
-
----
-
-### Tool-6: 计算 OBV
-
-**功能**：计算能量潮成交量指标。
-
-**适用场景**：用户分析量价同步、OBV 背离或突破有效性。
-
-**不适合场景**：没有成交量数据的价格序列 → 使用只依赖价格的指标，如 Tool-1、Tool-2、Tool-3 或 Tool-4。
-
-**调用参数**：见 `references/obv.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api OBV --params '<JSON>'
+**返回示意**：
+```json
+{
+  "indicator": "ema",
+  "category": "overlap",
+  "params": { "length": 3, "talib": true },
+  "output_columns": ["EMA_3"],
+  "data": [ "..." ],
+  "latest": { "date": "2026-05-22", "EMA_3": 12.45 }
+}
 ```
 
-**约束与限制**：`data` 每行必须包含 `close` 和 `volume`；OBV 无额外指标参数。
+### Tool-4: EMA · 服务端数据计算
 
----
-
-### Tool-7: 计算 KDJ
-
-**功能**：计算 K、D、J 三线随机指标。
-
-**适用场景**：用户分析 KDJ 超买超卖、金叉死叉、顶底背离。
-
-**不适合场景**：只基于收盘价的动量指标 → 使用 Tool-3；需要波动率或止损参考 → 使用 Tool-8。
-
-**调用参数**：见 `references/kdj.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api KDJ --params '<JSON>'
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-04-01",
+  "end_date":"2026-05-22",
+  "indicator":"ema",
+  "params":{"length":12},
+  "price_adjustment":"forward"
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `high`、`low` 和 `close`；默认周期为 9、信号平滑周期为 3。
-
 ---
 
-### Tool-8: 计算 ATR
+## RSI 相对强弱指数
 
-**功能**：计算平均真实波动幅度。
+- **指标名**：`rsi`
+- **类别**：momentum
+- **默认参数**：`{ "length": 14, "scalar": 100, "drift": 1 }`
+- **必需字段**：`close`
+- **输出列**：`RSI_{length}`（如 `RSI_14`）
+- **判读**：取值 0~100；`>70` 超买，`<30` 超卖。
 
-**适用场景**：用户分析波动率、止损距离、仓位风险或突破时机。
+### Tool-5: RSI · 自带数据计算
 
-**不适合场景**：判断趋势均线方向 → 使用 Tool-1 或 Tool-2；计算成交量加权均价 → 使用 Tool-9。
-
-**调用参数**：见 `references/atr.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api ATR --params '<JSON>'
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"rsi",
+  "data":[
+    {"date":"2026-05-08","close":11.80},
+    {"date":"2026-05-09","close":11.95},
+    {"date":"2026-05-12","close":12.10},
+    {"date":"2026-05-13","close":12.05},
+    {"date":"2026-05-14","close":12.22},
+    {"date":"2026-05-15","close":12.18},
+    {"date":"2026-05-16","close":12.30},
+    {"date":"2026-05-19","close":12.35},
+    {"date":"2026-05-20","close":12.42},
+    {"date":"2026-05-21","close":12.30},
+    {"date":"2026-05-22","close":12.58},
+    {"date":"2026-05-23","close":12.66},
+    {"date":"2026-05-26","close":12.70},
+    {"date":"2026-05-27","close":12.62},
+    {"date":"2026-05-28","close":12.78}
+  ],
+  "params":{"length":14}
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `high`、`low` 和 `close`；默认周期为 14，`period` 会映射为 `length`。
+### Tool-6: RSI · 服务端数据计算
 
----
-
-### Tool-9: 计算 VWAP
-
-**功能**：计算成交量加权平均价。
-
-**适用场景**：用户分析日内多空分界、机构成本基准、VWAP 支撑阻力或均值回归。
-
-**不适合场景**：没有成交量或高低收价格的数据 → 使用只依赖收盘价的指标，如 Tool-1、Tool-2、Tool-3 或 Tool-4。
-
-**调用参数**：见 `references/vwap.md`
-
-**执行方法**：
-
-```bash
-node scripts/call_api.js --api VWAP --params '<JSON>'
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-03-01",
+  "end_date":"2026-05-22",
+  "indicator":"rsi",
+  "params":{"length":14},
+  "price_adjustment":"forward"
+}'
 ```
 
-**约束与限制**：`data` 每行必须包含 `high`、`low`、`close` 和 `volume`；VWAP 无额外指标参数。
+**返回示意**：
+```json
+{
+  "indicator": "rsi",
+  "category": "momentum",
+  "params": { "length": 14, "scalar": 100, "drift": 1 },
+  "output_columns": ["RSI_14"],
+  "latest": { "date": "2026-05-22", "RSI_14": 62.35 }
+}
+```
 
 ---
 
-## 错误处理
+## MACD 平滑异同移动平均
 
-| 错误类型   | 处理方式                                               |
-| ---------- | ------------------------------------------------------ |
-| HTTP 4xx   | 检查参数格式、必填字段、指标参数和鉴权配置             |
-| HTTP 5xx   | 提示用户服务端错误，建议稍后重试                       |
-| 缺少 Token | 设置 `CIWEI_AI_TOKEN` 或配置 OpenClaw token 后重试     |
-| 连接失败   | 提示用户检查 https://api.ciweiai.com/api/utils 是否可达 |
+- **指标名**：`macd`
+- **类别**：momentum
+- **默认参数**：`{ "fast": 12, "slow": 26, "signal": 9, "talib": true }`
+- **必需字段**：`close`
+- **输出列**：`MACD_{fast}_{slow}_{signal}`（DIF）、`MACDh_{fast}_{slow}_{signal}`（柱）、`MACDs_{fast}_{slow}_{signal}`（DEA 信号线）
+- **判读**：`MACD` 与 `MACDs` 金叉/死叉、`MACDh` 由负转正等判断趋势转折。
+
+### Tool-7: MACD · 自带数据计算
+
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"macd",
+  "data":[
+    {"date":"2026-04-01","close":11.20},
+    {"date":"2026-04-02","close":11.30},
+    {"date":"...","close":12.00},
+    {"date":"2026-05-22","close":12.58}
+  ],
+  "params":{"fast":12,"slow":26,"signal":9}
+}'
+```
+
+> 提示：MACD 需要至少 `slow + signal` 根以上 K 线才会出现非空值，建议传入 60 根以上数据。
+
+### Tool-8: MACD · 服务端数据计算
+
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-01-01",
+  "end_date":"2026-05-22",
+  "indicator":"macd",
+  "params":{"fast":12,"slow":26,"signal":9},
+  "price_adjustment":"forward"
+}'
+```
+
+**返回示意**：
+```json
+{
+  "indicator": "macd",
+  "category": "momentum",
+  "params": { "fast": 12, "slow": 26, "signal": 9, "talib": true },
+  "output_columns": ["MACD_12_26_9", "MACDh_12_26_9", "MACDs_12_26_9"],
+  "latest": {
+    "date": "2026-05-22",
+    "MACD_12_26_9": 0.182,
+    "MACDh_12_26_9": 0.046,
+    "MACDs_12_26_9": 0.136
+  }
+}
+```
 
 ---
 
-## 补充说明
+## BOLL 布林带（`bbands`）
 
-### 与其他 Skill 的边界
+- **指标名**：`bbands`
+- **类别**：volatility
+- **默认参数**：`{ "length": 5, "std": 2, "ddof": 0, "mamode": "SMA", "talib": true }`
+- **必需字段**：`close`
+- **输出列**：`BBL_{length}_{std}`（下轨）、`BBM_{length}_{std}`（中轨）、`BBU_{length}_{std}`（上轨）、`BBB_{length}_{std}`（带宽）、`BBP_{length}_{std}`（%B）
+- **判读**：股价触及上/下轨可能反转；带宽 `BBB` 收窄后扩张常伴随突破行情。
 
-| 查询对象                              | 使用的 Skill                     |
-| ------------------------------------- | -------------------------------- |
-| 已有 OHLCV 数据，计算技术指标         | **本 skill**                     |
-| 指定股票代码和日期区间，计算技术指标  | **本 skill**                     |
-| 只给股票简称，需要确认 `stock_code`   | 先用股票数据类 skill 查询代码    |
-| 股票基础信息、行情、财务或基本面数据  | hedgehog-company-index-data      |
-| 宏观指标、新闻资讯或公告              | 不在本 skill 覆盖范围            |
+### Tool-9: BOLL · 自带数据计算
 
-### 用户触发示例
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"bbands",
+  "data":[
+    {"date":"2026-05-12","close":12.05},
+    {"date":"2026-05-13","close":12.10},
+    {"date":"2026-05-14","close":12.22},
+    {"date":"2026-05-15","close":12.18},
+    {"date":"2026-05-16","close":12.30},
+    {"date":"2026-05-19","close":12.35},
+    {"date":"2026-05-20","close":12.42},
+    {"date":"2026-05-21","close":12.30},
+    {"date":"2026-05-22","close":12.58}
+  ],
+  "params":{"length":20,"std":2}
+}'
+```
 
-#### 均线和趋势类
+### Tool-10: BOLL · 服务端数据计算
 
-- "计算 000001.SZ 最近一个月 SMA20" → Tool-1
-- "用这组 K 线算 EMA12" → Tool-2
-- "分析这只股票 RSI 是否超买" → Tool-3
-- "查一下 000001.SZ 的 MACD 金叉情况" → Tool-4
-- "计算布林带并看是否开口" → Tool-5
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-03-01",
+  "end_date":"2026-05-22",
+  "indicator":"bbands",
+  "params":{"length":20,"std":2},
+  "price_adjustment":"forward"
+}'
+```
 
-#### 量价和波动类
+**返回示意**：
+```json
+{
+  "indicator": "bbands",
+  "category": "volatility",
+  "params": { "length": 20, "std": 2, "ddof": 0, "mamode": "SMA", "talib": true },
+  "output_columns": ["BBL_20_2","BBM_20_2","BBU_20_2","BBB_20_2","BBP_20_2"],
+  "latest": {
+    "date": "2026-05-22",
+    "BBL_20_2": 11.92,
+    "BBM_20_2": 12.34,
+    "BBU_20_2": 12.76,
+    "BBB_20_2": 6.81,
+    "BBP_20_2": 0.78
+  }
+}
+```
 
-- "用 OHLCV 数据计算 OBV" → Tool-6
-- "查询 KDJ 指标" → Tool-7
-- "计算 ATR 作为止损参考" → Tool-8
-- "算一下日内 VWAP" → Tool-9
+---
 
-### 注意事项
+## OBV 能量潮
 
-- **股票代码**：行情查询模式优先使用带交易所后缀的 `stock_code`，例如 `000001.SZ`
-- **日期格式**：使用 `YYYY-MM-DD`
-- **数据字段**：不同指标要求的 `data` 字段不同，调用前必须核对 reference 文档
-- **指标解读**：技术指标只提供分析信号，不构成确定性预测或投资建议
-- **返回数据**：所有 Tool 检索不到结果时必须返回 `null` 或接口原始空结果，不得编造数据
+- **指标名**：`obv`
+- **类别**：volume
+- **默认参数**：`{ "talib": true }`
+- **必需字段**：`close`、`volume`
+- **输出列**：`OBV`
+- **判读**：累积成交量；OBV 与价格同步创新高为放量上行，背离时警惕反转。
+
+### Tool-11: OBV · 自带数据计算
+
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"obv",
+  "data":[
+    {"date":"2026-05-18","close":12.10,"volume":1820000},
+    {"date":"2026-05-19","close":12.35,"volume":2160000},
+    {"date":"2026-05-20","close":12.42,"volume":1980000},
+    {"date":"2026-05-21","close":12.30,"volume":1530000},
+    {"date":"2026-05-22","close":12.58,"volume":2450000}
+  ]
+}'
+```
+
+### Tool-12: OBV · 服务端数据计算
+
+> 注意：OBV 需要 `volume`，**必须**使用 `price_adjustment:"none"`（前复权接口不返回成交量）。
+
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-04-01",
+  "end_date":"2026-05-22",
+  "indicator":"obv",
+  "price_adjustment":"none",
+  "limit":1000
+}'
+```
+
+**返回示意**：
+```json
+{
+  "indicator": "obv",
+  "category": "volume",
+  "params": { "talib": true },
+  "output_columns": ["OBV"],
+  "latest": { "date": "2026-05-22", "OBV": 38560000 }
+}
+```
+
+---
+
+## KDJ 随机指标
+
+- **指标名**：`kdj`
+- **类别**：momentum
+- **默认参数**：`{ "length": 9, "signal": 3 }`
+- **必需字段**：`high`、`low`、`close`
+- **输出列**：`K_{length}_{signal}`、`D_{length}_{signal}`、`J_{length}_{signal}`（如 `K_9_3`、`D_9_3`、`J_9_3`）
+- **判读**：J<0 严重超卖、J>100 严重超买；K 上穿 D 为金叉。
+
+### Tool-13: KDJ · 自带数据计算
+
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"kdj",
+  "data":[
+    {"date":"2026-05-12","high":12.18,"low":11.95,"close":12.05},
+    {"date":"2026-05-13","high":12.25,"low":12.00,"close":12.10},
+    {"date":"2026-05-14","high":12.35,"low":12.08,"close":12.22},
+    {"date":"2026-05-15","high":12.30,"low":12.10,"close":12.18},
+    {"date":"2026-05-16","high":12.45,"low":12.18,"close":12.30},
+    {"date":"2026-05-19","high":12.50,"low":12.22,"close":12.35},
+    {"date":"2026-05-20","high":12.55,"low":12.30,"close":12.42},
+    {"date":"2026-05-21","high":12.48,"low":12.20,"close":12.30},
+    {"date":"2026-05-22","high":12.70,"low":12.32,"close":12.58}
+  ],
+  "params":{"length":9,"signal":3}
+}'
+```
+
+### Tool-14: KDJ · 服务端数据计算
+
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-03-01",
+  "end_date":"2026-05-22",
+  "indicator":"kdj",
+  "params":{"length":9,"signal":3},
+  "price_adjustment":"forward"
+}'
+```
+
+**返回示意**：
+```json
+{
+  "indicator": "kdj",
+  "category": "momentum",
+  "params": { "length": 9, "signal": 3 },
+  "output_columns": ["K_9_3", "D_9_3", "J_9_3"],
+  "latest": {
+    "date": "2026-05-22",
+    "K_9_3": 72.4,
+    "D_9_3": 65.1,
+    "J_9_3": 87.0
+  }
+}
+```
+
+---
+
+## ATR 平均真实波幅
+
+- **指标名**：`atr`
+- **类别**：volatility
+- **默认参数**：`{ "length": 14, "mamode": "RMA", "talib": true }`
+- **必需字段**：`high`、`low`、`close`
+- **输出列**：`ATRr_{length}`（如 `ATRr_14`）
+- **判读**：用于衡量波动幅度，常作止损 / 仓位单位设计的参考。
+
+### Tool-15: ATR · 自带数据计算
+
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"atr",
+  "data":[
+    {"date":"2026-05-08","high":11.85,"low":11.70,"close":11.80},
+    {"date":"2026-05-09","high":12.00,"low":11.80,"close":11.95},
+    {"date":"...","high":12.55,"low":12.30,"close":12.42},
+    {"date":"2026-05-22","high":12.70,"low":12.32,"close":12.58}
+  ],
+  "params":{"length":14}
+}'
+```
+
+### Tool-16: ATR · 服务端数据计算
+
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-03-01",
+  "end_date":"2026-05-22",
+  "indicator":"atr",
+  "params":{"length":14},
+  "price_adjustment":"forward"
+}'
+```
+
+**返回示意**：
+```json
+{
+  "indicator": "atr",
+  "category": "volatility",
+  "params": { "length": 14, "mamode": "RMA", "talib": true },
+  "output_columns": ["ATRr_14"],
+  "latest": { "date": "2026-05-22", "ATRr_14": 0.286 }
+}
+```
+
+---
+
+## VWAP 成交量加权平均价
+
+- **指标名**：`vwap`
+- **类别**：overlap
+- **默认参数**：`{ "anchor": "D" }`（`anchor` 控制重置周期，`D`=按日重置，`W`=按周，`M`=按月）
+- **必需字段**：`high`、`low`、`close`、`volume`
+- **输出列**：`VWAP_{anchor}`（如 `VWAP_D`）
+- **判读**：股价位于 VWAP 上方多头占优；通常用日内或日频比较。
+
+### Tool-17: VWAP · 自带数据计算
+
+```
+node scripts/call-api-calculate.js '{
+  "indicator":"vwap",
+  "data":[
+    {"date":"2026-05-19","high":12.40,"low":12.20,"close":12.35,"volume":2160000},
+    {"date":"2026-05-20","high":12.55,"low":12.30,"close":12.42,"volume":1980000},
+    {"date":"2026-05-21","high":12.48,"low":12.20,"close":12.30,"volume":1530000},
+    {"date":"2026-05-22","high":12.70,"low":12.32,"close":12.58,"volume":2450000}
+  ]
+}'
+```
+
+### Tool-18: VWAP · 服务端数据计算
+
+> 注意：VWAP 需要 `volume`，**必须**使用 `price_adjustment:"none"`（前复权接口不返回成交量）。
+
+```
+node scripts/call-api-calculate-from-data.js '{
+  "stock_code":"000001.SZ",
+  "start_date":"2026-04-01",
+  "end_date":"2026-05-22",
+  "indicator":"vwap",
+  "price_adjustment":"none",
+  "limit":1000
+}'
+```
+
+**返回示意**：
+```json
+{
+  "indicator": "vwap",
+  "category": "overlap",
+  "params": { "anchor": "D" },
+  "output_columns": ["VWAP_D"],
+  "latest": { "date": "2026-05-22", "VWAP_D": 12.49 }
+}
+```
+
+---
+
+## 错误响应一览
+
+| 状态码 | 场景 | 返回示例 |
+|--------|------|----------|
+| 400 | Pydantic 校验失败（字段缺失、类型错误、日期不可解析、`limit` 越界） | `{"error":"[{'type':'missing','loc':('body','indicator'),...}]"}` |
+| 400 | 计算异常（指标名不支持、参数名不支持、数据缺必需字段、ciweiai-data 失败） | `{"error":"sma 需要字段: close"}` |
+| 200 | 业务错误对象（少数场景） | `{"error":"..."}` |
+
+脚本本身在 HTTP 非 2xx 时会以非 0 退出码退出，并把响应体打印到 stderr。
+
+---
+
+## 调用建议
+
+1. **数据量保证**：传入数据长度建议 ≥ `params.length × 3`，避免大量 `null` 行；MACD 等多周期指标建议 ≥ 60 根。
+2. **复权选择**：
+   - 价格类指标（SMA/EMA/RSI/MACD/BOLL/KDJ/ATR）推荐 `price_adjustment:"forward"` 以消除分红/送股造成的价格跳变；
+   - 成交量类指标（OBV/VWAP）必须用 `price_adjustment:"none"`。
+3. **取最新值**：一般业务只关心 `latest` 字段；如需做形态判断或绘图请取整段 `data`。
+4. **`params` 覆盖**：只传需要改动的键（如 `{"length":20}`），未知键会被服务端拒绝返回 400。
