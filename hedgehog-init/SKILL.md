@@ -4,8 +4,8 @@ description: >
     连接刺猬投研AI的安装配置skill。 
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog skills时使用。
     在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
----
 version: 1.2
+---
 
 # 安装刺猬投研AI插件及配置
 
@@ -150,7 +150,6 @@ Err: 暂时未实现.
 
 ---
 
-
 ## 核心功能工作流(Workflow)
 
 ---
@@ -193,7 +192,6 @@ Err: 暂时未实现.
    - 若执行了更新：告知用户系统提示词已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可
 
 ---
-
 
 ## 补充说明
 

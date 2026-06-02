@@ -51,10 +51,6 @@ Each skill module follows a consistent structure:
 ## Prerequisites
 
 - **Node.js** runtime (for executing API call scripts)
-- **API Token**: Obtain from the Hedgehog Finance app. The token is resolved in the following order:
-  1. Environment variable `CIWEI_AI_TOKEN`
-  2. Config file `~/.openclaw/openclaw.json` → `channels.hedgehog_finance.token`
-- Authentication is via the `X-API-Token` request header.
 
 ## Quick Start
 
@@ -101,19 +97,13 @@ node scripts/call_api.js --api futureValue --params '{"present_value": 100000, "
 | **Semantic search** | Pass natural-language Chinese text as `keyword` — no need to tokenize |
 | **Error handling** | Return `null` when no results found; never fabricate data |
 
-## Authentication & Security
-
-- Never expose the API token in logs or error messages.
-- If a response contains the token, it must be masked before display.
-- The base URL can be overridden via the `API_BASE_URL` environment variable.
 
 ## Error Handling
 
 | Error Type | Action |
 |---|---|
-| HTTP 4xx | Check parameter format, endpoint path, and auth configuration |
+| HTTP 4xx | Check parameter format and endpoint path |
 | HTTP 5xx | Server error — advise retry later |
-| Missing Token | Set `CIWEI_AI_TOKEN` or configure OpenClaw token |
 | Connection Failure | Verify API endpoint reachability |
 
 ## License
