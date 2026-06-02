@@ -16,8 +16,7 @@ references/
 ├── finance-analysis-keypoints.md     // 不同公司类型的财务报表分析方法和要点
 ├── stock-moneyflow.md        // 股票每日资金流向数据
 ├── company-valuation.md      // 上市公司估值方法
-├── industry_theme.md         // 股票的申万行业一级分类，主题分类
-└── cn_stock_list.json        // A股（中国股市）所有股票列表，仅用于本地脚本调用，决不允许将文件加载放入提示词
+└──  industry_theme.md         // 股票的申万行业一级分类，主题分类
 
 ## 约定及说明
 
