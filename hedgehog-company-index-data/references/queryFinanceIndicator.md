@@ -1,83 +1,48 @@
-# queryFinanceIndicator
+# queryFinanceIndicator 返回字段说明
 
-**方法**: GET  
-**路径**: /v1/finance/indicator  
-**描述**: 分页查询财务指标，按 `end_date` 倒序返回。
+接口：`queryFinanceIndicator`（财务指标）
 
-## 请求
+## data 结构
 
-### Headers
-| 字段 | 值 |
-|------|----|
-| X-API-Token | 从环境变量 `CIWEI_AI_TOKEN` 或 OpenClaw 配置读取 |
+分页结构 `{ total, page, page_size, db_source, items[] }`，`db_source = "finance_indicator"`，`items` 按 `end_date` 倒序返回。
 
-### Query 参数
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| stock_code | string | 否 | - | 股票代码 |
-| start_date | string | 否 | - | 起始报告期，按 `end_date >= start_date` 过滤 |
-| end_date | string | 否 | - | 结束报告期，按 `end_date <= end_date` 过滤 |
-| page | int | 否 | 1 | 页码，最小 1 |
-| page_size | int | 否 | 50 | 每页条数，范围 1-100 |
+> 脚本已将后端字段 `stock_code` 重命名为 `ts_code` 输出。
 
-### 请求示例
-```json
-{
-  "stock_code": "000001.SZ",
-  "page": 1,
-  "page_size": 20
-}
-```
+## data.items[] 字段（常用）
 
-## 响应
-
-### 成功 (200)
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| code | int | 业务状态码 |
-| message | string | 状态信息 |
-| data.total | int | 总条数 |
-| data.db_source | string | 数据源，通常为 `finance_indicator` |
-| data.items[].stock_code | string | 股票代码 |
-| data.items[].ann_date | string | 公告日期 |
-| data.items[].end_date | string | 报告期 |
-| data.items[].roe | number | 净资产收益率 |
-| data.items[].roa | number | 总资产收益率 |
-| data.items[].grossprofit_margin | number | 毛利率 |
-| data.items[].netprofit_margin | number | 净利率 |
-| data.items[].update_flag | string | 更新标识 |
+| ts_code | string | 股票代码 |
+| ann_date | string(date) | 公告日期 |
+| end_date | string(date) | 报告期 |
+| eps | float | 基本每股收益 |
+| dt_eps | float | 稀释每股收益 |
+| gross_margin | float | 毛利 |
+| grossprofit_margin | float | 销售毛利率（%） |
+| netprofit_margin | float | 销售净利率（%） |
+| roe | float | 净资产收益率 |
+| roe_waa | float | 加权平均净资产收益率 |
+| roe_dt | float | 净资产收益率（扣除非经常损益） |
+| roa | float | 总资产报酬率 |
+| roic | float | 投入资本回报率 |
+| current_ratio | float | 流动比率 |
+| quick_ratio | float | 速动比率 |
+| cash_ratio | float | 现金比率 |
+| debt_to_assets | float | 资产负债率 |
+| assets_turn | float | 总资产周转率 |
+| inv_turn | float | 存货周转率 |
+| ar_turn | float | 应收账款周转率 |
+| ocfps | float | 每股经营活动现金流 |
+| cfps | float | 每股现金流 |
+| fcff | float | 企业自由现金流量 |
+| fcfe | float | 股权自由现金流量 |
+| profit_dedt | float | 扣非净利润 |
+| tr_yoy | float | 营业总收入同比（%） |
+| or_yoy | float | 营业收入同比（%） |
+| netprofit_yoy | float | 净利润同比（%） |
+| dt_netprofit_yoy | float | 扣非净利润同比（%） |
+| roe_yoy | float | ROE 同比（%） |
+| assets_yoy | float | 总资产同比（%） |
+| rd_exp | float | 研发费用 |
 
-### 响应示例
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "total": 4,
-    "page": 1,
-    "page_size": 20,
-    "db_source": "finance_indicator",
-    "items": [
-      {
-        "id": 1,
-        "stock_code": "000001.SZ",
-        "ann_date": "2026-03-28",
-        "end_date": "2025-12-31",
-        "roe": 12.3,
-        "roa": 0.9,
-        "grossprofit_margin": 45.1,
-        "netprofit_margin": 22.7,
-        "update_flag": "1"
-      }
-    ]
-  }
-}
-```
-
-### 错误码
-| 状态码 | 含义 |
-|--------|------|
-| 400 | 参数校验失败或业务参数非法 |
-| 401 | 缺少或无效的 `X-API-Token` |
-| 403 | 权限不足 |
-| 500 | 服务端处理失败 |
+> 字段表来源：`api-doc/hedgehog-company-index-data.md` 第 8 节摘录的盈利、成长、偿债、运营和每股指标。完整字段以后端响应为准。

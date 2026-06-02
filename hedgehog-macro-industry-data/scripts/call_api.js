@@ -5,7 +5,6 @@ const http = require('http');
 const https = require('https');
 
 const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
-const API_TOKEN_ENV_NAME = 'CIWEI_AI_TOKEN';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -155,31 +154,6 @@ function parseBody(raw, contentType) {
   }
 }
 
-function getApiToken() {
-  let apiToken = process.env[API_TOKEN_ENV_NAME];
-
-  if (!apiToken) {
-    try {
-      const os = require('os');
-      const path = require('path');
-      const fs = require('fs');
-      const configPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
-      if (fs.existsSync(configPath)) {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        apiToken = config?.channels?.hedgehog_finance?.token;
-      }
-    } catch (_) {
-      // 忽略读取错误，继续走缺少鉴权配置的报错
-    }
-  }
-
-  if (!apiToken) {
-    throw new Error(`缺少鉴权配置: 请提供环境变量 ${API_TOKEN_ENV_NAME} (在 OpenClaw 中将自动读取 channels.hedgehog_finance.token)`);
-  }
-
-  return apiToken;
-}
-
 function parseYYYYMM(value, fieldName, apiName) {
   const s = String(value).trim();
   const m = /^(\d{4})(\d{2})$/.exec(s);
@@ -289,7 +263,6 @@ async function callApi(apiName, params = {}) {
     throw new Error(`未知接口: ${apiName}. 可用接口: ${names}`);
   }
 
-  const apiToken = getApiToken();
   const requestParams = { ...params };
 
   // 提取 fields（fields 不参与请求，仅用于响应字段裁剪）
@@ -321,7 +294,6 @@ async function callApi(apiName, params = {}) {
 
   const headers = {
     'Accept': 'application/json',
-    'X-API-Token': apiToken,
   };
   if (body !== null) {
     headers['Content-Type'] = 'application/json';
