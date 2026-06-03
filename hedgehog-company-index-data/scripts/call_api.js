@@ -108,7 +108,8 @@ const API_ROUTES = {
   queryIncomeDetail: {
     method: 'GET',
     path: '/v1/finance/income',
-    require: ['stock_code', 'comp_type'],
+    require: ['stock_code'],
+    requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 4 },
     compTypeFields: INCOME_DETAIL_FIELDS,
@@ -136,7 +137,8 @@ const API_ROUTES = {
   queryBalanceSheetDetail: {
     method: 'GET',
     path: '/v1/finance/balance-sheet',
-    require: ['stock_code', 'comp_type'],
+    require: ['stock_code'],
+    requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 3 },
     compTypeFields: BALANCE_DETAIL_FIELDS,
@@ -164,7 +166,8 @@ const API_ROUTES = {
   queryCashFlowDetail: {
     method: 'GET',
     path: '/v1/finance/cash-flow',
-    require: ['stock_code', 'comp_type'],
+    require: ['stock_code'],
+    requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 3 },
     compTypeFields: CASHFLOW_DETAIL_FIELDS,
@@ -515,12 +518,18 @@ async function callApi(apiName, params = {}) {
   // 区间/起始日期校验
   applyConstraints(route, apiName, requestParams);
 
-  // 按 comp_type 自动注入裁剪字段（明细 Tool 用），覆盖用户传入的 fields
+  // 按 comp_type 自动注入裁剪字段（明细 Tool 用）
+  // 优先级：用户传入 fields > comp_type 对应的默认字段集
   let effectiveFields = userFields;
   if (route.compTypeFields) {
-    const ctFields = applyCompTypeFields(route, apiName, requestParams);
-    // 与 SKILL.md 约定一致：comp_type 决定 fields，不可手动覆盖；静默忽略 userFields
-    effectiveFields = ctFields;
+    if (userFields && userFields.length > 0) {
+      // 用户明确指定了 fields，直接使用
+      effectiveFields = userFields;
+    } else if (!isEmpty(requestParams.comp_type)) {
+      // 未传 fields，根据 comp_type 自动确定字段集
+      const ctFields = applyCompTypeFields(route, apiName, requestParams);
+      effectiveFields = ctFields;
+    }
   }
 
   // 写死内部参数（覆盖调用方传入的 page / page_size 等）

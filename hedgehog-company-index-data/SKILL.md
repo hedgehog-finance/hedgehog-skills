@@ -199,12 +199,13 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | stock_code | string | 是 | 股票代码 |
 | start_date | string | 否 | 开始日期，距今不超过10年 |
 | end_date | string | 否 | 结束日期 |
+| fields | string | 与 comp_type 至少填一项 | 逗号分隔的返回字段名 |
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
-| comp_type | integer | 是 | 公司类型：1一般工商业、2银行、3保险、4证券 |
+| comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code`、`comp_type` 必填；`start_date` 距今不超过10年；`end_date - start_date` ≤ 1年；固定返回第1页，每页4条，按 `end_date` 倒序。脚本根据 `comp_type` 自动设置 `fields`，不可手动覆盖。
+> 脚本内限制：`stock_code` 必填；`fields` 和 `comp_type` 至少填一个；`start_date` 距今不超过10年；`end_date - start_date` ≤ 1年；固定返回第1页，每页4条，按 `end_date` 倒序。若用户传入 `fields` 则直接使用，否则根据 `comp_type` 自动设置 `fields`。
 
-**各公司类型返回字段**：
+**各公司类型默认返回字段**（仅当未传入 `fields` 时生效）：
 
 - **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, total_revenue, revenue, oper_cost, sell_exp, admin_exp, rd_exp, fin_exp, operate_profit, ebit, ebitda, assets_impair_loss, credit_impa_loss`
 - **2 银行**：`stock_code, ann_date, end_date, comp_type, n_income_attr_p, net_after_nr_lp_correct, basic_eps, int_income, int_exp, comm_income, comm_exp, n_commis_income, credit_impa_loss`
@@ -246,12 +247,13 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | stock_code | string | 是 | 股票代码 |
 | start_date | string | 否 | 开始日期，距今不超过10年 |
 | end_date | string | 否 | 结束日期 |
+| fields | string | 与 comp_type 至少填一项 | 逗号分隔的返回字段名 |
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
-| comp_type | integer | 是 | 公司类型：1一般工商业、2银行、3保险、4证券 |
+| comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code`、`comp_type` 必填；`start_date` 距今不超过10年；`end_date - start_date` ≤ 31天；固定返回第1页，每页3条，按 `end_date` 倒序。脚本根据 `comp_type` 自动设置 `fields`，不可手动覆盖。
+> 脚本内限制：`stock_code` 必填；`fields` 和 `comp_type` 至少填一个；`start_date` 距今不超过10年；`end_date - start_date` ≤ 31天；固定返回第1页，每页3条，按 `end_date` 倒序。若用户传入 `fields` 则直接使用，否则根据 `comp_type` 自动设置 `fields`。
 
-**各公司类型返回字段**：
+**各公司类型默认返回字段**（仅当未传入 `fields` 时生效）：
 
 - **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, money_cap, accounts_receiv, inventories, contract_assets, fix_assets_total, cip_total, intan_assets, goodwill, st_borr, lt_borr, accounts_pay, contract_liab`
 - **2 银行**：`stock_code, ann_date, end_date, comp_type, total_assets, total_liab, total_hldr_eqy_exc_min_int, cash_reser_cb, depos_in_oth_bfi, loanto_oth_bank_fi, decr_in_disbur, trad_asset, cb_borr, depos, depos_oth_bfi, loan_oth_bank`
@@ -295,12 +297,13 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | stock_code | string | 是 | 股票代码 |
 | start_date | string | 否 | 开始日期，距今不超过10年 |
 | end_date | string | 否 | 结束日期 |
+| fields | string | 与 comp_type 至少填一项 | 逗号分隔的返回字段名 |
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
-| comp_type | integer | 是 | 公司类型：1一般工商业、2银行、3保险、4证券 |
+| comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code`、`comp_type` 必填；`start_date` 距今不超过10年；`end_date - start_date` ≤ 31天；固定返回第1页，每页3条，按 `end_date` 倒序。脚本根据 `comp_type` 自动设置 `fields`，不可手动覆盖。
+> 脚本内限制：`stock_code` 必填；`fields` 和 `comp_type` 至少填一个；`start_date` 距今不超过10年；`end_date - start_date` ≤ 31天；固定返回第1页，每页3条，按 `end_date` 倒序。若用户传入 `fields` 则直接使用，否则根据 `comp_type` 自动设置 `fields`。
 
-**各公司类型返回字段**：
+**各公司类型默认返回字段**（仅当未传入 `fields` 时生效）：
 
 - **1 一般工商业**：`stock_code, ann_date, end_date, comp_type, net_profit, c_fr_sale_sg, c_paid_goods_s, c_paid_to_for_empl, n_cashflow_act, c_pay_acq_const_fiolta, free_cashflow, n_cashflow_inv_act, c_recp_borrow, c_prepay_amt_borr, c_pay_dist_dpcp_int_exp, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
 - **2 银行**：`stock_code, ann_date, end_date, comp_type, net_profit, n_depos_incr_fi, n_incr_loans_cb, n_inc_borr_oth_fi, n_incr_clt_loan_adv, n_incr_dep_cbob, n_cashflow_act, n_cashflow_inv_act, proc_issue_bonds, n_cash_flows_fnc_act, n_incr_cash_cash_equ`
@@ -456,11 +459,11 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | Tool-3 | queryDailyBasic | 每日PE/PB/市值 | stock_code |
 | Tool-4 | queryMoneyflow | 大小单资金流向 | stock_code |
 | Tool-5 | queryIncome | 利润表汇总 | stock_code |
-| Tool-5b | queryIncomeDetail | 利润表明细（按公司类型） | stock_code, comp_type |
+| Tool-5b | queryIncomeDetail | 利润表明细（按公司类型） | stock_code + fields/comp_type |
 | Tool-6 | queryBalanceSheet | 资产负债表汇总 | stock_code |
-| Tool-6b | queryBalanceSheetDetail | 资产负债表明细（按公司类型） | stock_code, comp_type |
+| Tool-6b | queryBalanceSheetDetail | 资产负债表明细（按公司类型） | stock_code + fields/comp_type |
 | Tool-7 | queryCashFlow | 现金流量表汇总 | stock_code |
-| Tool-7b | queryCashFlowDetail | 现金流量表明细（按公司类型） | stock_code, comp_type |
+| Tool-7b | queryCashFlowDetail | 现金流量表明细（按公司类型） | stock_code + fields/comp_type |
 | Tool-8 | queryFinanceIndicator | ROE/ROA/毛利率等财务指标 | stock_code |
 | Tool-9 | queryFinanceAudit | 审计意见 | stock_code |
 | Tool-10 | queryFinanceMainbz | 主营业务构成 | stock_code |
