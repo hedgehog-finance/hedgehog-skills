@@ -18,6 +18,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | report_id | int | 关联的研报 ID（`a_research_reports.id`） |
+| title | string | 研报标题 |
 | research_date | string | 研报日期（`YYYY-MM-DD`） |
 | summary | string | 研报摘要 |
 | report_type | string | 研报类型枚举：`macro`（宏观）、`industry`（产业）、`stock`（公司） |
@@ -49,6 +50,7 @@
     "items": [
       {
         "report_id": 1,
+        "title": "平安银行点评报告",
         "research_date": "2026-05-20",
         "summary": "研报摘要",
         "report_type": "stock",

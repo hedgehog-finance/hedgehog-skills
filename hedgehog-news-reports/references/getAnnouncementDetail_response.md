@@ -18,7 +18,7 @@
 | category | string | 公告分类（如 `定期报告`） |
 | content_md | string | 公告解析正文（Markdown） |
 | content_json | string | 公告结构化解析（JSON 字符串） |
-| parse_skip_reason | string \| null | 解析跳过原因；正常情况为 `null` |
+| parse_skip_reason | string | 解析跳过原因：`file_too_large` / `page_count_exceeded` / `non_pdf` / `invalid_pdf` |
 | db_source | string | 数据来源表名，固定 `announcements` |
 | analysis | object \| null | 公告分析对象，无分析则为 `null`，结构见下表 |
 
@@ -31,6 +31,8 @@
 | summary | string | 公告摘要 |
 | tags | object | 标签 |
 | tags.announce_type | string | 公告类型枚举（U1~U10） |
+| tags.announce_content | string[] | 公告相关事项标签列表 |
+| tags.stock | string[] | 股票标签，通常包含股票名称和股票代码 |
 | global_scoring | object | 全局评分 |
 | global_scoring.importance_score | int | 公告重要性 |
 | global_scoring.stock_impact_score | int | 个股影响评分 |
@@ -62,7 +64,9 @@
       "date": "2026-03-28T18:00:00",
       "summary": "公告摘要",
       "tags": {
-        "announce_type": "U1"
+        "announce_type": "U1",
+        "announce_content": ["定期报告"],
+        "stock": ["平安银行", "000001.SZ"]
       },
       "global_scoring": {
         "importance_score": 80,

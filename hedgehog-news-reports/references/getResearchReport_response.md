@@ -30,6 +30,7 @@
 | tags | object | 标签 |
 | tags.report_type | string | 研报类型 |
 | tags.industries | string[] | 涉及行业 |
+| tags.themes | string[] | 投资主题或概念标签列表 |
 | tags.stocks | array | 涉及股票，元素含 `name / code` |
 | global_scoring | object | 全局评分 |
 | global_scoring.importance_score | int | 研报重要性 |
@@ -69,6 +70,7 @@
       "tags": {
         "report_type": "stock",
         "industries": ["银行"],
+        "themes": [],
         "stocks": [{ "name": "平安银行", "code": "000001.SZ" }]
       },
       "global_scoring": {

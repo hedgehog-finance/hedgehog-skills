@@ -157,7 +157,7 @@ node scripts/call_api.js --api getNewsDetail --params '<JSON>'
 | publish_time | string | 发布时间 |
 | url | string | 原文链接 |
 | db_source | string | 数据来源表名 |
-| analysis | object \| null | 分析对象，含 `title / date / summary / tags(news_type, industries, stocks) / global_scoring(importance_score, market_sentiment_score, horizon_impact_score, macro_impact_score, disruptive_tech_score) / max_industry_impact / max_stock_impact / industry_impacts / stock_impacts / news_analysis`；无分析为 `null` |
+| analysis | object \| null | 分析对象，含 `title / date / summary / tags(news_type, industries, themes, stocks) / global_scoring(importance_score, market_sentiment_score, horizon_impact_score, macro_impact_score, disruptive_tech_score) / max_industry_impact / max_stock_impact / industry_impacts / stock_impacts / news_analysis`；无分析为 `null` |
 
 **约束与限制**：无结果或无分析数据时按接口返回 `null`，不得补写分析。
 
@@ -233,7 +233,7 @@ node scripts/call_api.js --api getResearchReport --params '<JSON>'
 
 字段总览：`id, report_type, title, stock_code, stock_name, industry_name, content_md, content_json, org_name, publish_date, pdf_url, db_source, analysis`。
 
-`analysis` 含：`date / summary / tags(report_type, industries, stocks) / global_scoring(importance_score, market_sentiment_score, horizon_impact_score) / max_industry_impact / max_stock_impact / industry_impacts / stock_impacts / rating / target_price_lower / target_price_upper / report_analysis`。
+`analysis` 含：`date / summary / tags(report_type, industries, themes, stocks) / global_scoring(importance_score, market_sentiment_score, horizon_impact_score) / max_industry_impact / max_stock_impact / industry_impacts / stock_impacts / rating / target_price_lower / target_price_upper / report_analysis`。
 
 **约束与限制**：无结果或无分析数据时按接口返回 `null`，不得补写分析。
 
@@ -275,7 +275,7 @@ node scripts/call_api.js --api queryResearchAnalysis --params '<JSON>'
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段数 > 10，**完整返回字段说明见 `references/queryResearchAnalysis_response.md`**。
 
-字段总览：`report_id, research_date, summary, report_type, tags, global_scoring, max_industry_impact, max_stock_impact, industry_impacts, stock_impacts, rating, target_price_lower, target_price_upper, report_analysis`。
+字段总览：`report_id, title, research_date, summary, report_type, tags, global_scoring, max_industry_impact, max_stock_impact, industry_impacts, stock_impacts, rating, target_price_lower, target_price_upper, report_analysis`。
 
 **约束与限制**：无结果返回 `null`，不得编造分析。
 
@@ -307,7 +307,7 @@ node scripts/call_api.js --api getAnnouncementDetail --params '<JSON>'
 
 字段总览：`id, source_type, stock_code, exchange, stock_name, title, announcement_time, url, category, content_md, content_json, parse_skip_reason, db_source, analysis`。
 
-`analysis` 含：`title / date / summary / tags(announce_type) / global_scoring(importance_score, stock_impact_score) / announce_type / announce_analysis`；无分析为 `null`。
+`analysis` 含：`title / date / summary / tags(announce_type, announce_content, stock) / global_scoring(importance_score, stock_impact_score) / announce_type / announce_analysis`；无分析为 `null`。
 
 **约束与限制**：无结果或无分析数据时按接口返回 `null`，不得补写分析。
 
@@ -344,7 +344,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 > 内部写死参数（不对外暴露）：`page=1`、`page_size=10`。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
-单条 `items[]` 字段数 = 8，直接列出：
+单条 `items[]` 字段数 = 9，直接列出：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -355,6 +355,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 | announce_type | string | 公告类型（U1~U10） |
 | tags | string[] | 标签数组 |
 | global_scoring | object | 评分：`importance_score / stock_impact_score` |
+| stock_impacts | array | 个股影响明细，元素含 `name / code / total_score` |
 | announce_analysis | string | 公告分析正文 |
 
 **约束与限制**：无结果返回 `null`，不得编造分析。
