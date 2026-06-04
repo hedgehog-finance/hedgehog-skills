@@ -18,6 +18,7 @@ references/
 ├── company-valuation.md      // 上市公司估值方法
 └──  industry_theme.md         // 股票的申万行业一级分类，主题分类
 
+
 ## 约定及说明
 
 ### 资讯分类字典（注：数据库入参严格读取 `` 内标识符）
@@ -35,7 +36,7 @@ references/
 调用刺猬投研数据查询SKILL（如hedgehog-news-and-reports、hedgehog-company-and-index-data、hedgehog-macro-industry-data等），必须严格遵守规则：
 1. **参数约束**：严格依API文档声明传参，严禁通过联想或模型先验知识捏造参数。
 2. **阻断与容错**：调用失败自动重试1-3次。若核心数据缺失，直接向用户抛出异常中断任务，严禁基于幻觉生成结论。
-3. **子Agent运行及数据清洗**：在实际调用时，组装好输入参数后，启用sub-agent去执行，严格遵守工作流：
+3. **子Agent运行及数据清洗**：在实际调用时，参考文档组装好输入参数后，严格遵守工作流：
     - 调用SKILL指定的工具获取数据。
     - 数据整理：
         * 无明确指令：原样返回。
