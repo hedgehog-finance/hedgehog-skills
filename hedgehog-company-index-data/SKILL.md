@@ -45,7 +45,7 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": { ... }  // 结构见各 Tool 说明
 }
 ```
@@ -89,17 +89,25 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 > 脚本内限制：`stock_code` 和 `stock_name` 至少填一项，否则报错。
 
-**返回 data 字段**（≤10个，直接说明）：
+**返回 data 字段**：
 
 | 字段 | 说明 |
 |------|------|
 | stock_code | 股票代码 |
 | stock_name | 股票简称 |
+| symbol | 股票代码（不带后缀） |
 | area | 地域 |
 | industry | 所属行业 |
+| fullname | 股票全称 |
+| enname | 英文全称 |
+| cnspell | 拼音缩写 |
+| market | 市场类型（主板/创业板/科创板/CDR） |
+| exchange | 交易所代码 |
+| curr_type | 交易货币 |
 | list_date | 上市日期 |
-| market | 市场类型 |
-| exchange | 交易所 |
+| is_hs | 是否沪深港通标的（N否 H沪股通 S深股通） |
+| act_name | 实控人名称 |
+| act_ent_type | 实控人企业性质 |
 
 ---
 
@@ -139,7 +147,7 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | end_date | string | 否 | 结束日期 |
 | fields | string | 否 | 逗号分隔返回字段名 |
 
-> 脚本内限制：`stock_code` 必填；`start_date` 距今≤1年；`end_date - start_date`≤31天；最多200条，按 `trade_date` 倒序。`limit` 参数已移除。
+> 脚本内限制：`stock_code` 必填；`start_date` 距今≤1年；`end_date - start_date`≤31天；固定第1页、每页200条，按 `trade_date` 倒序。`page`、`page_size` 参数已移除。
 
 **返回 data**：见 `references/queryDailyBasic.md`（字段数>10）
 
@@ -494,18 +502,3 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 | 申万行业成分 / 行业行情 | **本 skill** |
 | 宏观指标（利率 / CPI / PMI / 社融等） | hedgehog-macro-industry-data |
 | 新闻资讯、公告 | 不适用本系列 skill |
-
-### 用户触发示例
-
-- "平安银行的股票代码和上市日期" → Tool-1
-- "查一下 000001.SZ 近一个月日线行情" → Tool-2
-- "贵州茅台最近的 PE 和 PB" → Tool-1 → Tool-3
-- "招商银行最近资金流向" → Tool-1 → Tool-4
-- "宁德时代近三年利润表" → Tool-1 → Tool-5
-- "平安银行利润明细（银行类型）" → Tool-1 → Tool-5b（comp_type=2）
-- "比亚迪最新资产负债表" → Tool-1 → Tool-6
-- "隆基绿能经营现金流变化" → Tool-1 → Tool-7
-- "万科近几年 ROE 和毛利率" → Tool-1 → Tool-8
-- "某公司审计意见是什么" → Tool-1 → Tool-9
-- "某公司主营业务按产品怎么分布" → Tool-1 → Tool-10
-- "近一个月医药生物行业行情走势" → Tool-12

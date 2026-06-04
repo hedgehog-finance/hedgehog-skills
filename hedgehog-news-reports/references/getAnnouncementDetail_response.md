@@ -30,11 +30,11 @@
 | date | string | 公告日期 |
 | summary | string | 公告摘要 |
 | tags | object | 标签 |
-| tags.announce_type | string | 公告类型（如 `annual_report`） |
+| tags.announce_type | string | 公告类型枚举（U1~U10） |
 | global_scoring | object | 全局评分 |
 | global_scoring.importance_score | int | 公告重要性 |
 | global_scoring.stock_impact_score | int | 个股影响评分 |
-| announce_type | string | 公告类型 |
+| announce_type | string | 公告类型枚举（U1~U10） |
 | announce_analysis | string | 公告分析正文 |
 
 ## 响应示例
@@ -62,13 +62,13 @@
       "date": "2026-03-28T18:00:00",
       "summary": "公告摘要",
       "tags": {
-        "announce_type": "annual_report"
+        "announce_type": "U1"
       },
       "global_scoring": {
         "importance_score": 80,
         "stock_impact_score": 3
       },
-      "announce_type": "annual_report",
+      "announce_type": "U1",
       "announce_analysis": "公告分析..."
     }
   }

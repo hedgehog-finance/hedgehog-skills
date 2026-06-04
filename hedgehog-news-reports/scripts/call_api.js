@@ -9,84 +9,15 @@ const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * 把 SKILL 友好的标签参数 (industries / themes / stock_codes / stock_names)
- * 合并到接口要求的 tags_contains（JSONB 包含）对象中。
- * - 已有 tags_contains 作为基底（仅当为对象时）
- * - stock_codes / stock_names 会合并成 stocks: [{code}, {name}, ...]
- * - 调用方仍可直接传 tags_contains，会与上述字段合并
- */
-function mergeTagsContains(params) {
-  let merged = null;
-  if (
-    params.tags_contains &&
-    typeof params.tags_contains === 'object' &&
-    !Array.isArray(params.tags_contains)
-  ) {
-    merged = { ...params.tags_contains };
-  }
-  let touched = merged !== null;
-
-  if (Array.isArray(params.industries)) {
-    merged = merged || {};
-    merged.industries = params.industries;
-    touched = true;
-  }
-  delete params.industries;
-
-  if (Array.isArray(params.themes)) {
-    merged = merged || {};
-    merged.themes = params.themes;
-    touched = true;
-  }
-  delete params.themes;
-
-  const stocks = [];
-  if (Array.isArray(params.stock_names)) {
-    for (const name of params.stock_names) {
-      if (name !== undefined && name !== null && name !== '') stocks.push({ name });
-    }
-  }
-  if (Array.isArray(params.stock_codes)) {
-    for (const code of params.stock_codes) {
-      if (code !== undefined && code !== null && code !== '') stocks.push({ code });
-    }
-  }
-  delete params.stock_names;
-  delete params.stock_codes;
-  if (stocks.length > 0) {
-    merged = merged || {};
-    merged.stocks = stocks;
-    touched = true;
-  }
-
-  if (touched && merged) {
-    params.tags_contains = merged;
-  }
-}
-
-/**
  * API 路由及调用约束。
  * - method/path: HTTP 方法和路径
  * - forced:      内部强制写死的参数（覆盖调用方传值，不对外暴露）
  * - required:    必填参数（缺失则报错）
- * - oneOf:       一组参数中至少需提供一个（如 stock_name / stock_code）
  * - constraints: 调用前的参数校验
  *     - { field: { maxAgeDays: N } } 表示该日期/时间字段距当前不得超过 N 天
- * - transform:   在 forced 之前对参数做转换（如把 industries 合并到 tags_contains）
  */
 const API_ROUTES = {
   // ===== 新闻与快讯 =====
-  listNewsList: {
-    method: 'GET',
-    path: '/v1/news/list',
-    forced: { page: 1, page_size: 50 },
-  },
-  listFlashNews: {
-    method: 'GET',
-    path: '/v1/news/flash',
-    forced: { page: 1, page_size: 50 },
-    constraints: { start_time: { maxAgeDays: 5 } },
-  },
   getNewsDetail: {
     method: 'GET',
     path: '/v1/news/:news_id',
@@ -101,21 +32,9 @@ const API_ROUTES = {
     path: '/v1/news/analysis/query',
     forced: { page: 1, page_size: 10 },
     constraints: { start_date: { maxAgeDays: 90 } },
-    transform: mergeTagsContains,
-  },
-  queryStockNewsAnalysis: {
-    method: 'POST',
-    path: '/v1/news/stock-analysis',
-    forced: { page: 1, page_size: 10 },
-    oneOf: ['stock_name', 'stock_code'],
   },
 
   // ===== 公告 =====
-  listAnnouncements: {
-    method: 'GET',
-    path: '/v1/announcements/list',
-    forced: { page: 1, page_size: 50 },
-  },
   getAnnouncementDetail: {
     method: 'GET',
     path: '/v1/announcements/:announcement_id',
@@ -126,19 +45,8 @@ const API_ROUTES = {
     forced: { page: 1, page_size: 10 },
     constraints: { start_date: { maxAgeDays: 90 } },
   },
-  queryStockAnnouncementAnalysis: {
-    method: 'POST',
-    path: '/v1/announcements/stock-analysis',
-    forced: { page: 1, page_size: 10 },
-    oneOf: ['stock_name', 'stock_code'],
-  },
 
   // ===== 研报 =====
-  listResearch: {
-    method: 'GET',
-    path: '/v1/research/list',
-    forced: { page: 1, page_size: 50 },
-  },
   getResearchReport: {
     method: 'GET',
     path: '/v1/research/:report_id',
@@ -148,13 +56,6 @@ const API_ROUTES = {
     path: '/v1/research/analysis/query',
     forced: { page: 1, page_size: 10 },
     constraints: { start_date: { maxAgeDays: 90 } },
-    transform: mergeTagsContains,
-  },
-  queryStockResearchAnalysis: {
-    method: 'POST',
-    path: '/v1/research/stock-analysis',
-    forced: { page: 1, page_size: 10 },
-    oneOf: ['stock_name', 'stock_code'],
   },
 };
 
@@ -238,16 +139,6 @@ function applyConstraints(route, apiName, params) {
       }
     }
   }
-  if (route.oneOf) {
-    const present = route.oneOf.filter(
-      (k) => params[k] !== undefined && params[k] !== null && params[k] !== ''
-    );
-    if (present.length === 0) {
-      throw new Error(
-        `${apiName} 缺少必填参数: ${route.oneOf.join(' / ')} 至少提供一个`
-      );
-    }
-  }
   if (route.constraints) {
     for (const [field, rule] of Object.entries(route.constraints)) {
       if (rule.maxAgeDays !== undefined) {
@@ -323,11 +214,6 @@ async function callApi(apiName, params = {}) {
 
   // 参数校验（基于调用方原始入参，校验完成后再写死内部参数）
   applyConstraints(route, apiName, requestParams);
-
-  // 参数转换（如把 industries / themes / stock_codes 合并到 tags_contains）
-  if (typeof route.transform === 'function') {
-    route.transform(requestParams);
-  }
 
   // 写死内部参数（覆盖调用方）
   applyForced(route, requestParams);

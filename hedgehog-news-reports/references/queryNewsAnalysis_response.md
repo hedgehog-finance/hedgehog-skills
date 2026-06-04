@@ -11,16 +11,17 @@
 | page | int | 当前页码 |
 | page_size | int | 每页条数 |
 | db_source | string | 数据来源表名，固定 `major_news_analysis` |
-| items | array | 重大新闻分析结果列表，元素结构见下表 |
+| items | array | 重大新闻分析结果记录，元素结构见下表 |
 
 ## `data.items[]` 字段
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | news_id | int | 关联的新闻 ID（`major_news.id`） |
-| title | string | 新闻标题 |
+| source_title | string | 原始新闻标题 |
+| title | string | 分析标题 |
 | publish_time | string | 发布时间，ISO 字符串 |
-| news_type | string | 新闻类型，可选值：`宏观` / `产业` / `公司` |
+| news_type | string | 新闻类型枚举：`macro`（宏观）、`industry`（产业）、`stock`（公司） |
 | summary | string | 摘要 |
 | news_analysis | string | 详细分析正文 |
 | global_scoring | object | 全局评分对象 |
@@ -31,13 +32,9 @@
 | global_scoring.disruptive_tech_score | int | 颠覆性技术影响 |
 | max_industry_impact | int | 最大行业影响分 |
 | max_stock_impact | int | 最大个股影响分 |
-| impacts | object | 详细影响列表 |
-| impacts.industry_impacts | array | 行业影响数组，元素含 `target / score` |
-| impacts.stock_impacts | array | 股票影响数组，元素含 `name / code / total_score` |
-| tags | object | 标签 |
-| tags.industries | string[] | 涉及行业 |
-| tags.themes | string[] | 涉及主题 |
-| tags.stocks | array | 涉及股票，元素含 `name / code` |
+| industry_impacts | array | 行业影响数组，元素含 `target / score` |
+| stock_impacts | array | 股票影响数组，元素含 `name / code / total_score` |
+| tags | string[] | 标签数组（flat），行业/主题/股票名称/代码统一为数组元素 |
 
 ## 响应示例
 
@@ -53,9 +50,10 @@
     "items": [
       {
         "news_id": 1,
+        "source_title": "某行业政策发布",
         "title": "某行业政策发布",
         "publish_time": "2026-05-22T09:30:00",
-        "news_type": "宏观",
+        "news_type": "macro",
         "summary": "摘要内容",
         "news_analysis": "详细分析...",
         "global_scoring": {
@@ -67,14 +65,9 @@
         },
         "max_industry_impact": 3,
         "max_stock_impact": 4,
-        "impacts": {
-          "industry_impacts": [],
-          "stock_impacts": []
-        },
-        "tags": {
-          "industries": ["银行"],
-          "stocks": [{ "name": "平安银行", "code": "000001.SZ" }]
-        }
+        "industry_impacts": [],
+        "stock_impacts": [],
+        "tags": ["stock", "银行", "山东黄金", "600547.SH"]
       }
     ]
   }

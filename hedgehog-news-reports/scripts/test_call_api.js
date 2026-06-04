@@ -7,13 +7,13 @@
  *   node scripts/test_call_api.js
  *
  *   # 只测试指定接口
- *   node scripts/test_call_api.js --only listFlashNews
- *   node scripts/test_call_api.js --only listFlashNews,queryNewsAnalysis
+ *   node scripts/test_call_api.js --only queryNewsAnalysis
+ *   node scripts/test_call_api.js --only queryNewsAnalysis,queryResearchAnalysis
  *
  *   # 同时测试参数校验失败的负向用例（时间超期等）
  *   node scripts/test_call_api.js --negative
  *
- *   # 显式指定详情接口的 ID（默认自动从列表接口取第一条）
+ *   # 显式指定详情接口的 ID（默认自动从查询接口取第一条）
  *   node scripts/test_call_api.js --news-id 1 --report-id 1 --announcement-id 1
  *
  *   # 指定测试用的股票代码（默认 000001.SZ）
@@ -66,11 +66,6 @@ function isoDateOffset(days) {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-function isoTimeOffset(days) {
-  const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-  return d.toISOString();
-}
-
 function previewJson(value, maxLen = 600) {
   const s = JSON.stringify(value);
   if (s.length <= maxLen) return s;
@@ -113,36 +108,17 @@ function buildCases(opts) {
   const stockCode = opts.stockCode || '000001.SZ';
 
   // 安全的时间窗口（紧贴当前时间）
-  const flashStart = isoTimeOffset(-3); // listFlashNews 5 天内
   const newsStart = isoDateOffset(-30); // queryNewsAnalysis 90 天内
   const researchStart = isoDateOffset(-30); // queryResearchAnalysis 90 天内
-  const stockNewsStart = isoDateOffset(-90); // queryStockNewsAnalysis 180 天内
 
   return [
-    {
-      name: 'listFlashNews',
-      description: '查询快讯列表（5 天内 + fields 字段过滤）',
-      params: {
-        start_time: flashStart,
-        fields: ['id', 'title', 'publish_time', 'source'],
-      },
-    },
     {
       name: 'queryNewsAnalysis',
       description: '查询重大新闻分析（90 天内 + 行业/主题筛选）',
       params: {
         start_date: newsStart,
-        industries: ['银行'],
+        tags: ['银行'],
         fields: ['news_id', 'title', 'publish_time', 'news_type', 'summary'],
-      },
-    },
-    {
-      name: 'queryStockNewsAnalysis',
-      description: '按个股查询新闻分析（必填 stock_code，180 天内）',
-      params: {
-        stock_code: stockCode,
-        start_date: stockNewsStart,
-        fields: ['news_id', 'title', 'date', 'summary'],
       },
     },
     {
@@ -168,14 +144,12 @@ function buildCases(opts) {
       reportIdSource: true,
     },
     {
-      name: 'listAnnouncements',
-      description: '查询公告列表（指定股票代码）',
+      name: 'queryAnnouncementAnalysis',
+      description: '查询公告分析（指定股票代码）',
       params: {
-        stock_code: stockCode,
-        page: 1,
-        page_size: 5,
-        has_content: true,
-        fields: ['id', 'title', 'announcement_time', 'category'],
+        tags: [stockCode],
+        start_date: newsStart,
+        fields: ['announcement_id', 'title', 'announcement_date', 'announce_type'],
       },
     },
     {
@@ -190,12 +164,6 @@ function buildCases(opts) {
 function buildNegativeCases() {
   return [
     {
-      name: 'listFlashNews',
-      description: '负向：start_time 超出 5 天 → 应抛错',
-      params: { start_time: isoTimeOffset(-30) },
-      expectError: /5 天/,
-    },
-    {
       name: 'queryNewsAnalysis',
       description: '负向：start_date 超出 90 天 → 应抛错',
       params: { start_date: isoDateOffset(-200) },
@@ -206,18 +174,6 @@ function buildNegativeCases() {
       description: '负向：start_date 超出 90 天 → 应抛错',
       params: { start_date: isoDateOffset(-200) },
       expectError: /90 天/,
-    },
-    {
-      name: 'queryStockNewsAnalysis',
-      description: '负向：缺失必填 stock_code → 应抛错',
-      params: { start_date: isoDateOffset(-30) },
-      expectError: /必填参数: stock_code/,
-    },
-    {
-      name: 'queryStockNewsAnalysis',
-      description: '负向：start_date 超出 180 天 → 应抛错',
-      params: { stock_code: '000001.SZ', start_date: isoDateOffset(-365) },
-      expectError: /180 天/,
     },
     {
       name: 'getNewsDetail',
@@ -242,7 +198,7 @@ async function runOne(testCase, idx, total) {
 
   const params = { ...testCase.params };
 
-  // 路径参数自动填充（来自前序列表接口的回填，或 CLI 显式指定）
+  // 路径参数自动填充（来自前序查询接口的回填，或 CLI 显式指定）
   if (testCase.newsIdSource) {
     if (!idCache.news_id) {
       console.log(color('yellow', '  → 跳过：未取得 news_id（前序 queryNewsAnalysis 无返回）'));
@@ -259,7 +215,7 @@ async function runOne(testCase, idx, total) {
   }
   if (testCase.announcementIdSource) {
     if (!idCache.announcement_id) {
-      console.log(color('yellow', '  → 跳过：未取得 announcement_id（前序 listAnnouncements 无返回）'));
+      console.log(color('yellow', '  → 跳过：未取得 announcement_id（前序 queryAnnouncementAnalysis 无返回）'));
       return { name: testCase.name, status: 'skipped', reason: 'no announcement_id' };
     }
     params.announcement_id = idCache.announcement_id;
@@ -310,8 +266,8 @@ function cacheIdsFromResult(apiName, result) {
   if (apiName === 'queryResearchAnalysis' && data.items && data.items[0]) {
     idCache.report_id = data.items[0].report_id || idCache.report_id;
   }
-  if (apiName === 'listAnnouncements' && data.items && data.items[0]) {
-    idCache.announcement_id = data.items[0].id || idCache.announcement_id;
+  if (apiName === 'queryAnnouncementAnalysis' && data.items && data.items[0]) {
+    idCache.announcement_id = data.items[0].announcement_id || idCache.announcement_id;
   }
 }
 

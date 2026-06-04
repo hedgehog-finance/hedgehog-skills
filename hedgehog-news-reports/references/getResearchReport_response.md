@@ -37,7 +37,8 @@
 | global_scoring.horizon_impact_score | int | 长短期影响 |
 | max_industry_impact | int | 最大行业影响分 |
 | max_stock_impact | int | 最大个股影响分 |
-| impacts | object | `industry_impacts[]` / `stock_impacts[]` 详细影响列表 |
+| industry_impacts | array | 行业影响数组，元素含 `target / score` |
+| stock_impacts | array | 股票影响数组，元素含 `name / code / total_score` |
 | rating | string | 评级（如 `买入`、`增持` 等） |
 | target_price_lower | number | 目标价下限 |
 | target_price_upper | number | 目标价上限 |
@@ -77,10 +78,8 @@
       },
       "max_industry_impact": 2,
       "max_stock_impact": 4,
-      "impacts": {
-        "industry_impacts": [],
-        "stock_impacts": []
-      },
+      "industry_impacts": [],
+      "stock_impacts": [],
       "rating": "买入",
       "target_price_lower": 12.5,
       "target_price_upper": 15.0,

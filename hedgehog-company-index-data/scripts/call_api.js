@@ -72,7 +72,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/daily-basic/query',
     require: ['stock_code'],
-    forced: { limit: 200 },
+    forced: { page: 1, page_size: 200 },
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 1 },
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 31 },
