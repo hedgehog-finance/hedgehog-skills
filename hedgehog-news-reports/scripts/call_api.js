@@ -7,6 +7,7 @@ const https = require('https');
 const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const FLASH_NEWS_SOURCES = ['华尔街见闻', '第一财经', '财联社', '金融界'];
 
 /**
  * API 路由及调用约束。
@@ -25,7 +26,6 @@ const API_ROUTES = {
   queryFlashNewsAnalysis: {
     method: 'POST',
     path: '/v1/news/flash/analysis/query',
-    forced: { page: 1, page_size: 50 },
   },
   queryNewsAnalysis: {
     method: 'POST',
@@ -131,7 +131,59 @@ function validateMaxAgeDays(value, maxDays, fieldName, apiName) {
   }
 }
 
+function isValidFlashNewsStartTime(value) {
+  if (typeof value !== 'string') return false;
+
+  const match = value.match(
+    /^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2] || match[4]);
+  const day = Number(match[3] || match[5]);
+  const hour = match[6] === undefined ? 0 : Number(match[6]);
+  const minute = match[7] === undefined ? 0 : Number(match[7]);
+  const second = match[8] === undefined ? 0 : Number(match[8]);
+
+  if (hour > 23 || minute > 59 || second > 59) return false;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function validateFlashNewsQueryParams(apiName, params) {
+  const allowedParams = new Set(['source', 'start_time']);
+  for (const key of Object.keys(params)) {
+    if (!allowedParams.has(key)) {
+      throw new Error(`${apiName} 不支持参数: ${key}. 可用参数: source, start_time`);
+    }
+  }
+
+  if (params.source !== undefined && params.source !== null && params.source !== '') {
+    if (typeof params.source !== 'string' || !FLASH_NEWS_SOURCES.includes(params.source)) {
+      throw new Error(`${apiName} 参数 source 必须为: ${FLASH_NEWS_SOURCES.join('、')}`);
+    }
+  }
+
+  if (params.start_time !== undefined && params.start_time !== null && params.start_time !== '') {
+    if (!isValidFlashNewsStartTime(params.start_time)) {
+      throw new Error(
+        `${apiName} 参数 start_time 格式不合法: ${params.start_time}. 支持 YYYY-MM-DD HH:MM:SS、YYYY-MM-DD HH:MM、YYYYMMDD HH:MM:SS、YYYYMMDD HH:MM、YYYY-MM-DD、YYYYMMDD`
+      );
+    }
+  }
+}
+
 function applyConstraints(route, apiName, params) {
+  if (apiName === 'queryFlashNewsAnalysis') {
+    validateFlashNewsQueryParams(apiName, params);
+  }
+
   if (route.required) {
     for (const key of route.required) {
       if (params[key] === undefined || params[key] === null || params[key] === '') {

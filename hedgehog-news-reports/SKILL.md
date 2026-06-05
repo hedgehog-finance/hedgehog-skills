@@ -23,7 +23,7 @@ version: 1.1.0
 
 1. 识别查询对象：快讯分析、重大新闻、新闻分析、研报、研报分析、公告详情或公告分析。
 2. 区分用户要"原始内容"还是"分析结果"：
-   - 要快讯按评分筛选 → Tool-1；
+   - 要查询快讯分析 → Tool-1；
    - 要新闻原文 → Tool-2；要新闻分析 → Tool-3；
    - 要研报原文 → Tool-4；要研报分析 → Tool-5；
    - 要公告原文 → Tool-6；要公告分析 → Tool-7。
@@ -90,9 +90,9 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 ### Tool-1: 查询快讯分析结果 (queryFlashNewsAnalysis)
 
-**功能**：按快讯评分绝对值下限查询快讯分析结果，默认按 `total_score` 倒序返回。
+**功能**：按消息来源和起始发布时间查询快讯分析结果。
 
-**适用场景**：按信息重要性、情绪重要性、知识价值、市场相关性、总分等评分筛选快讯。
+**适用场景**：按消息来源或起始发布时间筛选快讯分析。
 
 **不适合场景**：查询重大新闻分析 → Tool-3。
 
@@ -106,15 +106,11 @@ node scripts/call_api.js --api queryFlashNewsAnalysis --params '<JSON>'
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| source | string | 否 | - | 消息来源，例如 `财联社` |
-| information_importance | int | 否 | - | 信息重要性评分绝对值下限 |
-| emotional_importance | int | 否 | - | 情绪重要性评分绝对值下限 |
-| knowledge_value | int | 否 | - | 知识体系价值评分绝对值下限 |
-| market_relevance | int | 否 | - | 市场相关性评分绝对值下限 |
-| total_score | int | 否 | - | 总分绝对值下限 |
+| source | string | 否 | - | 消息来源，精确匹配；可选项：`华尔街见闻`、`第一财经`、`财联社`、`金融界` |
+| start_time | string | 否 | - | 起始发布时间；支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD` |
 | fields | string[] | 否 | - | 仅保留指定字段，过滤其余字段 |
 
-> 内部写死参数（不对外暴露）：`page=1`、`page_size=50`。
+> 除通用 `fields` 外，接口 JSON Body 仅发送 `source`、`start_time`。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段见字段总览。
@@ -187,8 +183,6 @@ node scripts/call_api.js --api queryNewsAnalysis --params '<JSON>'
 | end_date | string | 否 | - | 结束发布日期 |
 | importance_score | int | 否 | - | 资讯重要性绝对值下限 |
 | market_sentiment_score | int | 否 | - | 市场情绪影响绝对值下限 |
-| horizon_impact_score | int | 否 | - | 长短期影响绝对值下限 |
-| macro_impact_score | int | 否 | - | 宏观经济影响绝对值下限 |
 | disruptive_tech_score | int | 否 | - | 颠覆性技术影响绝对值下限 |
 | max_industry_impact | int | 否 | - | 最大行业影响分绝对值下限 |
 | max_stock_impact | int | 否 | - | 最大个股影响分绝对值下限 |
@@ -263,7 +257,6 @@ node scripts/call_api.js --api queryResearchAnalysis --params '<JSON>'
 | end_date | string | 否 | - | 结束研报日期 |
 | importance_score | int | 否 | - | 研报重要性绝对值下限 |
 | market_sentiment_score | int | 否 | - | 市场情绪影响绝对值下限 |
-| horizon_impact_score | int | 否 | - | 长短期影响绝对值下限 |
 | max_industry_impact | int | 否 | - | 最大行业影响分绝对值下限 |
 | max_stock_impact | int | 否 | - | 最大个股影响分绝对值下限 |
 | report_type | enum | 否 | - | 研报类型，可选值：`macro`（宏观研报）、`industry`（行业研报）、`stock`（个股研报） |
@@ -366,7 +359,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 | 错误类型   | 处理方式                                               |
 | ---------- | ------------------------------------------------------ |
-| 参数校验失败（脚本侧） | 检查 `start_date` 是否在允许范围、必填项是否提供 |
+| 参数校验失败（脚本侧） | 检查 `source`、`start_time`、`start_date` 或必填项是否符合要求 |
 | HTTP 4xx   | 检查参数格式与路径参数                                  |
 | HTTP 5xx   | 提示用户服务端错误，建议稍后重试                       |
 | 连接失败   | 提示用户检查 `https://api.ciweiai.com/api/data` 可达性 |
@@ -390,7 +383,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 #### 查询新闻资讯
 
-- "高评分的快讯有哪些" → Tool-1
+- "查询财联社最近的快讯分析" → Tool-1
 - "查看新闻 ID 123 的详情和分析" → Tool-2
 - "搜索和固态电池相关的新闻分析" → Tool-3
 
@@ -406,7 +399,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 ### 注意事项
 
-- **时间格式**：`publish_time / announcement_time` 通常使用 ISO 字符串；
+- **时间格式**：快讯查询 `start_time` 支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD`；
   研报日期、`start_date / end_date` 通常使用 `YYYY-MM-DD`。
 - **路径参数**：详情接口必须提供 `news_id` / `report_id` / `announcement_id`。
 - **`fields` 参数**：所有 Tool 通用，用于裁剪 `data` 每条记录字段。
