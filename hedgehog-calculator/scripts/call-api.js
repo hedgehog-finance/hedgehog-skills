@@ -7,6 +7,7 @@
  * 调用方式：
  *   node scripts/call-api.js <method> <params>
  *     - <method>: 接口方法路径（不含 /v1/ 前缀），例如：
+ *                 calculate
  *                 financial/future-value
  *                 general-calculator/finance/loan-monthly-payment
  *     - <params>: JSON 字符串，对应接口请求体。
@@ -26,6 +27,7 @@ const BASE_URL = process.env.CALC_API_BASE_URL || 'https://api.ciweiai.com/api/u
 
 // 受支持的方法白名单；均为 POST + JSON
 const SUPPORTED_METHODS = new Set([
+  'calculate',
   'financial/future-value',
   'financial/present-value',
   'financial/discount-amount',

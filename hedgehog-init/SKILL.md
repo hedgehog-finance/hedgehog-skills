@@ -4,7 +4,7 @@ description: >
     连接刺猬投研AI的安装配置skill。 
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog skills时使用。
     在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
-version: 1.2.3
+version: 1.2.4
 ---
 
 # 安装刺猬投研AI插件及配置
