@@ -107,10 +107,9 @@ node scripts/call_api.js --api queryFlashNewsAnalysis --params '<JSON>'
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | source | string | 否 | - | 消息来源，精确匹配；可选项：`华尔街见闻`、`第一财经`、`财联社`、`金融界` |
-| start_time | string | 否 | - | 起始发布时间；支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD` |
-| fields | string[] | 否 | - | 仅保留指定字段，过滤其余字段 |
+| start_time | string | 否 | - | 起始发布时间，距当前≤5天；支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD` |
 
-> 除通用 `fields` 外，接口 JSON Body 仅发送 `source`、`start_time`。
+> 对外仅接收 `source`、`start_time`。脚本内部写死参数：`page=1`、`page_size=10`。通用 `fields` 是脚本本地输出裁剪参数，不进入接口 JSON Body。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段见字段总览。
@@ -324,9 +323,9 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| keyword | string | 否 | - | 语义检索关键字，匹配 `announcement_analysis.embedding`（向量来源为 `summary / tags`，不包含公告标题或 `announce_analysis` 文本）；未传 `start_date` 时默认查 `end_date`（未传则当前日期）往前 3 个月内数据；先取最相似的 1000 条候选，再按 `sort` 字段倒序返回 |
+| keyword | string | 否 | - | 语义检索关键字，匹配 `announcement_analysis.embedding`（向量来源为 `summary / tags`，不包含公告标题或 `announce_analysis` 文本）；传入 `start_date` 时脚本要求距当前≤1天；先取最相似的 1000 条候选，再按 `sort` 字段倒序返回 |
 | sort | enum | 否 | announcement_date | 排序字段，按字段值倒序；枚举：`announcement_date`、`importance_score`、`stock_impact_score` |
-| start_date | string | 否 | - | 起始公告分析日期，距当前≤90天，否则脚本拒绝执行 |
+| start_date | string | 否 | - | 起始公告分析日期，距当前≤1天，否则脚本拒绝执行 |
 | end_date | string | 否 | - | 结束公告分析日期 |
 | importance_score | int | 否 | - | 公告重要性绝对值下限 |
 | stock_impact_score | int | 否 | - | 个股影响评分绝对值下限 |
@@ -359,7 +358,7 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 | 错误类型   | 处理方式                                               |
 | ---------- | ------------------------------------------------------ |
-| 参数校验失败（脚本侧） | 检查 `source`、`start_time`、`start_date` 或必填项是否符合要求 |
+| 参数校验失败（脚本侧） | 检查 `source`、`start_time`（≤5天）、新闻 `start_date`（≤90天）、公告 `start_date`（≤1天）或必填项是否符合要求 |
 | HTTP 4xx   | 检查参数格式与路径参数                                  |
 | HTTP 5xx   | 提示用户服务端错误，建议稍后重试                       |
 | 连接失败   | 提示用户检查 `https://api.ciweiai.com/api/data` 可达性 |
@@ -399,8 +398,8 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 
 ### 注意事项
 
-- **时间格式**：快讯查询 `start_time` 支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD`；
-  研报日期、`start_date / end_date` 通常使用 `YYYY-MM-DD`。
+- **时间格式**：快讯查询 `start_time` 支持 `YYYY-MM-DD HH:MM:SS`、`YYYY-MM-DD HH:MM`、`YYYYMMDD HH:MM:SS`、`YYYYMMDD HH:MM`、`YYYY-MM-DD`、`YYYYMMDD`，且距当前≤5天；
+  新闻查询 `start_date` 距当前≤90天，公告分析 `start_date` 距当前≤1天，研报日期、`start_date / end_date` 通常使用 `YYYY-MM-DD`。
 - **路径参数**：详情接口必须提供 `news_id` / `report_id` / `announcement_id`。
 - **`fields` 参数**：所有 Tool 通用，用于裁剪 `data` 每条记录字段。
 - **`tags` 参数**：分析查询接口使用 flat 字符串数组匹配，行业、主题、股票名称/代码统一放入同一数组。

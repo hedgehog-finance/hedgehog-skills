@@ -26,6 +26,8 @@ const API_ROUTES = {
   queryFlashNewsAnalysis: {
     method: 'POST',
     path: '/v1/news/flash/analysis/query',
+    forced: { page: 1, page_size: 10 },
+    constraints: { start_time: { maxAgeDays: 5 } },
   },
   queryNewsAnalysis: {
     method: 'POST',
@@ -43,7 +45,7 @@ const API_ROUTES = {
     method: 'POST',
     path: '/v1/announcements/analysis/query',
     forced: { page: 1, page_size: 10 },
-    constraints: { start_date: { maxAgeDays: 90 } },
+    constraints: { start_date: { maxAgeDays: 1 } },
   },
 
   // ===== 研报 =====
@@ -119,7 +121,11 @@ function parseBody(raw, contentType) {
 
 function validateMaxAgeDays(value, maxDays, fieldName, apiName) {
   if (value === undefined || value === null || value === '') return;
-  const ts = Date.parse(value);
+  const flashStartTime =
+    apiName === 'queryFlashNewsAnalysis' && fieldName === 'start_time'
+      ? parseFlashNewsStartTime(value)
+      : null;
+  const ts = flashStartTime ? flashStartTime.getTime() : Date.parse(value);
   if (Number.isNaN(ts)) {
     throw new Error(`${apiName} 参数 ${fieldName} 格式不合法: ${value}`);
   }
@@ -131,13 +137,13 @@ function validateMaxAgeDays(value, maxDays, fieldName, apiName) {
   }
 }
 
-function isValidFlashNewsStartTime(value) {
-  if (typeof value !== 'string') return false;
+function parseFlashNewsStartTime(value) {
+  if (typeof value !== 'string') return null;
 
   const match = value.match(
     /^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/
   );
-  if (!match) return false;
+  if (!match) return null;
 
   const year = Number(match[1]);
   const month = Number(match[2] || match[4]);
@@ -146,14 +152,20 @@ function isValidFlashNewsStartTime(value) {
   const minute = match[7] === undefined ? 0 : Number(match[7]);
   const second = match[8] === undefined ? 0 : Number(match[8]);
 
-  if (hour > 23 || minute > 59 || second > 59) return false;
+  if (hour > 23 || minute > 59 || second > 59) return null;
 
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
+  const date = new Date(year, month - 1, day, hour, minute, second);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute ||
+    date.getSeconds() !== second
+  ) {
+    return null;
+  }
+  return date;
 }
 
 function validateFlashNewsQueryParams(apiName, params) {
@@ -171,7 +183,8 @@ function validateFlashNewsQueryParams(apiName, params) {
   }
 
   if (params.start_time !== undefined && params.start_time !== null && params.start_time !== '') {
-    if (!isValidFlashNewsStartTime(params.start_time)) {
+    const startTime = parseFlashNewsStartTime(params.start_time);
+    if (!startTime) {
       throw new Error(
         `${apiName} 参数 start_time 格式不合法: ${params.start_time}. 支持 YYYY-MM-DD HH:MM:SS、YYYY-MM-DD HH:MM、YYYYMMDD HH:MM:SS、YYYYMMDD HH:MM、YYYY-MM-DD、YYYYMMDD`
       );
