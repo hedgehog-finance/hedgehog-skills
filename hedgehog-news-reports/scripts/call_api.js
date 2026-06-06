@@ -32,7 +32,17 @@ const API_ROUTES = {
   queryNewsAnalysis: {
     method: 'POST',
     path: '/v1/news/analysis/query',
-    forced: { page: 1, page_size: 10 },
+    forced: { page: 1 },
+    defaultPageSize: 10,
+    defaultFields: [
+      'news_id',
+      'source_title',
+      'title',
+      'publish_time',
+      'news_type',
+      'summary',
+      'news_analysis',
+    ],
     constraints: { start_date: { maxAgeDays: 90 } },
   },
 
@@ -44,7 +54,16 @@ const API_ROUTES = {
   queryAnnouncementAnalysis: {
     method: 'POST',
     path: '/v1/announcements/analysis/query',
-    forced: { page: 1, page_size: 10 },
+    forced: { page: 1 },
+    defaultPageSize: 10,
+    defaultFields: [
+      'announcement_id',
+      'title',
+      'announcement_date',
+      'announce_type',
+      'summary',
+      'announce_analysis',
+    ],
     constraints: { start_date: { maxAgeDays: 1 } },
   },
 
@@ -56,7 +75,19 @@ const API_ROUTES = {
   queryResearchAnalysis: {
     method: 'POST',
     path: '/v1/research/analysis/query',
-    forced: { page: 1, page_size: 10 },
+    forced: { page: 1 },
+    defaultPageSize: 10,
+    defaultFields: [
+      'report_id',
+      'title',
+      'research_date',
+      'report_type',
+      'summary',
+      'report_analysis',
+      'rating',
+      'target_price_lower',
+      'target_price_upper',
+    ],
     constraints: { start_date: { maxAgeDays: 90 } },
   },
 };
@@ -221,6 +252,26 @@ function applyForced(route, params) {
   Object.assign(params, route.forced);
 }
 
+function applyDefaultPageSize(route, apiName, params) {
+  if (route.defaultPageSize === undefined) return;
+
+  let pageSize = route.defaultPageSize;
+  if (Object.prototype.hasOwnProperty.call(params, 'limit')) {
+    const limit = params.limit;
+    delete params.limit;
+    if (limit !== null && limit !== undefined && limit !== '') {
+      const parsed = Number(limit);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`${apiName} 参数 limit 必须为正整数`);
+      }
+      pageSize = parsed;
+    }
+  }
+
+  delete params.page_size;
+  params.page_size = pageSize;
+}
+
 function pickFields(obj, fields) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const out = {};
@@ -275,6 +326,8 @@ async function callApi(apiName, params = {}) {
         throw new Error(`参数 fields 必须为字符串数组`);
       }
     }
+  } else if (route.defaultFields) {
+    fields = route.defaultFields;
   }
 
   // 参数校验（基于调用方原始入参，校验完成后再写死内部参数）
@@ -282,6 +335,7 @@ async function callApi(apiName, params = {}) {
 
   // 写死内部参数（覆盖调用方）
   applyForced(route, requestParams);
+  applyDefaultPageSize(route, apiName, requestParams);
 
   const url = buildUrl(route.path, requestParams);
   let body = null;

@@ -74,7 +74,7 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
 
 所有 Tool 均支持 `fields` 参数（类型：`string[]`，可选）。
 若提供，脚本将在响应返回后对 `data` 中每条记录只保留 `fields` 中列出的字段，
-其余字段丢弃；未提供则返回全量字段。
+其余字段丢弃；未提供则返回全量字段。Tool-3、Tool-5、Tool-7 已在参数表中声明默认 `fields`，未传时按默认字段裁剪。
 
 - 当 `data` 为单条记录（详情接口）：直接对 `data` 顶层字段过滤。
 - 当 `data` 为分页结构（含 `items` 数组）：过滤 `items[]` 每个元素字段，保留外层 `total/page/page_size/db_source`。
@@ -187,9 +187,10 @@ node scripts/call_api.js --api queryNewsAnalysis --params '<JSON>'
 | max_stock_impact | int | 否 | - | 最大个股影响分绝对值下限 |
 | news_type | enum | 否 | - | 新闻类型，可选值：`macro`（宏观，包括政治、经济和政策资讯）、`industry`（产业/行业资讯）、`stock`（公司/个股资讯） |
 | tags | string[] | 否 | - | JSONB 任一标签匹配；行业、主题、股票名称/代码统一通过 `tags` 匹配，例如 `["银行", "平安银行", "000001.SZ"]` |
-| fields | string[] | 否 | - | 仅保留指定字段，过滤其余字段 |
+| limit | int | 否 | 10 | 返回条数，脚本映射为接口 `page_size`；`limit` 不进入请求体 |
+| fields | string[] | 否 | `news_id,source_title,title,publish_time,news_type,summary,news_analysis` | 仅保留指定字段，过滤其余字段 |
 
-> 内部写死参数（不对外暴露）：`page=1`、`page_size=10`。
+> 内部参数：`page=1`；`page_size` 由 `limit` 映射，未传 `limit` 时为 10。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段数 > 10，**完整返回字段说明见 `references/queryNewsAnalysis_response.md`**。
@@ -260,9 +261,10 @@ node scripts/call_api.js --api queryResearchAnalysis --params '<JSON>'
 | max_stock_impact | int | 否 | - | 最大个股影响分绝对值下限 |
 | report_type | enum | 否 | - | 研报类型，可选值：`macro`（宏观研报）、`industry`（行业研报）、`stock`（个股研报） |
 | tags | string[] | 否 | - | JSONB 任一标签匹配；行业、主题、股票名称/代码统一通过 `tags` 匹配，例如 `["银行", "平安银行", "000001.SZ"]` |
-| fields | string[] | 否 | - | 仅保留指定字段，过滤其余字段 |
+| limit | int | 否 | 10 | 返回条数，脚本映射为接口 `page_size`；`limit` 不进入请求体 |
+| fields | string[] | 否 | `report_id,title,research_date,report_type,summary,report_analysis,rating,target_price_lower,target_price_upper` | 仅保留指定字段，过滤其余字段 |
 
-> 内部写死参数（不对外暴露）：`page=1`、`page_size=10`。
+> 内部参数：`page=1`；`page_size` 由 `limit` 映射，未传 `limit` 时为 10。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段数 > 10，**完整返回字段说明见 `references/queryResearchAnalysis_response.md`**。
@@ -331,9 +333,10 @@ node scripts/call_api.js --api queryAnnouncementAnalysis --params '<JSON>'
 | stock_impact_score | int | 否 | - | 个股影响评分绝对值下限 |
 | announce_type | enum | 否 | - | 公告类型枚举：`U1` 定期财务报告、`U2` 业绩预告及快报、`U3` 融资与资金管理、`U4` 并购重组与重大交易、`U5` 股东权益变动、`U6` 公司治理与审计、`U7` 异常与风险警示、`U8` 司法与破产重整、`U9` 其他重大事项、`U10` 交易所监管 |
 | tags | string[] | 否 | - | JSONB 任一标签匹配；股票名称/代码统一通过 `tags` 匹配，例如 `["平安银行", "000001.SZ"]` |
-| fields | string[] | 否 | - | 仅保留指定字段，过滤其余字段 |
+| limit | int | 否 | 10 | 返回条数，脚本映射为接口 `page_size`；`limit` 不进入请求体 |
+| fields | string[] | 否 | `announcement_id,title,announcement_date,announce_type,summary,announce_analysis` | 仅保留指定字段，过滤其余字段 |
 
-> 内部写死参数（不对外暴露）：`page=1`、`page_size=10`。
+> 内部参数：`page=1`；`page_size` 由 `limit` 映射，未传 `limit` 时为 10。
 
 **返回值**：`data` 为分页结构 `{ total, page, page_size, db_source, items[] }`。
 单条 `items[]` 字段数 = 9，直接列出：
