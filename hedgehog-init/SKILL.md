@@ -4,7 +4,7 @@ description: >
     连接刺猬投研AI的安装配置skill。 
     刺猬投研AI初始化连接配置安装hedgehog-plugin插件、用户认证token更新、安装hedgehog skills时使用。
     在非刺猬投研AI应用场景、hedgehog-workspace工作空间的非配置操作时不需要调用该skill。
-version: 1.2.4
+version: 1.2.5
 ---
 
 # 安装刺猬投研AI插件及配置
@@ -20,6 +20,7 @@ version: 1.2.4
 scripts/
 ├── install.js        // 首次安装 / 重新配置
 ├── update-token.js   // 仅更新用户token
+├── update-hedgehog-skills.js // 更新Hedgehog Skills
 └── update-sys-prompt.js // 更新Agents.md和SOUL.md系统提示词
 相关知识、规则、流程的MD文件放在`references/`目录：
 references/
@@ -35,8 +36,7 @@ references/
 3. 创建独立 agent 与 workspace（路径隔离）
 4. 修改`SOUL.md` 身份设定（金融投资专家角色）
 5. 修改AGENTS.md
-6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）：
-   `hedgehog-skills-guide`、`hedgehog-calculator`、`hedgehog-company-index-data`、`hedgehog-macro-industry-data`、`hedgehog-news-reports`、`hedgehog-stock-research`、`hedgehog-tech-indicator`
+6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）：下载技能包后，安装除 `hedgehog-init` 外所有包含 `SKILL.md` 的 hedgehog skill
 7. 重启 Gateway 使配置生效
 
 **适用场景**: 
@@ -75,13 +75,37 @@ node scripts/update-token.js <new_token>
 ```
 ---
 
-### Tool-3: 更新系统提示词
+### Tool-3: 更新Hedgehog Skills
+
+**功能**: 
+更新工作空间 `hedgehog-workspace` 中已安装的 hedgehog skills。 
+1. 从 GitHub 下载最新 hedgehog-skills 技能包，失败后自动切换备用 zip 地址
+2. 扫描技能包中除 `hedgehog-init` 外所有包含 `SKILL.md` 的 skill
+3. 直接覆盖更新本地的所有相应 skill
+
+**适用场景**: 
+用户要求更新 hedgehog skills、同步最新投研技能、安装新增 hedgehog skill 时。
+
+**判断是否需要更新**:
+- 扫描到的所有云端/源端技能均直接强制覆盖更新，不再对比版本号。
+
+**调用参数 (Parameters)**: 
+| 参数名 | 类型 | 必填 | 描述 | 默认值 | 
+| :--- | :--- | :--- | :--- | :--- | 
+| N/A | N/A | N/A | 该工具无需额外参数 | N/A | 
+
+**执行方法**: 
+```
+node scripts/update-hedgehog-skills.js
+```
+---
+
+### Tool-4: 更新系统提示词
 
 **功能**: 
 升级/更新工作空间的系统提示词（SOUL.md、AGENTS.md）。 
 1. 获取最新的系统提示词模板
 2. 对比版本并按需同步至工作空间 `hedgehog-workspace`
-3. 重启 Gateway 使新系统提示词生效
 
 **适用场景**: 
 仅需同步更新系统提示词，无需重新安装插件或重新配置账号。
@@ -98,7 +122,7 @@ node scripts/update-sys-prompt.js
 
 ---
 
-### Tool-4: 查询Agent当前状态
+### Tool-5: 查询Agent当前状态
 
 **功能**: 
 查询本Agent当前状态：包括Agent类型及版本、首次连接时间、操作系统、Node版本、Python版本、已安装的skill列表。
@@ -134,7 +158,7 @@ node scripts/update-sys-prompt.js
 
 ---
 
-### Tool-5: 用户数据备份
+### Tool-6: 用户数据备份
 
 **功能**: 
 备份用户核心的投研数据（用户本地数据库文件备份）
@@ -163,7 +187,7 @@ Err: 暂时未实现.
 2. 调用 `Tool-1` 执行安装配置
 3. 把工作空间`hedgehog-workspace`中的Agent.md文件里的`Group Chats`章节内容改为
     You are prohibited from participating in group chats.
-4. 执行Tool-4，并返回JSON格式结果。
+4. 执行Tool-5，并返回JSON格式结果。
 
 ---
 
@@ -179,17 +203,31 @@ Err: 暂时未实现.
 
 ---
 
-### Work-3: 更新系统提示词
+### Work-3: 更新Hedgehog Skills
 
-**功能**: 使用Tool-3更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
-**适用场景**: 当hedgehog-init Skill升级后，需要更新系统提示词时。
+**功能**: 使用Tool-3更新工作空间`hedgehog-workspace`的hedgehog skills。 
+**适用场景**: 当用户要求更新 hedgehog skills、检查技能版本、同步最新投研技能、安装新增 hedgehog skill、或者询问是否需要更新技能时。
 **工作流**: 
 1. 调用 `Tool-3` 执行更新
-2. **故障处理 (熔断机制)**:
+2. 故障处理 (熔断机制):
    - 若脚本执行失败：必须立即终止当前工作流，直接将脚本报错信息作为最终回复告知用户。
-3. **结果告知 (仅限脚本成功时)**:
+3. 结果告知 (仅限脚本成功时):
    - 若检测到已是最新版本：告知用户无需更新。
-   - 若执行了更新：告知用户系统提示词已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可
+   - 若执行了更新：告知用户 hedgehog skills 已更新。
+
+---
+
+### Work-4: 更新系统提示词
+
+**功能**: 使用Tool-4更新工作空间`hedgehog-workspace`的系统提示词SOUL.md、AGENTS.md。 
+**适用场景**: 当hedgehog-init Skill升级后，需要更新系统提示词时。
+**工作流**: 
+1. 调用 `Tool-4` 执行更新
+2. 故障处理 (熔断机制):
+   - 若脚本执行失败：必须立即终止当前工作流，直接将脚本报错信息作为最终回复告知用户。
+3. 结果告知 (仅限脚本成功时):
+   - 若检测到已是最新版本：告知用户无需更新。
+   - 若执行了更新：告知用户系统提示词已更新。
 
 ---
 
@@ -206,13 +244,16 @@ Err: 暂时未实现.
 #### 更新用户token（触发Work-2）
 帮我更新一下刺猬投研插件的 token，新 token 是 xxx
 
-#### 更新系统提示词（触发Work-3）
+#### 更新Hedgehog Skills（触发Work-3）
+帮我更新`hedgehog-workspace`的hedgehog skills
+
+#### 更新系统提示词（触发Work-4）
 Skill升级了，帮我更新`hedgehog-workspace`系统提示词到最新版本
 
-#### 查询Agent当前状态（触发Tool-4）
+#### 查询Agent当前状态（触发Tool-5）
 帮我查询Agent当前状态
 
-#### 备份用户数据（触发Tool-5）
+#### 备份用户数据（触发Tool-6）
 帮我备份用户数据
 
 ### 注意事项

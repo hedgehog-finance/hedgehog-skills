@@ -84,7 +84,8 @@ function cleanup(...paths) {
 	}
 }
 
-function findSkillSourceDir(baseDir, skillName) {
+function discoverHedgehogSkills(baseDir) {
+	const skills = new Map();
 	const stack = [baseDir];
 
 	while (stack.length) {
@@ -102,25 +103,16 @@ function findSkillSourceDir(baseDir, skillName) {
 			}
 
 			const dir = path.join(current, entry.name);
-			if (entry.name === skillName && fs.existsSync(path.join(dir, 'SKILL.md'))) {
-				return dir;
+			if (entry.name !== 'hedgehog-init' && fs.existsSync(path.join(dir, 'SKILL.md'))) {
+				skills.set(entry.name, dir);
+				continue;
 			}
 			stack.push(dir);
 		}
 	}
 
-	return null;
+	return skills;
 }
-
-const hedgehogSkills = [
-	'hedgehog-skills-guide',
-	'hedgehog-calculator',
-	'hedgehog-company-index-data',
-	'hedgehog-macro-industry-data',
-	'hedgehog-news-reports',
-	'hedgehog-stock-research',
-	'hedgehog-tech-indicator',
-];
 
 function copySkill(skillName, sourceDir, agentDir, installSource) {
 	const skillsDir = path.join(agentDir, 'skills');
@@ -143,14 +135,9 @@ async function installSkillsFromGithub(agentDir) {
 		await download('https://github.com/hedgehog-finance/hedgehog-skills/archive/refs/heads/main.zip', tmpRepoZip);
 		unzip(tmpRepoZip, tmpRepoDir);
 
-		for (const skillName of hedgehogSkills) {
-			const sourceDir = findSkillSourceDir(tmpRepoDir, skillName);
-			if (sourceDir) {
-				copySkill(skillName, sourceDir, agentDir, 'GitHub');
-				installed.add(skillName);
-			} else {
-				console.warn(`⚠️ GitHub 仓库包中未找到 ${skillName}，稍后尝试备用 ZIP 地址...`);
-			}
+		for (const [skillName, sourceDir] of discoverHedgehogSkills(tmpRepoDir)) {
+			copySkill(skillName, sourceDir, agentDir, 'GitHub');
+			installed.add(skillName);
 		}
 	} catch (e) {
 		console.warn(`⚠️ GitHub 下载失败 (${e.message}),尝试备用 ZIP 地址...`);
@@ -161,7 +148,7 @@ async function installSkillsFromGithub(agentDir) {
 	return installed;
 }
 
-async function installSkillsFromFallback(agentDir, skillNames) {
+async function installSkillsFromFallback(agentDir) {
 	const tmpRepoZip = path.join(os.tmpdir(), 'hedgehog-skills-fallback.zip');
 	const tmpRepoDir = path.join(os.tmpdir(), 'hedgehog-skills-fallback-pkg');
 	const installed = new Set();
@@ -173,14 +160,9 @@ async function installSkillsFromFallback(agentDir, skillNames) {
 		await download('https://ciweiai.com/skills/hedgehog-skills.zip', tmpRepoZip);
 		unzip(tmpRepoZip, tmpRepoDir);
 
-		for (const skillName of skillNames) {
-			const sourceDir = findSkillSourceDir(tmpRepoDir, skillName);
-			if (sourceDir) {
-				copySkill(skillName, sourceDir, agentDir, '备用地址');
-				installed.add(skillName);
-			} else {
-				console.warn(`⚠️ 备用技能包中未找到 ${skillName}，请事后手动安装。`);
-			}
+		for (const [skillName, sourceDir] of discoverHedgehogSkills(tmpRepoDir)) {
+			copySkill(skillName, sourceDir, agentDir, '备用地址');
+			installed.add(skillName);
 		}
 	} catch (e) {
 		console.warn(`⚠️ 备用技能包安装失败:${e.message},请事后手动安装缺失的 skill。`);
@@ -312,9 +294,8 @@ async function installSkillsFromFallback(agentDir, skillNames) {
 	console.log('\n📦 [6/7] 安装 hedgehog skills ...');
 
 	const installedSkills = await installSkillsFromGithub(agentDir);
-	const missingSkills = hedgehogSkills.filter(name => !installedSkills.has(name));
-	if (missingSkills.length) {
-		await installSkillsFromFallback(agentDir, missingSkills);
+	if (!installedSkills.size) {
+		await installSkillsFromFallback(agentDir);
 	}
 
 	// ── 7. 重启 Gateway ───────────────────────────────────────────────────────────
