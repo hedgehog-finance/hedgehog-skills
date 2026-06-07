@@ -26,13 +26,24 @@ const API_ROUTES = {
   queryFlashNewsAnalysis: {
     method: 'POST',
     path: '/v1/news/flash/analysis/query',
-    forced: { page: 1, page_size: 10 },
+    forced: { page: 1, page_size: 50 },
+    paginated: true,
+    defaultFields: [
+      'id',
+      'title',
+      'content',
+      'source',
+      'publish_time',
+      'total_score'
+    ],
     constraints: { start_time: { maxAgeDays: 5 } },
   },
   queryNewsAnalysis: {
     method: 'POST',
     path: '/v1/news/analysis/query',
     forced: { page: 1 },
+    paginated: true,
+    required: ['importance_score'],
     defaultPageSize: 10,
     defaultFields: [
       'news_id',
@@ -55,6 +66,7 @@ const API_ROUTES = {
     method: 'POST',
     path: '/v1/announcements/analysis/query',
     forced: { page: 1 },
+    paginated: true,
     defaultPageSize: 10,
     defaultFields: [
       'announcement_id',
@@ -62,9 +74,12 @@ const API_ROUTES = {
       'announcement_date',
       'announce_type',
       'summary',
+      'tags',
+      'global_scoring',
+      'stock_impacts',
       'announce_analysis',
     ],
-    constraints: { start_date: { maxAgeDays: 1 } },
+    constraints: { start_date: { maxAgeDays: 30 } },
   },
 
   // ===== 研报 =====
@@ -76,6 +91,7 @@ const API_ROUTES = {
     method: 'POST',
     path: '/v1/research/analysis/query',
     forced: { page: 1 },
+    paginated: true,
     defaultPageSize: 10,
     defaultFields: [
       'report_id',
@@ -286,22 +302,25 @@ function pickFields(obj, fields) {
 /**
  * 按 fields 过滤 data 中的字段。
  * - data 为数组：对每个元素过滤
- * - data 为对象且含 items 数组：对 items 内每个元素过滤，保留外层分页字段
+ * - 分页接口 data 为对象且含 items 数组：只保留 items[]，丢弃分页元数据
  * - data 为对象：对 data 顶层字段过滤
  */
-function filterFieldsInResponse(result, fields) {
-  if (!fields || !Array.isArray(fields) || fields.length === 0) return result;
+function filterFieldsInResponse(result, fields, route) {
   if (!result || typeof result !== 'object' || result.data === undefined || result.data === null) {
     return result;
   }
+
   const data = result.data;
+  if (route.paginated && data && typeof data === 'object' && Array.isArray(data.items)) {
+    result.data = fields && Array.isArray(fields) && fields.length > 0
+      ? data.items.map((item) => pickFields(item, fields))
+      : data.items;
+    return result;
+  }
+
+  if (!fields || !Array.isArray(fields) || fields.length === 0) return result;
   if (Array.isArray(data)) {
     result.data = data.map((item) => pickFields(item, fields));
-  } else if (data && typeof data === 'object' && Array.isArray(data.items)) {
-    result.data = {
-      ...data,
-      items: data.items.map((item) => pickFields(item, fields)),
-    };
   } else if (data && typeof data === 'object') {
     result.data = pickFields(data, fields);
   }
@@ -384,7 +403,7 @@ async function callApi(apiName, params = {}) {
     req.end();
   });
 
-  return filterFieldsInResponse(result, fields);
+  return filterFieldsInResponse(result, fields, route);
 }
 
 async function main() {

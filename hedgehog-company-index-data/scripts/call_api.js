@@ -39,7 +39,7 @@ const CASHFLOW_DETAIL_FIELDS = {
  *   paramMap:       入参别名映射（skill 友好名 -> 后端字段名）
  *   defaults:       未传时填入的默认参数
  *   forced:         强制写死的参数（覆盖调用方传值，不对外暴露）
- *   compTypeFields: 公司类型 -> 字段裁剪字符串；存在则忽略用户传入的 fields
+ *   compTypeFields: 公司类型 -> 字段裁剪字符串；未传 fields 时按 comp_type 自动设置
  *   renameMap:      响应 items[] 字段重命名（后端字段 -> skill 对外字段）
  *   constraints:
  *     dateRange:    { startField, endField, maxDays }
@@ -111,7 +111,7 @@ const API_ROUTES = {
     require: ['stock_code'],
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
-    forced: { page: 1, page_size: 4 },
+    forced: { page: 1, page_size: 1 },
     compTypeFields: INCOME_DETAIL_FIELDS,
 
     constraints: {
@@ -140,7 +140,7 @@ const API_ROUTES = {
     require: ['stock_code'],
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
-    forced: { page: 1, page_size: 3 },
+    forced: { page: 1, page_size: 1 },
     compTypeFields: BALANCE_DETAIL_FIELDS,
 
     constraints: {
@@ -169,7 +169,7 @@ const API_ROUTES = {
     require: ['stock_code'],
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
-    forced: { page: 1, page_size: 3 },
+    forced: { page: 1, page_size: 1 },
     compTypeFields: CASHFLOW_DETAIL_FIELDS,
 
     constraints: {
@@ -222,7 +222,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/stock/sw-industry-member',
     require: ['stock_code'],
-    forced: { is_new: 'Y', page: 1, page_size: 31 },
+    forced: { is_new: 'Y', page: 1, page_size: 300 },
     renameMap: { name: 'stock_name' },
   },
 
@@ -231,7 +231,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/stock/sw-industry-daily',
     require: ['index_code'],
-    forced: { page: 1, page_size: 31 },
+    forced: { page: 1, page_size: 300 },
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 10 },
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 31 },
@@ -341,9 +341,18 @@ function applyDefaults(route, params) {
 }
 
 function parseDate(value, fieldName, apiName) {
-  const t = Date.parse(value);
-  if (Number.isNaN(t)) {
-    throw new Error(`${apiName} 参数 ${fieldName} 日期格式不合法: ${value}`);
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${apiName} 参数 ${fieldName} 日期格式必须为 YYYY-MM-DD: ${value}`);
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const t = Date.UTC(year, month - 1, day);
+  const d = new Date(t);
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month - 1 ||
+    d.getUTCDate() !== day
+  ) {
+    throw new Error(`${apiName} 参数 ${fieldName} 日期不合法: ${value}`);
   }
   return t;
 }
@@ -490,6 +499,29 @@ function filterFieldsInResponse(result, fields) {
   return result;
 }
 
+function assertBusinessSuccess(result) {
+  if (!result || typeof result !== 'object' || !Object.prototype.hasOwnProperty.call(result, 'code')) {
+    return;
+  }
+  if (result.code !== 200) {
+    const message = result.message || JSON.stringify(result);
+    throw new Error(`API 返回失败 code=${result.code}: ${message}`);
+  }
+}
+
+function normalizeEmptyData(result) {
+  if (!result || typeof result !== 'object' || result.data === undefined || result.data === null) {
+    return result;
+  }
+  const data = result.data;
+  if (Array.isArray(data) && data.length === 0) {
+    result.data = null;
+  } else if (data && typeof data === 'object' && Array.isArray(data.items) && data.items.length === 0) {
+    result.data = null;
+  }
+  return result;
+}
+
 async function callApi(apiName, params = {}) {
   const route = API_ROUTES[apiName];
   if (!route) {
@@ -503,11 +535,12 @@ async function callApi(apiName, params = {}) {
   let userFields = null;
   if (Object.prototype.hasOwnProperty.call(requestParams, 'fields')) {
     userFields = normalizeFields(requestParams.fields, apiName);
-    delete requestParams.fields;
+    requestParams.fields = userFields && userFields.length > 0 ? userFields.join(',') : '';
   }
 
   // 必填项校验（基于 skill 友好的入参名，比如 stock_name）
   applyRequired(route, apiName, requestParams);
+  delete requestParams.fields;
 
   // 入参别名映射：skill 友好名 -> 后端字段名（如 stock_name -> name）
   applyParamMap(route, requestParams);
@@ -590,6 +623,9 @@ async function callApi(apiName, params = {}) {
     if (body !== null) req.write(body);
     req.end();
   });
+
+  assertBusinessSuccess(result);
+  normalizeEmptyData(result);
 
   // 先做字段重命名（后端字段 -> skill 对外字段），再按 fields 裁剪
   const renamed = renameFieldsInResponse(result, route.renameMap || {});

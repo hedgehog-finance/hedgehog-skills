@@ -5,7 +5,7 @@ description: >
     适用场景：开盘前快速获取高信噪比情报。
     触发词：每日早报、财经早餐、今日简报。
     阻断场景：纯个股深度基本面拆解、实时盘口数据查询。
-version: 1.1.5
+version: 1.1.7
 ---
 # 每日早报 
 - **目标**：开盘前高效降噪，交付高信噪比宏观与自选股情报。
@@ -23,7 +23,7 @@ version: 1.1.5
 - **自选股**：拉取自选股列表。
 
 ## 核心工作流
-1. **行业映射**：若自选股非空，参考 hedgehog-skills-guide 技能里的`references/industry_theme.md` 提取持仓前两大申万一级行业。
+1. **行业映射**：若自选股非空，提取自选股最多的前两大申万一级行业分类。
 2. **快讯降噪**：Sub-agent 拉取快讯queryFlashNewsAnalysis（start_time=[前一日]），提取核心信息（<200字）。
 3. **宏观穿透**：Sub-agent 调取新闻 queryNewsAnalysis（`start_date=[前一日]`, `importance_score=4`, `news_type='macro'`），聚焦市场热点、核心数据、央行政策及黑天鹅。提取信息（<500字），文末追加 `[资料来源]` 章节，列出 `{类型(新闻|研报|公告)/id}: 标题`。
 4. **中观产业**：Sub-agent 分别调取两大行业资讯：
@@ -33,7 +33,7 @@ version: 1.1.5
 5. **微观雷达**：最多2个 Sub-agent 并行，逐一查阅自选股资讯:
 - 新闻 queryNewsAnalysis（`start_date=[前一日]`, `importance_score=3`, `news_type='stock'`, `tags=[标准股票代码]`）
 - 研报 queryResearchAnalysis（`start_date=[前一日]`, `importance_score=3`, `report_type='stock'`, `tags=[标准股票代码]`）
-- 公告 queryAnnouncementsAnalysis（`start_date=[前一日]`, `importance_score=3`, `stock_code=[标准股票代码]`）。
+- 公告 queryAnnouncementAnalysis（`start_date=[前一日]`, `importance_score=3`, `stock_code=[标准股票代码]`）。
 死盯业绩、重组、人事及监管函。单股提炼（<200字），文末追加 `[资料来源]` 章节，列出格式同上。
 6. **数据阻断**：静待全量回传，严禁脱离接口捏造数据。
 7. **宏观总结**：对快讯、宏观与行业数据撰写摘要（~200字），须含多空双向客观评述。
@@ -42,8 +42,7 @@ version: 1.1.5
 ## 交付标准 (输出模板)
 
 说明：
-- 资讯分类包含：新闻(News)、研报(Research)、公告(Announcements)。
-- 列表引用格式：`{资讯类型/id}: 标题`（如：`{新闻/105}: 统计局公布7月份CPI数据...`）。
+- 资料列表引用格式：按照`资料引用格式`规范，举例：`[1] {新闻:12345} 统计局公布6月CPI数据`。
 
 请严格按以下模块化结构输出：
 

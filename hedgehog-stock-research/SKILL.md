@@ -5,7 +5,7 @@ description: >
     适用场景：个股分析，针对一家上市公司的多维度分析。
     触发词：个股分析；xxxx股票分析；xxxx公司分析。
     不适用场景：行业分析，宏观分析；非上市公司分析。
-version: 1.0
+version: 1.0.3
 ---
 
 # 刺猬个股分析技能
@@ -28,12 +28,8 @@ version: 1.0
 ### 上市公司数据字段及分析方法说明
 
 放在 hedgehog-skills-guide 技能的 references 文件夹下（按需加载）：
-- financial-report-income.md  财务数据-利润表
-- financial-report-balancesheet.md  财务数据-资产负债表
-- financial-report-cashflow.md  财务数据-现金流量表
 - financial-report-analysis-keypoints.md  财务分析方法要点
 - company-valuation.md 上市公司估值方法
-- stock-moneyflow.md 上市公司股票每日资金向数据
 
 ### 输出要求
 
@@ -41,8 +37,8 @@ version: 1.0
 - **参考资料**
 内容中的相关引用、数据和来源都需要在`[参考资料]`中列出。
 **[参考资料]**
-[1] xxxxxxxxxxxxx    (url，或者刊物及页码，或者“类型: id”)
-说明：网页引用填url；论文填入刊物名称及页码；刺猬投研金融数据库查询的内容填“类型: id”，类型包括资讯、研报、公告，如“公告: 125”
+[1] [按照`资料引用格式`规范]
+举例：`[1] {新闻:12345} 统计局公布6月CPI数据`
 
 - **图表数据**
 内容中需要展示图表，用ECharts混排。
@@ -51,7 +47,7 @@ version: 1.0
 强制启用“本地缓存任务日志”。
 
 - **大模型委员会**
-强制启用“大模型委员会”博弈机制。
+强制启用“大模型委员会”博弈机制。（仅要求存在缺陷的分析师agent重做）
 
 ## 核心功能工作流(Workflow)
 
