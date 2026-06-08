@@ -33,7 +33,19 @@ references/
 刺猬投研AI连接安装配置。 
 1. 安装 `@hedgehog-finance/hedgehog-plugin` 插件（npm 优先，失败后自动切换备用 zip 地址）
 2. 写入 channel 配置（`enabled` / `accountId` / `token`）
-3. 创建独立 agent 与 workspace（路径隔离）
+3. 创建独立 agent 与 workspace（路径隔离），并写入 subagents 配置：
+   ```json
+   {
+     "agents": {
+       "defaults": {
+         "subagents": {
+           "maxSpawnDepth": 2,
+           "maxChildrenPerAgent": 10
+         }
+       }
+     }
+   }
+   ```
 4. 修改`SOUL.md` 身份设定（金融投资专家角色）
 5. 修改AGENTS.md
 6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）：下载技能包后，安装除 `hedgehog-init` 外所有包含 `SKILL.md` 的 hedgehog skill
@@ -125,13 +137,13 @@ node scripts/update-sys-prompt.js
 ### Tool-5: 查询Agent当前状态
 
 **功能**: 
-查询本Agent当前状态：包括Agent类型及版本、首次连接时间、操作系统、Node版本、Python版本、已安装的skill列表。
+查询本Agent当前状态：包括Agent类型及版本、首次连接时间、操作系统、Node版本、Python版本、subagents配置、已安装的skill列表。
 
 **适用场景**: 
 查询Agent当前状态；查询OpenClaw当前状态。
 
 **执行指令**: 
-获取当前Agent类型和版本、当前channel首次连接时间、当前操作系统、Node版本（如果没安装填None）、Python版本（如果没安装填None），以及获取当前已安装的skill列表。
+获取当前Agent类型和版本、当前channel首次连接时间、当前操作系统、Node版本（如果没安装填None）、Python版本（如果没安装填None）、当前subagents配置，以及获取当前已安装的skill列表。如果subagents配置读取失败或未配置，则对应字段填None。
 
 **返回值**：
 返回JSON结构
@@ -146,6 +158,10 @@ node scripts/update-sys-prompt.js
     "os": "string",
     "node_version": "string",
     "python_version": "string"
+  },
+  "subagents": {
+    "maxSpawnDepth": "number | None",
+    "maxChildrenPerAgent": "number | None"
   },
   "skills": [
     {

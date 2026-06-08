@@ -240,6 +240,14 @@ async function installSkillsFromFallback(agentDir) {
 		console.log('⏭️  Agent 目录已存在，跳过创建');
 	}
 
+	const maxSpawnDepthResult = oc('config set agents.defaults.subagents.maxSpawnDepth 2');
+	const maxChildrenResult = oc('config set agents.defaults.subagents.maxChildrenPerAgent 10');
+	if (!maxSpawnDepthResult.ok || !maxChildrenResult.ok) {
+		console.error('❌ subagents 配置写入失败,请检查 openclaw 配置结构');
+		process.exit(1);
+	}
+	console.log('✅ subagents 配置完成');
+
 	console.log('✅ agent 创建完成');
 
 	// ── 4. 追加 SOUL.md 身份设定 ──────────────────────────────────────────────────
