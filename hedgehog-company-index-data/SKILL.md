@@ -4,7 +4,7 @@ description: >
   查询上市公司/股票基础信息、行情、财务数据等。
   【适用】A股股票基础信息、日线行情、每日基本面指标（PE、PB、换手率、总市值等）、个股成交资金流向、利润表、资产负债表、现金流量表、财务指标、审计意见、主营业务构成；申万行业成分股、申万行业日线行情。
   【不适用】宏观经济数据 → 用 hedgehog-macro-industry-data；新闻资讯、公告 → 不属本 skill。
-version: 1.0.2
+version: 1.1.0
 ---
 
 # 上市公司数据查询
@@ -61,7 +61,7 @@ version: 1.0.2
 ---
 
 ### Tool-2: 查询股票日线行情 `queryStockDaily`
-**适用场景**：查询单只股票历史收盘价、涨跌幅、成交量、成交额等日线行情。
+**适用场景**：查询单只股票历史收盘价、涨跌幅、成交量、成交额等日线行情。（数据频率：每交易日）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -77,7 +77,7 @@ version: 1.0.2
 ---
 
 ### Tool-3: 查询指定股票每日基本面指标 `queryDailyBasic`
-**适用场景**：查询单只股票 PE、PB、换手率、量比、总市值、流通市值等日频指标。
+**适用场景**：查询单只股票 PE、PB、换手率、量比、总市值、流通市值等日频指标。（数据频率：每交易日）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -93,7 +93,7 @@ version: 1.0.2
 ---
 
 ### Tool-4: 查询个股成交资金流向 `queryMoneyflow`
-**适用场景**：查询主力、散户、大单、小单净流入量/净流入额等资金流向（每日交易统计）。
+**适用场景**：查询主力、散户、大单、小单净流入量/净流入额等资金流向。（数据频率：每交易日）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -109,7 +109,7 @@ version: 1.0.2
 ---
 
 ### Tool-5: 查询利润表（简表） `queryIncome`
-**适用场景**：查询营业收入、营业利润、净利润、归母净利润、每股收益等利润表科目（汇总视图）。
+**适用场景**：查询营业收入、营业利润、净利润、归母净利润、每股收益等利润表科目（汇总视图）。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -118,13 +118,13 @@ version: 1.0.2
 | start_date | string | 否 | 开始日期，距今≤10年 |
 | end_date | string | 否 | 结束日期 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1.5年；按 `end_date` 倒序。默认返回6条记录。
 **返回 data**：见 `references/queryIncome.md`
 
 ---
 
 ### Tool-5b: 查询利润表完整明细（按公司类型明细） `queryIncomeDetail`
-**适用场景**：按银行/保险/证券/一般工商业类型查利润表完整明细，每次返回1条记录。
+**适用场景**：按银行/保险/证券/一般工商业类型查利润表完整明细，每次返回1条记录。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -136,13 +136,13 @@ version: 1.0.2
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
 | comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。用户传入 `fields` 则直接使用，否则按 `comp_type` 自动设置。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。用户传入 `fields` 则直接使用，否则按 `comp_type` 自动设置。默认返回1条记录。
 **返回 data 字段说明**：见 `references/financial-report-income.md`
 
 ---
 
 ### Tool-6: 查询资产负债表（简表） `queryBalanceSheet`
-**适用场景**：查询总资产、总负债、股东权益等资产负债表简表（汇总视图）。
+**适用场景**：查询总资产、总负债、股东权益等资产负债表简表（汇总视图）。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -151,13 +151,13 @@ version: 1.0.2
 | start_date | string | 否 | 开始日期，距今≤10年 |
 | end_date | string | 否 | 结束日期 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；固定第1页、每页4条，按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1.5年；按 `end_date` 倒序。默认返回6条记录。
 **返回 data**：见 `references/queryBalanceSheet.md`
 
 ---
 
 ### Tool-6b: 查询资产负债表完整明细（按公司类型明细） `queryBalanceSheetDetail`
-**适用场景**：查询资产负债明细表。每次返回1条记录。
+**适用场景**：查询资产负债明细表。每次返回1条记录。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -169,13 +169,13 @@ version: 1.0.2
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
 | comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤31天；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤31天；按 `end_date` 倒序。默认返回1条记录。
 **返回 data 字段说明**：见 `references/financial-report-balancesheet.md`
 
 ---
 
 ### Tool-7: 查询现金流量表（简表） `queryCashFlow`
-**适用场景**：查询经营、投资、筹资现金流及现金净额等财务现金流量简表。
+**适用场景**：查询经营、投资、筹资现金流及现金净额等财务现金流量简表。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -184,13 +184,13 @@ version: 1.0.2
 | start_date | string | 否 | 开始日期，距今≤10年 |
 | end_date | string | 否 | 结束日期 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1.5年；按 `end_date` 倒序。默认返回6条记录。
 **返回 data**：见 `references/queryCashFlow.md`
 
 ---
 
 ### Tool-7b: 查询现金流量表完整明细（按公司类型明细） `queryCashFlowDetail`
-**适用场景**：查询现金流量明细表。每次返回1条记录。
+**适用场景**：查询现金流量明细表。每次返回1条记录。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -202,13 +202,13 @@ version: 1.0.2
 | report_type | integer | 否 | 报表类型：1合并报表（默认）、4调整合并报表 |
 | comp_type | integer | 与 fields 至少填一项 | 公司类型：1一般工商业、2银行、3保险、4证券 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤31天；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤31天；按 `end_date` 倒序。默认返回1条记录。
 **返回 data 字段说明**：见 `references/financial-report-cashflow.md`
 
 ---
 
 ### Tool-8: 查询财务指标 `queryFinanceIndicator`
-**适用场景**：查询 ROE、ROA、毛利率、净利率等盈利/成长/偿债/运营能力指标。
+**适用场景**：查询 ROE、ROA、毛利率、净利率等盈利/成长/偿债/运营能力指标。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -218,13 +218,13 @@ version: 1.0.2
 | end_date | string | 否 | 结束日期 |
 | fields | string | 否 | 逗号分隔返回字段名 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。默认返回4条记录。
 **返回 data**：见 `references/queryFinanceIndicator.md`
 
 ---
 
 ### Tool-9: 查询财务审计意见 `queryFinanceAudit`
-**适用场景**：查询审计机构、审计意见类型、审计结论、审计费用或签字会计师。
+**适用场景**：查询审计机构、审计意见类型、审计结论、审计费用或签字会计师。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -234,7 +234,7 @@ version: 1.0.2
 | end_date | string | 否 | 结束日期 |
 | fields | string | 否 | 逗号分隔返回字段名 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。默认返回4条记录。
 
 **返回 data 字段**：
 | 字段 | 说明 |
@@ -250,7 +250,7 @@ version: 1.0.2
 ---
 
 ### Tool-10: 查询主营业务构成 `queryFinanceMainbz`
-**适用场景**：按产品、地区或行业维度分析主营业务收入、成本、利润构成。
+**适用场景**：按产品、地区或行业维度分析主营业务收入、成本、利润构成。（数据频率：每季度末）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |
@@ -260,7 +260,7 @@ version: 1.0.2
 | end_date | string | 否 | 结束日期 |
 | fields | string | 否 | 逗号分隔返回字段名 |
 
-> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。
+> 脚本内限制：`stock_code` 必填；`end_date - start_date`≤1年；按 `end_date` 倒序。默认返回4条记录。
 
 **返回 data 字段**：
 | 字段 | 说明 |
@@ -285,7 +285,7 @@ version: 1.0.2
 | stock_code | string | 是 | 股票代码 |
 | fields | string | 否 | 逗号分隔返回字段名 |
 
-> 脚本内限制：`stock_code` 必填；固定查当前有效成分（`is_new=Y`），按 `in_date` 倒序。
+> 脚本内限制：`stock_code` 必填；固定查当前有效成分（`is_new=Y`），按 `in_date` 倒序。默认返回4条记录。
 
 **返回 data 字段**：
 | 字段 | 说明 |
@@ -303,7 +303,7 @@ version: 1.0.2
 ---
 
 ### Tool-12: 查询申万行业日线行情 `querySwIndustryDaily`
-**适用场景**：查询申万行业指数开高低收、涨跌幅、成交量、成交额、PE、PB。
+**适用场景**：查询申万行业指数开高低收、涨跌幅、成交量、成交额、PE、PB。（数据频率：每交易日）
 
 **输入参数**：
 | 参数 | 类型 | 必填 | 说明 |

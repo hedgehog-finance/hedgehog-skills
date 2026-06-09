@@ -7,6 +7,7 @@ description: >
     阻断场景：纯个股深度基本面拆解、实时盘口数据查询。
 version: 1.1.10
 ---
+
 # 每日早报 
 - **目标**：开盘前高效降噪，交付高信噪比宏观与自选股情报。
 - **边界**：限要素提取与逻辑重构；严禁凭空捏造与深度基本面发散。
@@ -21,7 +22,7 @@ version: 1.1.10
 - **子任务调用纪律**：
     - 严格遵守`Sub-agent 调度与验收纪律`。目的是为了防止多个查询结果返回值字数过大导致上下文溢出，所以**严禁主Agent代劳，防止上下文溢出**。
     - Sub-agent必须遵守`本地缓存任务日志`要求（保存原始数据文件、日志文件、产出文件）。
-    - 在任务文件夹中创建文件`sub-agent-list.txt`, 记录Sub-agent列表`Sub-agent-[index]:[runId]:[session_id]:[status]`。
+    - 在任务目录中创建文件`sub-agent-list.txt`, 记录Sub-agent列表`Sub-agent-[index]:[runId]:[session_id]:[status]`。
 
 ## 数据源约束 
 - **资讯接口技能**：`hedgehog-news-reports`。参考`importance_score`(0~5)与情绪评分(-5~5)定权重。

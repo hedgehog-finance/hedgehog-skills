@@ -84,7 +84,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/moneyflow',
     require: ['stock_code'],
-    forced: { page: 1, page_size: 3 },
+    forced: { page: 1, page_size: 200 },
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 10 },
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 31 },
@@ -96,11 +96,11 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/income',
     require: ['stock_code'],
-    forced: { page: 1, page_size: 4 },
+    forced: { page: 1, page_size: 6 },
 
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 10 },
-      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 366 },
+      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 550 },
     },
   },
 
@@ -125,11 +125,11 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/balance-sheet',
     require: ['stock_code'],
-    forced: { page: 1, page_size: 4 },
+    forced: { page: 1, page_size: 6 },
 
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 10 },
-      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 366 },
+      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 550 },
     },
   },
 
@@ -154,11 +154,11 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/cash-flow',
     require: ['stock_code'],
-    forced: { page: 1, page_size: 4 },
+    forced: { page: 1, page_size: 6 },
 
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 10 },
-      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 366 },
+      dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 550 },
     },
   },
 
