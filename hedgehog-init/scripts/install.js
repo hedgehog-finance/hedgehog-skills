@@ -37,6 +37,16 @@ function oc(args) {
 	}
 }
 
+function looksAlreadyInstalled(result) {
+	const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+	return output.includes('already installed') ||
+		output.includes('already exists') ||
+		output.includes('is installed') ||
+		output.includes('exists') ||
+		output.includes('已安装') ||
+		output.includes('已存在');
+}
+
 function download(url, dest, redirects = 0) {
 	return new Promise((resolve, reject) => {
 		https.get(url, (res) => {
@@ -123,10 +133,12 @@ function copySkill(skillName, sourceDir, agentDir, installSource) {
 	console.log(`✅ ${skillName} 安装成功(${installSource})`);
 }
 
-async function installSkillsFromGithub(agentDir) {
+async function installSkillsFromGithub(agentDir, existingSkills = new Set()) {
 	const tmpRepoZip = path.join(os.tmpdir(), 'hedgehog-skills.zip');
 	const tmpRepoDir = path.join(os.tmpdir(), 'hedgehog-skills-pkg');
 	const installed = new Set();
+	let discoveredCount = 0;
+	let failed = false;
 
 	try {
 		console.log('🔄 正在尝试从 GitHub 下载 hedgehog-skills 仓库包...');
@@ -136,22 +148,30 @@ async function installSkillsFromGithub(agentDir) {
 		unzip(tmpRepoZip, tmpRepoDir);
 
 		for (const [skillName, sourceDir] of discoverHedgehogSkills(tmpRepoDir)) {
-			copySkill(skillName, sourceDir, agentDir, 'GitHub');
-			installed.add(skillName);
+			discoveredCount++;
+			if (!existingSkills.has(skillName)) {
+				copySkill(skillName, sourceDir, agentDir, 'GitHub');
+				installed.add(skillName);
+			} else {
+				console.log(`⏭️  ${skillName} 已存在，跳过`);
+			}
 		}
 	} catch (e) {
-		console.warn(`⚠️ GitHub 下载失败 (${e.message}),尝试备用 ZIP 地址...`);
+		failed = true;
+		console.warn(`⚠️ GitHub 技能包安装失败 (${e.message}),稍后尝试备用 ZIP 地址...`);
 	} finally {
 		cleanup(tmpRepoZip, tmpRepoDir);
 	}
 
-	return installed;
+	return { installed, discoveredCount, failed };
 }
 
-async function installSkillsFromFallback(agentDir) {
+async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 	const tmpRepoZip = path.join(os.tmpdir(), 'hedgehog-skills-fallback.zip');
 	const tmpRepoDir = path.join(os.tmpdir(), 'hedgehog-skills-fallback-pkg');
 	const installed = new Set();
+	let discoveredCount = 0;
+	let failed = false;
 
 	try {
 		console.log('🔄 正在从备用地址下载 hedgehog-skills 技能包...');
@@ -161,47 +181,84 @@ async function installSkillsFromFallback(agentDir) {
 		unzip(tmpRepoZip, tmpRepoDir);
 
 		for (const [skillName, sourceDir] of discoverHedgehogSkills(tmpRepoDir)) {
-			copySkill(skillName, sourceDir, agentDir, '备用地址');
-			installed.add(skillName);
+			discoveredCount++;
+			if (!existingSkills.has(skillName)) {
+				copySkill(skillName, sourceDir, agentDir, '备用地址');
+				installed.add(skillName);
+			} else {
+				console.log(`⏭️  ${skillName} 已存在，跳过`);
+			}
 		}
 	} catch (e) {
+		failed = true;
 		console.warn(`⚠️ 备用技能包安装失败:${e.message},请事后手动安装缺失的 skill。`);
 	} finally {
 		cleanup(tmpRepoZip, tmpRepoDir);
 	}
 
-	return installed;
+	return { installed, discoveredCount, failed };
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 (async () => {
 
 	console.log(`🔍 操作系统:${os.type()} ${os.release()} (${process.platform})`);
-	await installSkillsFromGithub('main');
+	
 	// ── 1. 安装插件 ──────────────────────────────────────────────────────────────
 	console.log('\n📦 [1/7] 安装插件 @hedgehog-finance/hedgehog-plugin ...');
 
-	const npmResult = oc('plugins install @hedgehog-finance/hedgehog-plugin');
-	if (npmResult.ok) {
-		console.log('✅ npm 安装成功');
-	} else {
-		console.warn('⚠️  npm 安装失败,切换为备用地址下载...');
-
-		const tmpZip = path.join(os.tmpdir(), 'hedgehog-plugin.zip');
-		const tmpDir = path.join(os.tmpdir(), 'hedgehog-plugin-pkg');
-
-		try {
-			await download('https://ciweiai.com/hedgehog-plugin.zip', tmpZip);
-			unzip(tmpZip, tmpDir);
-			const fallbackResult = oc(`plugins install "${tmpDir}"`);
-			if (!fallbackResult.ok) throw new Error('本地安装失败');
-			console.log('✅ 备用包安装成功');
-		} catch (e) {
-			console.error(`❌ 插件安装失败:${e.message}`);
-			process.exit(1);
-		} finally {
-			cleanup(tmpZip, tmpDir);
+	// 先检查插件是否已安装（通过尝试获取插件信息）
+	let pluginInstalled = false;
+	try {
+		// 使用 plugins list 命令检查（兼容性更好）
+		const pluginsResult = oc('plugins list');
+		if (pluginsResult.ok && pluginsResult.stdout) {
+			// 检查输出中是否包含 hedgehog_finance 或 hedgehog-plugin
+			if (pluginsResult.stdout.includes('hedgehog_finance') || 
+				pluginsResult.stdout.includes('hedgehog-plugin')) {
+				pluginInstalled = true;
+				console.log('⏭️  hedgehog-plugin 已安装，跳过安装步骤');
+			}
 		}
+	} catch (e) {
+		// 命令执行失败，继续安装流程
+	}
+
+	if (!pluginInstalled) {
+		const npmResult = oc('plugins install @hedgehog-finance/hedgehog-plugin');
+		if (npmResult.ok) {
+			console.log('✅ npm 安装成功');
+		} else if (looksAlreadyInstalled(npmResult)) {
+			pluginInstalled = true;
+			console.log('⏭️  hedgehog-plugin 已安装，继续更新配置');
+		} else {
+			console.warn('⚠️  npm 安装失败，切换为备用地址下载...');
+
+			const tmpZip = path.join(os.tmpdir(), 'hedgehog-plugin.zip');
+			const tmpDir = path.join(os.tmpdir(), 'hedgehog-plugin-pkg');
+
+			try {
+				await download('https://ciweiai.com/hedgehog-plugin.zip', tmpZip);
+				unzip(tmpZip, tmpDir);
+				const fallbackResult = oc(`plugins install "${tmpDir}"`);
+				if (fallbackResult.ok) {
+					console.log('✅ 备用包安装成功');
+				} else if (looksAlreadyInstalled(fallbackResult)) {
+					pluginInstalled = true;
+					console.log('⏭️  hedgehog-plugin 已安装，继续更新配置');
+				} else {
+					throw new Error('本地安装失败');
+				}
+			} catch (e) {
+				console.error(`❌ 插件安装失败:${e.message}`);
+				process.exit(1);
+			} finally {
+				cleanup(tmpZip, tmpDir);
+			}
+		}
+	} else {
+		// 插件已安装，但仍需要替换 channel 的 accountId 和 token
+		console.log('ℹ️  插件已安装，将继续更新 channel 配置...');
 	}
 
 	// ── 2. 写入 channel 配置 ─────────────────────────────────────────────────────
@@ -218,7 +275,7 @@ async function installSkillsFromFallback(agentDir) {
 
 	const wsResult = oc('config get agents.defaults.workspace');
 	if (!wsResult.ok || !wsResult.stdout) {
-		console.error('❌ 无法读取 agents.defaults.workspace,请检查 openclaw 配置');
+		console.error('❌ 无法读取 agents.defaults.workspace，请检查 openclaw 配置');
 		process.exit(1);
 	}
 	const ocRoot = path.dirname(wsResult.stdout);
@@ -236,17 +293,19 @@ async function installSkillsFromFallback(agentDir) {
 			await new Promise(r => setTimeout(r, 500));
 			retries--;
 		}
+		console.log('✅ agent 创建完成');
 	} else {
 		console.log('⏭️  Agent 目录已存在，跳过创建');
 	}
 
+	// 配置 subagents
 	const maxSpawnDepthResult = oc('config set agents.defaults.subagents.maxSpawnDepth 2');
 	const maxChildrenResult = oc('config set agents.defaults.subagents.maxChildrenPerAgent 10');
 	if (!maxSpawnDepthResult.ok || !maxChildrenResult.ok) {
-		console.error('❌ subagents 配置写入失败,请检查 openclaw 配置结构');
-		process.exit(1);
+		console.warn('⚠️ subagents 配置写入失败，可能是当前 OpenClaw 版本暂不支持该配置，继续后续安装');
+	} else {
+		console.log('✅ subagents 配置完成');
 	}
-	console.log('✅ subagents 配置完成');
 
 	console.log('✅ agent 创建完成');
 
@@ -301,9 +360,42 @@ async function installSkillsFromFallback(agentDir) {
 	// ── 6. 安装 hedgehog skills ─────────────────────────────────────────
 	console.log('\n📦 [6/7] 安装 hedgehog skills ...');
 
-	const installedSkills = await installSkillsFromGithub(agentDir);
-	if (!installedSkills.size) {
-		await installSkillsFromFallback(agentDir);
+	const skillsDir = path.join(agentDir, 'skills');
+	const existingSkills = new Set();
+	
+	// 检查已安装的 skills
+	if (fs.existsSync(skillsDir)) {
+		const skillNames = fs.readdirSync(skillsDir);
+		for (const skillName of skillNames) {
+			if (skillName !== 'hedgehog-init' && skillName !== '__MACOSX' && !skillName.startsWith('.')) {
+				const skillDir = path.join(skillsDir, skillName);
+				if (fs.statSync(skillDir).isDirectory() && fs.existsSync(path.join(skillDir, 'SKILL.md'))) {
+					existingSkills.add(skillName);
+				}
+			}
+		}
+	}
+
+	if (existingSkills.size > 0) {
+		console.log(`⏭️  已安装 ${existingSkills.size} 个 hedgehog skills: ${Array.from(existingSkills).join(', ')}`);
+	}
+
+	// 只安装尚未存在的 skills；如果主源失败，再用备用源补齐。
+	const githubResult = await installSkillsFromGithub(agentDir, existingSkills);
+	for (const skillName of githubResult.installed) {
+		existingSkills.add(skillName);
+	}
+
+	if (githubResult.failed || githubResult.discoveredCount === 0) {
+		const fallbackResult = await installSkillsFromFallback(agentDir, existingSkills);
+		for (const skillName of fallbackResult.installed) {
+			existingSkills.add(skillName);
+		}
+		if (!fallbackResult.failed && fallbackResult.installed.size === 0 && fallbackResult.discoveredCount > 0) {
+			console.log('⏭️  所有 hedgehog skills 已存在，跳过安装');
+		}
+	} else if (githubResult.installed.size === 0) {
+		console.log('⏭️  所有 hedgehog skills 已存在，跳过安装');
 	}
 
 	// ── 7. 重启 Gateway ───────────────────────────────────────────────────────────
