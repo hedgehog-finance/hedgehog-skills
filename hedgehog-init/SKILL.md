@@ -48,8 +48,7 @@ references/
    ```
 4. 修改`SOUL.md` 身份设定（金融投资专家角色）
 5. 修改AGENTS.md
-6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）：下载技能包后，安装除 `hedgehog-init` 外所有包含 `SKILL.md` 的 hedgehog skill
-7. 重启 Gateway 使配置生效
+6. 安装 hedgehog skills（GitHub 优先，失败后自动切换备用 zip 地址）
 
 **适用场景**: 
 用户首次安装、重新绑定用户账号或接入失败需重新配置。
@@ -203,7 +202,10 @@ Err: 暂时未实现.
 2. 调用 `Tool-1` 执行安装配置
 3. 把工作空间`hedgehog-workspace`中的Agent.md文件里的`Group Chats`章节内容改为
     You are prohibited from participating in group chats.
-4. 执行Tool-5，并返回JSON格式结果。
+4. 脚本执行完毕后，告知用户：
+   > 已配置成功，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象。
+5. 重启 Gateway 使配置生效。
+6. 执行Tool-5，并返回JSON格式结果。
 
 ---
 
@@ -215,7 +217,7 @@ Err: 暂时未实现.
 1. 从用户对话中提取新 `token`，若未提供则主动询问
 2. 调用 `Tool-2` 更新配置
 3. 脚本执行完毕后，告知用户：
-   > token 已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象，稍后重新连接即可 🎉
+   > token 已更新，即将重启 Gateway 使其生效。重启过程中连接会短暂断开，属正常现象。
 
 ---
 

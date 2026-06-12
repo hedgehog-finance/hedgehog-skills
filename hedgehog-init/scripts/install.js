@@ -203,9 +203,9 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 (async () => {
 
 	console.log(`🔍 操作系统:${os.type()} ${os.release()} (${process.platform})`);
-	
+
 	// ── 1. 安装插件 ──────────────────────────────────────────────────────────────
-	console.log('\n📦 [1/7] 安装插件 @hedgehog-finance/hedgehog-plugin ...');
+	console.log('\n📦 [1/6] 安装插件 @hedgehog-finance/hedgehog-plugin ...');
 
 	// 先检查插件是否已安装（通过尝试获取插件信息）
 	let pluginInstalled = false;
@@ -214,7 +214,7 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 		const pluginsResult = oc('plugins list');
 		if (pluginsResult.ok && pluginsResult.stdout) {
 			// 检查输出中是否包含 hedgehog_finance 或 hedgehog-plugin
-			if (pluginsResult.stdout.includes('hedgehog_finance') || 
+			if (pluginsResult.stdout.includes('hedgehog_finance') ||
 				pluginsResult.stdout.includes('hedgehog-plugin')) {
 				pluginInstalled = true;
 				console.log('⏭️  hedgehog-plugin 已安装，跳过安装步骤');
@@ -262,7 +262,7 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 	}
 
 	// ── 2. 写入 channel 配置 ─────────────────────────────────────────────────────
-	console.log('\n⚙️  [2/7] 配置 channel ...');
+	console.log('\n⚙️  [2/6] 配置 channel ...');
 
 	oc('config set "channels.hedgehog_finance.enabled" true');
 	oc(`config set "channels.hedgehog_finance.accountId" "'${accountId}'"`);
@@ -271,7 +271,7 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 	console.log('✅ channel 配置完成');
 
 	// ── 3. 创建独立 agent 与 workspace ───────────────────────────────────────────
-	console.log('\n🏠 [3/7] 创建独立 agent 与 workspace ...');
+	console.log('\n🏠 [3/6] 创建独立 agent 与 workspace ...');
 
 	const wsResult = oc('config get agents.defaults.workspace');
 	if (!wsResult.ok || !wsResult.stdout) {
@@ -310,7 +310,7 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 	console.log('✅ agent 创建完成');
 
 	// ── 4. 追加 SOUL.md 身份设定 ──────────────────────────────────────────────────
-	console.log('\n📝 [4/7] 追加 SOUL.md 身份设定 ...');
+	console.log('\n📝 [4/6] 追加 SOUL.md 身份设定 ...');
 
 	let soulExisting = '';
 	try { soulExisting = fs.readFileSync(soulPath, 'utf8'); } catch { }
@@ -335,7 +335,7 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 	}
 
 	// ── 5. 写入 AGENTS.md 调度逻辑 ────────────────────────────────────────
-	console.log('\n📝 [5/7] 写入 AGENTS.md 调度逻辑 ...');
+	console.log('\n📝 [5/6] 写入 AGENTS.md 调度逻辑 ...');
 
 	const agentsPath = path.join(agentDir, 'AGENTS.md');
 	const agentsConfigPath = path.join(__dirname, '..', 'references', 'agents_config.md');
@@ -358,11 +358,11 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 		console.warn('⚠️ 未找到 references/agents_config.md，跳过 AGENTS.md 追加');
 	}
 	// ── 6. 安装 hedgehog skills ─────────────────────────────────────────
-	console.log('\n📦 [6/7] 安装 hedgehog skills ...');
+	console.log('\n📦 [6/6] 安装 hedgehog skills ...');
 
 	const skillsDir = path.join(agentDir, 'skills');
 	const existingSkills = new Set();
-	
+
 	// 检查已安装的 skills
 	if (fs.existsSync(skillsDir)) {
 		const skillNames = fs.readdirSync(skillsDir);
@@ -398,10 +398,6 @@ async function installSkillsFromFallback(agentDir, existingSkills = new Set()) {
 		console.log('⏭️  所有 hedgehog skills 已存在，跳过安装');
 	}
 
-	// ── 7. 重启 Gateway ───────────────────────────────────────────────────────────
-	console.log('\n🔄 [7/7] 重启 Gateway ...');
-	oc('gateway restart');
-
-	console.log('\n🎉 全部完成!稍后重新连接即可开始使用 hedgehog-app。');
+	console.log('\n🎉 全部完成!');
 
 })();
