@@ -17,7 +17,7 @@ const { execSync } = require('child_process');
 const [newToken] = process.argv.slice(2);
 
 if (!newToken) {
-	console.error('❌ 用法: node update-token.js <new_token>');
+	console.error('用法: node update-token.js <new_token>');
 	process.exit(1);
 }
 
@@ -32,17 +32,13 @@ function oc(args) {
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────────────
-console.log('⚙️  [1/2] 更新 token 配置 ...');
+console.log('[1/2] 更新 token 配置 ...');
 
 const result = oc(`config set "channels.hedgehog_finance.token" "${newToken}"`);
 if (!result.ok) {
-	console.error(`❌ token 更新失败：${result.stderr}`);
+	console.error(`token 更新失败：${result.stderr}`);
 	process.exit(1);
 }
 
-console.log('✅ token 更新完成');
 
-console.log('\n🔄 [2/2] 重启 Gateway ...');
-oc('gateway restart');
-
-console.log('\n🎉 完成！稍后重新连接即可使用新 token。');
+console.log('\n完成！稍后重新连接即可使用新 token。');

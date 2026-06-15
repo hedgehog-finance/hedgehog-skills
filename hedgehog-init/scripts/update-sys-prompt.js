@@ -17,6 +17,7 @@ const os = require('os');
 const path = require('path');
 const https = require('https');
 const { createWriteStream, mkdirSync, rmSync } = fs;
+const HEDGEHOG_VERSION_URL = 'https://ciweiai.com/version.json';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 function oc(args) {
@@ -33,35 +34,68 @@ function getVersion(content) {
     return match ? match[1] : null;
 }
 
-const http = require('http');
-
-function download(url, dest, redirectCount = 0) {
-    if (redirectCount > 5) return Promise.reject(new Error('Too many redirects'));
-
+function download(url, dest, redirects = 0) {
     return new Promise((resolve, reject) => {
-        const client = url.startsWith('https') ? https : http;
-        
-        client.get(url, (res) => {
-            // 处理 HTTP 重定向
-            if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-                const nextUrl = new URL(res.headers.location, url).href;
-                return download(nextUrl, dest, redirectCount + 1).then(resolve).catch(reject);
+        https.get(url, (res) => {
+            if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+                res.resume();
+                if (!res.headers.location) {
+                    return reject(new Error(`HTTP ${res.statusCode} without location`));
+                }
+                if (redirects >= 5) {
+                    return reject(new Error('Too many redirects'));
+                }
+                const redirectUrl = new URL(res.headers.location, url).toString();
+                return resolve(download(redirectUrl, dest, redirects + 1));
             }
-
             if (res.statusCode !== 200) {
+                res.resume();
+                return reject(new Error(`HTTP ${res.statusCode}`));
+            }
+            const file = createWriteStream(dest);
+            res.pipe(file);
+            file.on('finish', () => file.close(resolve));
+            file.on('error', (err) => {
+                fs.unlink(dest, () => { });
+                reject(err);
+            });
+        }).on('error', (err) => {
+            fs.unlink(dest, () => { });
+            reject(err);
+        });
+    });
+}
+
+function fetchJson(url, redirects = 0) {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+                res.resume();
+                if (!res.headers.location) {
+                    return reject(new Error(`HTTP ${res.statusCode} without location`));
+                }
+                if (redirects >= 5) {
+                    return reject(new Error('Too many redirects'));
+                }
+                const redirectUrl = new URL(res.headers.location, url).toString();
+                return resolve(fetchJson(redirectUrl, redirects + 1));
+            }
+            if (res.statusCode !== 200) {
+                res.resume();
                 return reject(new Error(`HTTP ${res.statusCode}`));
             }
 
-            const file = createWriteStream(dest);
-            res.pipe(file);
-            file.on('finish', () => {
-                file.close();
-                resolve();
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(body));
+                } catch (e) {
+                    reject(new Error(`JSON 解析失败:${e.message}`));
+                }
             });
-        }).on('error', (err) => {
-            if (fs.existsSync(dest)) fs.unlinkSync(dest);
-            reject(err);
-        });
+        }).on('error', reject);
     });
 }
 
@@ -80,43 +114,78 @@ function cleanup(...paths) {
     }
 }
 
+function findReferencesDir(baseDir) {
+    const stack = [baseDir];
+
+    while (stack.length) {
+        const current = stack.pop();
+        const soulPath = path.join(current, 'soul_config.md');
+        const agentsPath = path.join(current, 'agents_config.md');
+        if (path.basename(current) === 'references' && fs.existsSync(soulPath) && fs.existsSync(agentsPath)) {
+            return current;
+        }
+
+        let entries = [];
+        try {
+            entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            if (entry.isDirectory() && entry.name !== '__MACOSX' && !entry.name.startsWith('.')) {
+                stack.push(path.join(current, entry.name));
+            }
+        }
+    }
+
+    return null;
+}
+
+async function updateHedgehogInitVersion(agentDir) {
+    const remoteVersions = await fetchJson(HEDGEHOG_VERSION_URL);
+    const initVersion = remoteVersions['hedgehog-init'];
+    if (!initVersion) {
+        throw new Error('远端 version.json 未包含 hedgehog-init 版本');
+    }
+
+    const versionPath = path.join(agentDir, 'version.json');
+    let localVersions = {};
+    try {
+        localVersions = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+    } catch {
+        localVersions = { ...remoteVersions };
+    }
+
+    localVersions['hedgehog-init'] = initVersion;
+    fs.writeFileSync(versionPath, `${JSON.stringify(localVersions, null, 2)}\n`, 'utf8');
+    console.log(`hedgehog-init 版本已记录: ${initVersion}`);
+}
+
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 (async () => {
 
     console.log(`操作系统:${os.type()} ${os.release()} (${process.platform})`);
 
     // ── 0. 下载最新的配置模板 ──────────────────────────────────────────────────────
-    console.log('\n[0/3] 正在从 GitHub 获取最新的配置模板 ...');
-    
-    const tmpZip = path.join(os.tmpdir(), 'hedgehog-skills-latest.zip');
-    const tmpDir = path.join(os.tmpdir(), 'hedgehog-skills-latest-pkg');
-    
-    // 远程仓库中的配置路径
-    let remoteRefDir = '';
+    console.log('\n[0/3] 正在从备用地址获取最新的配置模板 ...');
+
+    const tmpZip = path.join(os.tmpdir(), 'hedgehog-init-latest.zip');
+    const tmpDir = path.join(os.tmpdir(), 'hedgehog-init-latest-pkg');
+    let refDir = '';
 
     try {
-        await download('https://github.com/hedgehog-finance/hedgehog-skills/archive/refs/heads/main.zip', tmpZip);
+        cleanup(tmpZip, tmpDir);
+
+        await download('https://ciweiai.com/skills/hedgehog-init.zip', tmpZip);
         unzip(tmpZip, tmpDir);
-        remoteRefDir = path.join(tmpDir, 'hedgehog-skills-main', 'hedgehog-init', 'references');
-        
-        if (!fs.existsSync(remoteRefDir)) {
+
+        refDir = findReferencesDir(tmpDir);
+        if (!refDir) {
             throw new Error('未能在下载的包中找到 references 目录');
         }
 
-        console.log('已成功下载云端最新配置模板');
-        
-        // 尝试更新 Skill 自身的本地 references (仅作为静默备份，失败不影响流程)
-        try {
-            const localRefDir = path.join(__dirname, '..', 'references');
-            if (fs.existsSync(localRefDir)) {
-                const files = fs.readdirSync(remoteRefDir);
-                files.forEach(file => {
-                    fs.copyFileSync(path.join(remoteRefDir, file), path.join(localRefDir, file));
-                });
-            }
-        } catch (e) {
-            // 静默处理，不干扰用户
-        }
+        console.log('已成功下载最新配置模板');
     } catch (e) {
         console.error(`无法获取最新配置: ${e.message}`);
         cleanup(tmpZip, tmpDir);
@@ -150,12 +219,12 @@ function cleanup(...paths) {
         {
             name: 'SOUL.md',
             target: path.join(agentDir, 'SOUL.md'),
-            ref: path.join(remoteRefDir, 'soul_config.md')
+            ref: path.join(refDir, 'soul_config.md')
         },
         {
             name: 'AGENTS.md',
             target: path.join(agentDir, 'AGENTS.md'),
-            ref: path.join(remoteRefDir, 'agents_config.md')
+            ref: path.join(refDir, 'agents_config.md')
         }
     ];
 
@@ -196,16 +265,16 @@ function cleanup(...paths) {
         } else {
             // 提取标记之前的内容
             const preContent = targetContent.substring(0, match.index);
-            
+
             // 提取标记之后的内容
             const restContent = targetContent.substring(match.index + match[0].length);
             const endIdx = restContent.indexOf(endFlag);
-            
+
             let postContent = '';
             if (endIdx !== -1) {
                 // 提取结束标记之后的所有内容
                 const afterEnd = restContent.substring(endIdx + endFlag.length);
-                
+
                 // 寻找 End 标记后的第一个 --- 分隔符
                 const separator = '---';
                 const sepIdx = afterEnd.indexOf(separator);
@@ -222,10 +291,10 @@ function cleanup(...paths) {
                 console.log(`[${file.name}] 发现更新 (v${currentVersion} -> v${refVersion})，正在同步...`);
                 // 组装：前缀 + 新模板 + 后缀（如果后缀有内容，确保它另起两行以保持整洁）
                 const trimmedRef = refContent.trim();
-                const finalContent = postContent.trim() 
-                    ? trimmedRef + '\n\n' + postContent.trim() 
+                const finalContent = postContent.trim()
+                    ? trimmedRef + '\n\n' + postContent.trim()
                     : trimmedRef;
-                
+
                 fs.writeFileSync(file.target, preContent + finalContent + '\n', 'utf8');
                 updatedCount++;
             }
@@ -234,11 +303,15 @@ function cleanup(...paths) {
 
     // ── 3. 善后处理 ─────────────────────────────────────────────────────────────
     if (updatedCount > 0) {
-        console.log('\n[3/3] 正在重启 Gateway 以应用更改 ...');
-        oc('gateway restart');
         console.log('\n系统提示词已成功更新至最新版本！');
     } else {
         console.log('\n所有文件均已是最新状态，流程结束');
+    }
+
+    try {
+        await updateHedgehogInitVersion(agentDir);
+    } catch (e) {
+        console.warn(`hedgehog-init 版本信息写入失败:${e.message}`);
     }
 
     cleanup(tmpZip, tmpDir);
