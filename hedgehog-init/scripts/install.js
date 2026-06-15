@@ -53,6 +53,34 @@ function shellQuote(value) {
 	return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function isUnsupportedReplaceOption(result) {
+	const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+	return output.includes('--replace') && (
+		output.includes('unknown option') ||
+		output.includes('unknown argument') ||
+		output.includes('unrecognized option') ||
+		output.includes('unexpected argument') ||
+		output.includes('too many arguments')
+	);
+}
+
+function supportsConfigSetReplace() {
+	const help = oc('config set --help');
+	return help.ok && /(^|\s)--replace(\s|,|$)/.test(`${help.stdout}\n${help.stderr}`);
+}
+
+function setJsonConfig(pathExpr, value, { replace = false } = {}) {
+	const json = shellQuote(JSON.stringify(value));
+	const baseCommand = `config set ${pathExpr} ${json} --strict-json`;
+	if (!replace) return oc(baseCommand);
+
+	if (supportsConfigSetReplace()) {
+		const result = oc(`${baseCommand} --replace`);
+		if (result.ok || !isUnsupportedReplaceOption(result)) return result;
+	}
+	return oc(baseCommand);
+}
+
 function readJsonConfig(pathExpr, { allowMissing = false } = {}) {
 	const result = oc(`config get ${pathExpr} --json`);
 	if (!result.ok) {
@@ -88,7 +116,7 @@ function ensureHedgehogAgentWorkspaceConfig(agentDir) {
 		workspace: agentDir
 	}));
 
-	const setResult = oc(`config set agents.list ${shellQuote(JSON.stringify(nextList))} --strict-json --replace`);
+	const setResult = setJsonConfig('agents.list', nextList, { replace: true });
 	if (!setResult.ok) {
 		throw new Error(setResult.stderr || 'hedgehog-finance agent workspace 写入失败');
 	}
