@@ -26,6 +26,75 @@ function getHedgehogAgentDir() {
 	return path.join(path.dirname(wsResult.stdout), 'hedgehog-workspace');
 }
 
+function formatList(items) {
+	if (!items.length) return '无';
+	return items.map((item) => `- ${item}`).join('\n');
+}
+
+function inferLegacySteps(status) {
+	const steps = [];
+	if (status.workspaceInitialized) {
+		steps.push({ label: '初始化刺猬投研插件', status: 'completed' });
+	}
+	if (status.pluginInstalled) {
+		steps.push({ label: '安装刺猬投研插件', status: 'completed' });
+	}
+	if (status.accountId) {
+		steps.push({ label: '配置刺猬投研账号', status: 'completed' });
+	}
+	if (status.skillsInstalled) {
+		steps.push({ label: '安装hedgehog skills', status: 'completed' });
+	}
+	return steps;
+}
+
+function getSteps(status) {
+	if (Array.isArray(status.steps) && status.steps.length) {
+		return status.steps;
+	}
+	return inferLegacySteps(status);
+}
+
+function isConfigured(status) {
+	if (status.configured || status.status === 'completed') {
+		return true;
+	}
+	return false;
+}
+
+function describeStatus(status) {
+	const steps = getSteps(status);
+	if (isConfigured(status)) {
+		return '刺猬投研AI集成龙虾成功。';
+	}
+
+	const completed = steps
+		.filter((step) => step.status === 'completed')
+		.map((step) => step.label || step.id);
+	const running = steps
+		.filter((step) => step.status === 'running')
+		.map((step) => step.label || step.id);
+	const pending = steps
+		.filter((step) => step.status === 'pending')
+		.map((step) => step.label || step.id);
+	const lines = [];
+	lines.push('刺猬投研AI集成龙虾正在配置中。');
+
+	lines.push('');
+	lines.push(`已完成事项：\n${formatList(completed)}`);
+	lines.push('');
+	lines.push(`当前执行事项：\n${formatList(running.length ? running : (status.currentStep ? [status.currentStep] : []))}`);
+	lines.push('');
+	lines.push(`待处理事项：\n${formatList(pending)}`);
+
+	if (status.updatedAt) {
+		lines.push('');
+		lines.push(`状态更新时间：${status.updatedAt}`);
+	}
+
+	return lines.join('\n');
+}
+
 const agentDir = getHedgehogAgentDir();
 if (!agentDir) {
 	console.log('未找到配置结果');
@@ -40,7 +109,7 @@ if (!fs.existsSync(statusPath)) {
 
 try {
 	const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-	console.log(status.configured ? '配置成功' : '配置未完成');
+	console.log(describeStatus(status));
 } catch (e) {
-	console.log('配置状态异常');
+	console.log('刺猬投研AI集成龙虾正在配置中。');
 }

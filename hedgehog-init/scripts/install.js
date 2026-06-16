@@ -18,6 +18,13 @@ const { createWriteStream, mkdirSync, rmSync } = fs;
 const [token, accountId] = process.argv.slice(2);
 const HEDGEHOG_AGENT_ID = 'hedgehog-finance';
 const HEDGEHOG_VERSION_URL = 'https://ciweiai.com/version.json';
+const STATUS_FILE_NAME = '.hedgehog-config-status.json';
+const INSTALL_STEPS = [
+	{ id: 'workspace', label: '初始化刺猬投研插件' },
+	{ id: 'plugin', label: '安装刺猬投研插件' },
+	{ id: 'account', label: '配置刺猬投研账号' },
+	{ id: 'skills', label: '安装hedgehog skills' }
+];
 const OMITTED_VERSION_KEYS = new Set([
 	'hedgehog-plugin-latest',
 	'hedgehog-plugin-min',
@@ -288,6 +295,93 @@ function getSkillVersion() {
 	}
 }
 
+function createStatusSteps() {
+	return INSTALL_STEPS.map((step) => ({
+		id: step.id,
+		label: step.label,
+		status: 'pending'
+	}));
+}
+
+function readExistingStatus(agentDir) {
+	const statusPath = path.join(agentDir, STATUS_FILE_NAME);
+	if (!fs.existsSync(statusPath)) return null;
+	try {
+		return JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+	} catch {
+		return null;
+	}
+}
+
+function writeStatusFile(agentDir, status) {
+	mkdirSync(agentDir, { recursive: true });
+	const statusPath = path.join(agentDir, STATUS_FILE_NAME);
+	fs.writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`, 'utf8');
+	return statusPath;
+}
+
+function updateInstallStatus(agentDir, patch = {}) {
+	const existing = readExistingStatus(agentDir) || {};
+	const status = {
+		configured: false,
+		status: 'running',
+		accountId,
+		version: getSkillVersion(),
+		startedAt: existing.startedAt || new Date().toISOString(),
+		steps: Array.isArray(existing.steps) ? existing.steps : createStatusSteps(),
+		...existing,
+		...patch,
+		updatedAt: new Date().toISOString()
+	};
+
+	if (!Array.isArray(status.steps)) {
+		status.steps = createStatusSteps();
+	}
+
+	return writeStatusFile(agentDir, status);
+}
+
+function setStepStatus(agentDir, stepId, stepStatus, extra = {}) {
+	const existing = readExistingStatus(agentDir) || {};
+	const steps = Array.isArray(existing.steps) ? existing.steps : createStatusSteps();
+	const now = new Date().toISOString();
+	const nextSteps = steps.map((step) => {
+		if (step.id !== stepId) return step;
+		return {
+			...step,
+			status: stepStatus,
+			...(stepStatus === 'running' ? { startedAt: step.startedAt || now } : {}),
+			...(stepStatus === 'completed' || stepStatus === 'failed' ? { finishedAt: now } : {}),
+			...extra
+		};
+	});
+
+	const currentStep = stepStatus === 'running' ? INSTALL_STEPS.find((step) => step.id === stepId) : null;
+	return updateInstallStatus(agentDir, {
+		steps: nextSteps,
+		currentStepId: currentStep ? currentStep.id : existing.currentStepId,
+		currentStep: currentStep ? currentStep.label : existing.currentStep
+	});
+}
+
+async function runTrackedStep(agentDir, stepId, fn) {
+	setStepStatus(agentDir, stepId, 'running');
+	try {
+		const result = await fn();
+		setStepStatus(agentDir, stepId, 'completed', result && typeof result === 'object' ? { result } : {});
+		return result;
+	} catch (e) {
+		setStepStatus(agentDir, stepId, 'failed', { error: e.message });
+		updateInstallStatus(agentDir, {
+			status: 'failed',
+			configured: false,
+			failedAt: new Date().toISOString(),
+			error: e.message
+		});
+		throw e;
+	}
+}
+
 function discoverHedgehogSkills(baseDir) {
 	const skills = new Map();
 	const stack = [baseDir];
@@ -362,7 +456,7 @@ async function installPlugin() {
 		throw new Error(result.stderr || '本地安装失败');
 	} catch (e) {
 		console.error(`插件安装失败:${e.message}`);
-		process.exit(1);
+		throw e;
 	} finally {
 		cleanup(tmpZip, tmpDir);
 	}
@@ -524,33 +618,123 @@ async function installHedgehogSkills(agentDir) {
 	return { success: true, status: 'completed' };
 }
 
+function updateGroupChatsPolicy(agentDir) {
+	const agentsPath = path.join(agentDir, 'AGENTS.md');
+	const policy = 'You are prohibited from participating in group chats.';
+	let content = '';
+	try {
+		content = fs.readFileSync(agentsPath, 'utf8');
+	} catch {
+		content = '';
+	}
+
+	const lines = content.split(/\r?\n/);
+	const headingIndex = lines.findIndex((line) => /^ {0,3}#{1,6}\s+Group Chats\s*$/i.test(line));
+	if (headingIndex < 0) {
+		const nextContent = `${content.replace(/\s*$/, '')}\n\n## Group Chats\n${policy}\n`;
+		fs.writeFileSync(agentsPath, nextContent, 'utf8');
+		console.log('AGENTS.md Group Chats 配置已追加');
+		return { success: true, status: 'appended' };
+	}
+
+	const headingMatch = lines[headingIndex].match(/^ {0,3}(#{1,6})\s+/);
+	const headingLevel = headingMatch ? headingMatch[1].length : 2;
+	let endIndex = lines.length;
+	for (let i = headingIndex + 1; i < lines.length; i++) {
+		const match = lines[i].match(/^ {0,3}(#{1,6})\s+/);
+		if (match && match[1].length <= headingLevel) {
+			endIndex = i;
+			break;
+		}
+	}
+
+	const nextLines = [
+		...lines.slice(0, headingIndex + 1),
+		policy,
+		...lines.slice(endIndex)
+	];
+	fs.writeFileSync(agentsPath, `${nextLines.join('\n').replace(/\s*$/, '')}\n`, 'utf8');
+	console.log('AGENTS.md Group Chats 配置已更新');
+	return { success: true, status: 'updated' };
+}
+
+function restartGateway() {
+	const result = oc('gateway restart');
+	if (!result.ok) {
+		throw new Error(result.stderr || 'Gateway 重启失败');
+	}
+	console.log('Gateway 重启指令已执行');
+}
+
 function writeConfigStatus(agentDir, installResults) {
-	const statusPath = path.join(agentDir, '.hedgehog-config-status.json');
+	const statusPath = path.join(agentDir, STATUS_FILE_NAME);
 	const status = {
 		configured: true,
+		status: 'completed',
 		configuredAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
 		accountId,
 		pluginInstalled: true,
 		pluginStatus: installResults.plugin.status,
 		workspaceInitialized: true,
 		skillsInstalled: true,
 		skillsStatus: installResults.skills.status,
+		groupChatsPolicyUpdated: true,
+		groupChatsPolicyStatus: installResults.groupChats.status,
+		gatewayRestartRequested: true,
+		gatewayRestartStatus: 'requested',
 		skippedAsSuccess: true,
-		version: getSkillVersion()
+		version: getSkillVersion(),
+		steps: installResults.steps
 	};
 
 	fs.writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`, 'utf8');
 	console.log(`配置状态已记录: ${statusPath}`);
 }
 
-(async () => {
+async function runInstall() {
 	console.log(`操作系统:${os.type()} ${os.release()} (${process.platform})`);
+	const agentDir = getHedgehogAgentDir();
 
-	const agentDir = await initializeHedgehogAgentWorkspace();
-	const pluginResult = await installPlugin();
-	await configureHedgehogAppInfo();
-	const skillsResult = await installHedgehogSkills(agentDir);
-	writeConfigStatus(agentDir, { plugin: pluginResult, skills: skillsResult });
+	try {
+		updateInstallStatus(agentDir, {
+			status: 'running',
+			configured: false,
+			processPid: process.pid,
+			currentStepId: 'workspace',
+			currentStep: INSTALL_STEPS[0].label,
+			steps: createStatusSteps()
+		});
 
-	console.log('\n接入安装配置完成');
-})();
+		await runTrackedStep(agentDir, 'workspace', initializeHedgehogAgentWorkspace);
+		const pluginResult = await runTrackedStep(agentDir, 'plugin', installPlugin);
+		await runTrackedStep(agentDir, 'account', configureHedgehogAppInfo);
+		const skillsResult = await runTrackedStep(agentDir, 'skills', () => installHedgehogSkills(agentDir));
+		const groupChatsResult = updateGroupChatsPolicy(agentDir);
+		updateInstallStatus(agentDir, {
+			groupChatsPolicyUpdated: true,
+			groupChatsPolicyStatus: groupChatsResult.status
+		});
+		const existing = readExistingStatus(agentDir) || {};
+		writeConfigStatus(agentDir, {
+			plugin: pluginResult,
+			skills: skillsResult,
+			groupChats: groupChatsResult,
+			steps: existing.steps
+		});
+
+		console.log('\n接入安装配置完成');
+		restartGateway();
+	} catch (e) {
+		updateInstallStatus(agentDir, {
+			status: 'failed',
+			configured: false,
+			failedAt: new Date().toISOString(),
+			error: e.message
+		});
+		console.error(`\n接入安装配置失败:${e.message}`);
+		process.exit(1);
+	}
+}
+
+runInstall();
