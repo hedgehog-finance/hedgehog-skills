@@ -36,14 +36,14 @@ function inferLegacySteps(status) {
 	if (status.workspaceInitialized) {
 		steps.push({ label: '初始化刺猬投研插件', status: 'completed' });
 	}
+	if (status.skillsInstalled) {
+		steps.push({ label: '安装hedgehog skills', status: 'completed' });
+	}
 	if (status.pluginInstalled) {
 		steps.push({ label: '安装刺猬投研插件', status: 'completed' });
 	}
 	if (status.accountId) {
 		steps.push({ label: '配置刺猬投研账号', status: 'completed' });
-	}
-	if (status.skillsInstalled) {
-		steps.push({ label: '安装hedgehog skills', status: 'completed' });
 	}
 	return steps;
 }
@@ -86,11 +86,6 @@ function describeStatus(status) {
 	lines.push(`当前执行事项：\n${formatList(running.length ? running : (status.currentStep ? [status.currentStep] : []))}`);
 	lines.push('');
 	lines.push(`待处理事项：\n${formatList(pending)}`);
-
-	if (status.updatedAt) {
-		lines.push('');
-		lines.push(`状态更新时间：${status.updatedAt}`);
-	}
 
 	return lines.join('\n');
 }

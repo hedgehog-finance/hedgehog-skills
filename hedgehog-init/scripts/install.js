@@ -412,7 +412,7 @@ function discoverHedgehogSkills(baseDir) {
 	return skills;
 }
 
-async function installPlugin() {
+async function preparePluginInstall() {
 	console.log('\n安装插件 hedgehog-plugin ...');
 
 	const pluginsResult = oc('plugins list');
@@ -423,7 +423,7 @@ async function installPlugin() {
 	);
 	if (pluginAlreadyInstalled) {
 		console.log('hedgehog-plugin 已安装，跳过安装步骤');
-		return { success: true, status: 'already_installed' };
+		return { success: true, status: 'already_installed', skipInstall: true };
 	}
 
 	const tmpZip = path.join(os.tmpdir(), 'hedgehog-plugin.zip');
@@ -442,24 +442,29 @@ async function installPlugin() {
 		}
 
 		installPluginDependencies(pluginDir);
-
-		const result = oc(`plugins install ${shellQuote(pluginDir)}`);
-		if (result.ok) {
-			console.log('本地插件包安装成功');
-			return { success: true, status: 'installed' };
-		}
-		if (looksAlreadyInstalled(result)) {
-			console.log('hedgehog-plugin 已安装，跳过安装步骤');
-			return { success: true, status: 'already_installed' };
-		}
-
-		throw new Error(result.stderr || '本地安装失败');
+		cleanup(tmpZip);
+		return { success: true, status: 'install_requested', pluginDir };
 	} catch (e) {
-		console.error(`插件安装失败:${e.message}`);
-		throw e;
-	} finally {
+		console.error(`插件准备失败:${e.message}`);
 		cleanup(tmpZip, tmpDir);
+		throw e;
 	}
+}
+
+function installPreparedPlugin(pluginDir) {
+	if (!pluginDir) return { success: true, status: 'already_installed' };
+
+	const result = oc(`plugins install ${shellQuote(pluginDir)}`);
+	if (result.ok) {
+		console.log('本地插件包安装成功');
+		return { success: true, status: 'installed' };
+	}
+	if (looksAlreadyInstalled(result)) {
+		console.log('hedgehog-plugin 已安装，跳过安装步骤');
+		return { success: true, status: 'already_installed' };
+	}
+
+	throw new Error(result.stderr || '本地安装失败');
 }
 
 async function initializeHedgehogAgentWorkspace() {
@@ -548,6 +553,27 @@ async function configureHedgehogAppInfo() {
 	oc(`config set "channels.hedgehog_finance.token" "${token}"`);
 	bindHedgehogChannel();
 	console.log('刺猬投研用户信息配置完成');
+}
+
+function setGatewayReloadMode(mode, { required = true } = {}) {
+	const result = oc(`config set gateway.reload.mode ${mode}`);
+	if (!result.ok) {
+		const message = result.stderr || `gateway.reload.mode 设置为 ${mode} 失败`;
+		if (required) throw new Error(message);
+		console.warn(message);
+		return { success: false, status: 'failed' };
+	}
+	console.log(`gateway.reload.mode 已设置为 ${mode}`);
+	return { success: true, status: mode };
+}
+
+function restartGateway() {
+	const result = oc('gateway restart');
+	if (!result.ok) {
+		throw new Error(result.stderr || 'Gateway 重启失败');
+	}
+	console.log('Gateway 重启指令已执行');
+	return { success: true, status: 'requested' };
 }
 
 function copySkill(skillName, sourceDir, agentDir, installSource) {
@@ -658,14 +684,6 @@ function updateGroupChatsPolicy(agentDir) {
 	return { success: true, status: 'updated' };
 }
 
-function restartGateway() {
-	const result = oc('gateway restart');
-	if (!result.ok) {
-		throw new Error(result.stderr || 'Gateway 重启失败');
-	}
-	console.log('Gateway 重启指令已执行');
-}
-
 function writeConfigStatus(agentDir, installResults) {
 	const statusPath = path.join(agentDir, STATUS_FILE_NAME);
 	const status = {
@@ -697,6 +715,7 @@ async function runInstall() {
 	const agentDir = getHedgehogAgentDir();
 
 	try {
+		setGatewayReloadMode('off');
 		updateInstallStatus(agentDir, {
 			status: 'running',
 			configured: false,
@@ -707,7 +726,10 @@ async function runInstall() {
 		});
 
 		await runTrackedStep(agentDir, 'workspace', initializeHedgehogAgentWorkspace);
-		const pluginResult = await runTrackedStep(agentDir, 'plugin', installPlugin);
+		setStepStatus(agentDir, 'plugin', 'running');
+		const pluginResult = await preparePluginInstall();
+		installPreparedPlugin(pluginResult.pluginDir);
+		setStepStatus(agentDir, 'plugin', 'completed', { result: pluginResult });
 		await runTrackedStep(agentDir, 'account', configureHedgehogAppInfo);
 		const skillsResult = await runTrackedStep(agentDir, 'skills', () => installHedgehogSkills(agentDir));
 		const groupChatsResult = updateGroupChatsPolicy(agentDir);
@@ -724,6 +746,7 @@ async function runInstall() {
 		});
 
 		console.log('\n接入安装配置完成');
+		setGatewayReloadMode('hybrid');
 		restartGateway();
 	} catch (e) {
 		updateInstallStatus(agentDir, {
@@ -732,6 +755,7 @@ async function runInstall() {
 			failedAt: new Date().toISOString(),
 			error: e.message
 		});
+		setGatewayReloadMode('hybrid', { required: false });
 		console.error(`\n接入安装配置失败:${e.message}`);
 		process.exit(1);
 	}
