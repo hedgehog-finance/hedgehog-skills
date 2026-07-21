@@ -1,0 +1,14 @@
+{
+  "name": "hedgehog-gateway-tools",
+  "license": "GPL-3.0",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gateway General MCP Server CLI. Deliver files, report task results, get work context, send notifications, read the watchlist, recommend resources, push workflows and list extensions via HTTP JSON-RPC.",
+  "bin": {
+    "hedgehog-gateway-tools": "cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "math_calc",
+  "version": "1.0.0",
+  "description": "Safe mathematical expression evaluator CLI skill",
+  "type": "module",
+  "main": "cli.mjs",
+  "dependencies": {
+    "expr-eval": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "hog-finnhub",
+  "license": "GPL-3.0",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Global stock data via Finnhub API (excludes China A-shares)",
+  "engines": {
+    "node": ">=18"
+  }
+}

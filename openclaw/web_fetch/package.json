@@ -1,0 +1,15 @@
+{
+  "name": "web_fetch",
+  "version": "1.0.0",
+  "description": "Fetch web page and extract main content as Markdown",
+  "type": "module",
+  "main": "cli.mjs",
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "jsdom": "^24.0.0",
+    "turndown": "^7.1.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

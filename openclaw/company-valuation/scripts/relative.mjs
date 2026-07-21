@@ -1,0 +1,626 @@
+#!/usr/bin/env node
+/**
+ * Hedgehog 相对估值引擎 (ESM).
+ *
+ * 支持方法：
+ *   - pe            : 静态市盈率
+ *   - pe-ttm        : 滚动市盈率（参照 company-valuation.md）
+ *   - pb            : 市净率（参照 company-valuation.md）
+ *   - ps            : 静态市销率
+ *   - ps-ttm        : 滚动市销率（参照 company-valuation.md）
+ *   - ev-ebitda     : 企业价值/EBITDA
+ *   - ev-revenue    : 企业价值/营业收入
+ *   - peg           : PEG 估值法
+ *   - arr           : ARR 倍数
+ *   - p-active-user : 单用户价值（MAU/DAU）
+ *   - p-gmv         : 市值/GMV
+ *   - ev-fcf        : 企业价值/自由现金流
+ *
+ * Usage:
+ *   node ./scripts/relative.mjs <method> '<params-json>'
+ */
+
+import { fileURLToPath } from 'node:url';
+
+// ─── 工具函数 ────────────────────────────────────────────────────────────────
+
+function round(v, d = 2) {
+  const f = Math.pow(10, d);
+  return Math.round(v * f) / f;
+}
+
+function pct(v, d = 2) {
+  return `${(v * 100).toFixed(d)}%`;
+}
+
+/** 计算折溢价范围 */
+function applyFactorRange(baseValue, lowFactor, highFactor, decimals = 2) {
+  return {
+    low: round(baseValue * lowFactor, decimals),
+    high: round(baseValue * highFactor, decimals),
+  };
+}
+
+/** 根据估值范围和总股本计算股价范围 */
+function calcPriceRange(valLow, valHigh, totalShare, decimals = 2) {
+  if (!totalShare) return null;
+  return {
+    low: round(valLow / totalShare, decimals),
+    high: round(valHigh / totalShare, decimals),
+  };
+}
+
+/** 评级 */
+function calcRating(currentPrice, priceLow, priceHigh) {
+  if (currentPrice === undefined) return null;
+  if (currentPrice < priceLow) return '低估 (Undervalued)';
+  if (currentPrice > priceHigh) return '高估 (Overvalued)';
+  return '合理 (Fair Value)';
+}
+
+// ─── TTM 计算（PE-TTM / PS-TTM 共用） ──────────────────────────────────────
+
+/**
+ * 根据报告期数组计算 TTM 值。
+ * @param {Array} reports - 报告期数组，每项含 end_date (YYYYMMDD) 和对应财务字段
+ * @param {string} field - 要计算 TTM 的字段名
+ * @returns {number} TTM 值
+ */
+function calcTTM(reports, field) {
+  if (!Array.isArray(reports) || reports.length === 0) {
+    throw new Error('reports 数组不能为空');
+  }
+  // 按 end_date 降序排序
+  const sorted = [...reports].sort((a, b) => b.end_date.localeCompare(a.end_date));
+  const latest = sorted[0];
+  const endDate = String(latest.end_date);
+  const monthDay = endDate.slice(4, 8);
+
+  const latestValue = latest[field];
+  if (latestValue === undefined || latestValue === null) {
+    throw new Error(`报告期 ${endDate} 缺少字段: ${field}`);
+  }
+
+  // 年报：直接返回
+  if (monthDay === '1231') {
+    return latestValue;
+  }
+
+  // 找去年年报
+  const lastYear = endDate.slice(0, 4);
+  const lastYearEndDate = `${Number(lastYear) - 1}1231`;
+  const lastYearReport = sorted.find((r) => String(r.end_date) === lastYearEndDate);
+
+  if (!lastYearReport) {
+    throw new Error(`无法找到去年年报 (${lastYearEndDate})，请确保 reports 包含去年同期数据`);
+  }
+
+  const lastYearValue = lastYearReport[field];
+  if (lastYearValue === undefined || lastYearValue === null) {
+    throw new Error(`去年年报 (${lastYearEndDate}) 缺少字段: ${field}`);
+  }
+
+  // 找去年同期的报告
+  const lastYearSamePeriod = `${Number(lastYear) - 1}${monthDay}`;
+  const lastYearSameReport = sorted.find((r) => String(r.end_date) === lastYearSamePeriod);
+
+  if (!lastYearSameReport) {
+    throw new Error(`无法找到去年同期报告 (${lastYearSamePeriod})，请确保 reports 包含去年同期数据`);
+  }
+
+  const lastYearSameValue = lastYearSameReport[field];
+  if (lastYearSameValue === undefined || lastYearSameValue === null) {
+    throw new Error(`去年同期报告 (${lastYearSamePeriod}) 缺少字段: ${field}`);
+  }
+
+  // TTM = 本期 + 去年年报 - 去年同期
+  return latestValue + lastYearValue - lastYearSameValue;
+}
+
+// ─── 2.1 PE（静态市盈率） ────────────────────────────────────────────────────
+
+function calcPE(p) {
+  let pe;
+  let netIncome = p.netIncome;
+
+  if (p.pe !== undefined) {
+    pe = p.pe;
+  } else {
+    if (p.marketCap !== undefined && p.netIncome !== undefined) {
+      pe = p.marketCap / netIncome;
+    } else if (p.price !== undefined && p.eps !== undefined) {
+      pe = p.price / p.eps;
+      // 推算市值和净利润
+      if (p.totalShare) {
+        // marketCap = pe * eps * totalShare (如果 eps 是每股收益)
+      }
+    } else {
+      throw new Error('需要提供 marketCap+netIncome 或 price+eps 或 pe');
+    }
+  }
+
+  const result = {
+    pe: round(pe, 2),
+    formula: 'P/E = 总市值 / 净利润 = 股价 / EPS',
+  };
+
+  // 估值范围（可选）
+  if (p.industryPE !== undefined && netIncome !== undefined) {
+    const lowFactor = p.peLowFactor ?? 0.8;
+    const highFactor = p.peHighFactor ?? 1.1;
+    const valRange = applyFactorRange(netIncome * p.industryPE, lowFactor, highFactor);
+    result.valuationRange = {
+      industryPE: p.industryPE,
+      low: valRange.low,
+      high: valRange.high,
+    };
+    if (p.totalShare) {
+      result.priceRange = calcPriceRange(valRange.low, valRange.high, p.totalShare);
+    }
+    if (p.currentPrice !== undefined && p.totalShare) {
+      result.rating = calcRating(p.currentPrice, result.priceRange.low, result.priceRange.high);
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.2 PE-TTM（滚动市盈率） ────────────────────────────────────────────────
+
+function calcPETTM(p) {
+  let ttmNetProfit;
+
+  if (p.ttmNetProfit !== undefined) {
+    ttmNetProfit = p.ttmNetProfit;
+  } else if (Array.isArray(p.reports)) {
+    ttmNetProfit = calcTTM(p.reports, p.reportField || 'n_income_attr_p');
+  } else {
+    throw new Error('需要提供 ttmNetProfit 或 reports 数组');
+  }
+
+  const marketCap = p.marketCap;
+  if (marketCap === undefined) {
+    throw new Error('需要提供 marketCap (总市值)');
+  }
+
+  const peTtm = marketCap / ttmNetProfit;
+
+  const result = {
+    peTtm: round(peTtm, 2),
+    ttmNetProfit: round(ttmNetProfit, 2),
+    marketCap,
+    formula: 'PE-TTM = 总市值 / 近4个季度净利润之和',
+  };
+
+  // 估值范围
+  if (p.industryPE !== undefined) {
+    const lowFactor = p.peLowFactor ?? 0.8;
+    const highFactor = p.peHighFactor ?? 1.1;
+    const valRange = applyFactorRange(ttmNetProfit * p.industryPE, lowFactor, highFactor);
+    result.valuationRange = {
+      industryPE: p.industryPE,
+      low: valRange.low,
+      high: valRange.high,
+    };
+    if (p.totalShare) {
+      result.priceRange = calcPriceRange(valRange.low, valRange.high, p.totalShare);
+    }
+    if (p.currentPrice !== undefined && result.priceRange) {
+      result.rating = calcRating(p.currentPrice, result.priceRange.low, result.priceRange.high);
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.3 PB（市净率） ────────────────────────────────────────────────────────
+
+function calcPB(p) {
+  const { marketCap, equityToParent } = p;
+  if (marketCap === undefined || equityToParent === undefined) {
+    throw new Error('需要提供 marketCap 和 equityToParent (归母权益)');
+  }
+
+  const pb = marketCap / equityToParent;
+
+  const result = {
+    pb: round(pb, 2),
+    formula: 'P/B = 总市值 / 归属于母公司所有者权益',
+  };
+
+  // 估值范围
+  if (p.industryPB !== undefined) {
+    const lowFactor = p.pbLowFactor ?? 0.8;
+    const highFactor = p.pbHighFactor ?? 1.1;
+    const valRange = applyFactorRange(equityToParent * p.industryPB, lowFactor, highFactor);
+    result.valuationRange = {
+      industryPB: p.industryPB,
+      low: valRange.low,
+      high: valRange.high,
+    };
+    if (p.totalShare) {
+      result.priceRange = calcPriceRange(valRange.low, valRange.high, p.totalShare);
+    }
+    if (p.currentPrice !== undefined && result.priceRange) {
+      result.rating = calcRating(p.currentPrice, result.priceRange.low, result.priceRange.high);
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.4 PS（市销率-静态） ───────────────────────────────────────────────────
+
+function calcPS(p) {
+  const { marketCap, revenue } = p;
+  if (marketCap === undefined || revenue === undefined) {
+    throw new Error('需要提供 marketCap 和 revenue');
+  }
+
+  const ps = marketCap / revenue;
+
+  const result = {
+    ps: round(ps, 2),
+    formula: 'P/S = 总市值 / 营业收入',
+  };
+
+  // 估值范围
+  if (p.industryPS !== undefined) {
+    const lowFactor = p.psLowFactor ?? 0.8;
+    const highFactor = p.psHighFactor ?? 1.1;
+    const valRange = applyFactorRange(revenue * p.industryPS, lowFactor, highFactor);
+    result.valuationRange = {
+      industryPS: p.industryPS,
+      low: valRange.low,
+      high: valRange.high,
+    };
+    if (p.totalShare) {
+      result.priceRange = calcPriceRange(valRange.low, valRange.high, p.totalShare);
+    }
+    if (p.currentPrice !== undefined && result.priceRange) {
+      result.rating = calcRating(p.currentPrice, result.priceRange.low, result.priceRange.high);
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.5 PS-TTM（滚动市销率） ──────────────────────────────────────────────
+
+function calcPSTTM(p) {
+  let ttmRevenue;
+
+  if (p.ttmRevenue !== undefined) {
+    ttmRevenue = p.ttmRevenue;
+  } else if (Array.isArray(p.reports)) {
+    ttmRevenue = calcTTM(p.reports, p.reportField || 'total_revenue');
+  } else {
+    throw new Error('需要提供 ttmRevenue 或 reports 数组');
+  }
+
+  const marketCap = p.marketCap;
+  if (marketCap === undefined) {
+    throw new Error('需要提供 marketCap (总市值)');
+  }
+
+  const psTtm = marketCap / ttmRevenue;
+
+  const result = {
+    psTtm: round(psTtm, 2),
+    ttmRevenue: round(ttmRevenue, 2),
+    marketCap,
+    formula: 'PS-TTM = 总市值 / 近4个季度营业总收入之和',
+  };
+
+  // 估值范围（用对标公司 PS 或行业 PS）
+  const benchmarkPS = p.peerPS ?? p.industryPS;
+  if (benchmarkPS !== undefined) {
+    const lowFactor = p.psLowFactor ?? 0.8;
+    const highFactor = p.psHighFactor ?? 1.1;
+    const valRange = applyFactorRange(ttmRevenue * benchmarkPS, lowFactor, highFactor);
+    result.valuationRange = {
+      benchmarkPS,
+      low: valRange.low,
+      high: valRange.high,
+    };
+    if (p.totalShare) {
+      result.priceRange = calcPriceRange(valRange.low, valRange.high, p.totalShare);
+    }
+    if (p.currentPrice !== undefined && result.priceRange) {
+      result.rating = calcRating(p.currentPrice, result.priceRange.low, result.priceRange.high);
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.6 EV/EBITDA ──────────────────────────────────────────────────────────
+
+function calcEVEBITDA(p) {
+  const { marketCap, totalDebt = 0, cash = 0, ebitda } = p;
+  if (marketCap === undefined || ebitda === undefined) {
+    throw new Error('需要提供 marketCap 和 ebitda');
+  }
+
+  const ev = marketCap + totalDebt - cash;
+  const evEbitda = ev / ebitda;
+
+  return {
+    ev: round(ev, 2),
+    ebitda,
+    evEbitda: round(evEbitda, 2),
+    formula: 'EV = 市值 + 总债务 - 现金; EV/EBITDA = EV / EBITDA',
+  };
+}
+
+// ─── 2.7 EV/Revenue ─────────────────────────────────────────────────────────
+
+function calcEVRevenue(p) {
+  const { marketCap, totalDebt = 0, cash = 0, revenue } = p;
+  if (marketCap === undefined || revenue === undefined) {
+    throw new Error('需要提供 marketCap 和 revenue');
+  }
+
+  const ev = marketCap + totalDebt - cash;
+  const evRevenue = ev / revenue;
+
+  return {
+    ev: round(ev, 2),
+    revenue,
+    evRevenue: round(evRevenue, 2),
+    formula: 'EV = 市值 + 总债务 - 现金; EV/Revenue = EV / 营业收入',
+  };
+}
+
+// ─── 2.8 PEG ─────────────────────────────────────────────────────────────────
+
+function calcPEG(p) {
+  let pe = p.pe;
+  let netIncome = p.netIncome;
+
+  if (pe === undefined) {
+    if (p.marketCap !== undefined && p.netIncome !== undefined) {
+      pe = p.marketCap / p.netIncome;
+    } else {
+      throw new Error('需要提供 pe 或 marketCap+netIncome');
+    }
+  }
+
+  const growthRate = p.earningsGrowthRate;
+  if (growthRate === undefined || growthRate === 0) {
+    throw new Error('需要提供 earningsGrowthRate (净利润增长率，不能为0)');
+  }
+
+  const peg = pe / (growthRate * 100);
+  const targetPEG = p.targetPEG ?? 1.0;
+  const fairPE = targetPEG * growthRate * 100;
+
+  let interpretation;
+  if (peg < 1) interpretation = '低估 (PEG < 1)';
+  else if (peg > 1) interpretation = '高估 (PEG > 1)';
+  else interpretation = '合理 (PEG = 1)';
+
+  const result = {
+    peg: round(peg, 4),
+    pe: round(pe, 2),
+    earningsGrowthRate: growthRate,
+    targetPEG,
+    fairPE: round(fairPE, 2),
+    interpretation,
+    formula: 'PEG = P/E / 净利润增长率; 合理PE = 目标PEG × 增长率',
+  };
+
+  // 估值（可选）
+  if (netIncome !== undefined) {
+    const estimatedValue = netIncome * fairPE;
+    result.estimatedValue = round(estimatedValue, 2);
+    if (p.totalShare) {
+      const pricePerShare = estimatedValue / p.totalShare;
+      result.priceRange = {
+        fairPrice: round(pricePerShare, 2),
+      };
+    }
+  }
+
+  return result;
+}
+
+// ─── 2.9 ARR Multiples ───────────────────────────────────────────────────────
+
+function calcARR(p) {
+  const { marketCap, totalDebt = 0, cash = 0, arr } = p;
+  if (marketCap === undefined || arr === undefined) {
+    throw new Error('需要提供 marketCap 和 arr (年度经常性收入)');
+  }
+
+  const ev = marketCap + totalDebt - cash;
+  const arrMultiple = ev / arr;
+
+  const result = {
+    ev: round(ev, 2),
+    arr,
+    arrMultiple: round(arrMultiple, 2),
+    formula: 'ARR Multiple = EV / ARR; EV = 市值 + 总债务 - 现金',
+  };
+
+  // 估值（可选）
+  if (p.industryARRMultiple !== undefined) {
+    const lowFactor = p.arrLowFactor ?? 0.8;
+    const highFactor = p.arrHighFactor ?? 1.2;
+    const evLow = arr * p.industryARRMultiple * lowFactor;
+    const evHigh = arr * p.industryARRMultiple * highFactor;
+    result.estimatedValue = {
+      industryARRMultiple: p.industryARRMultiple,
+      evLow: round(evLow, 2),
+      evHigh: round(evHigh, 2),
+    };
+    // 股权价值 = EV - 净债务
+    const netDebt = totalDebt - cash;
+    result.equityValue = {
+      low: round(evLow - netDebt, 2),
+      high: round(evHigh - netDebt, 2),
+    };
+  }
+
+  return result;
+}
+
+// ─── 2.10 P/Active-User（单用户价值） ────────────────────────────────────────
+
+function calcPActiveUser(p) {
+  const { marketCap, activeUsers } = p;
+  if (marketCap === undefined || activeUsers === undefined) {
+    throw new Error('需要提供 marketCap 和 activeUsers');
+  }
+
+  const userType = p.userType ?? 'MAU';
+  const valuePerUser = marketCap / activeUsers;
+
+  const result = {
+    valuePerUser: round(valuePerUser, 4),
+    userType,
+    marketCap,
+    activeUsers,
+    formula: `P/${userType} = 市值 / ${userType === 'MAU' ? '月' : '日'}活跃用户数`,
+  };
+
+  // 估值（可选）
+  if (p.industryValuePerUser !== undefined) {
+    const lowFactor = p.userLowFactor ?? 0.8;
+    const highFactor = p.userHighFactor ?? 1.2;
+    const valLow = activeUsers * p.industryValuePerUser * lowFactor;
+    const valHigh = activeUsers * p.industryValuePerUser * highFactor;
+    result.estimatedValue = {
+      industryValuePerUser: p.industryValuePerUser,
+      low: round(valLow, 2),
+      high: round(valHigh, 2),
+    };
+  }
+
+  return result;
+}
+
+// ─── 2.11 P/GMV ──────────────────────────────────────────────────────────────
+
+function calcPGMV(p) {
+  const { marketCap, gmv } = p;
+  if (marketCap === undefined || gmv === undefined) {
+    throw new Error('需要提供 marketCap 和 gmv');
+  }
+
+  const pGmv = marketCap / gmv;
+
+  const result = {
+    pGmv: round(pGmv, 4),
+    marketCap,
+    gmv,
+    formula: 'P/GMV = 市值 / 成交总额',
+  };
+
+  // 估值（可选）
+  if (p.industryPGmv !== undefined) {
+    const lowFactor = p.gmvLowFactor ?? 0.8;
+    const highFactor = p.gmvHighFactor ?? 1.2;
+    const valLow = gmv * p.industryPGmv * lowFactor;
+    const valHigh = gmv * p.industryPGmv * highFactor;
+    result.estimatedValue = {
+      industryPGmv: p.industryPGmv,
+      low: round(valLow, 2),
+      high: round(valHigh, 2),
+    };
+  }
+
+  return result;
+}
+
+// ─── 2.12 EV/FCF ────────────────────────────────────────────────────────────
+
+function calcEVFCF(p) {
+  const { marketCap, totalDebt = 0, cash = 0, freeCashFlow } = p;
+  if (marketCap === undefined || freeCashFlow === undefined) {
+    throw new Error('需要提供 marketCap 和 freeCashFlow');
+  }
+
+  const ev = marketCap + totalDebt - cash;
+  const evFcf = ev / freeCashFlow;
+
+  const result = {
+    ev: round(ev, 2),
+    freeCashFlow,
+    evFcf: round(evFcf, 2),
+    formula: 'EV/FCF = 企业价值 / 自由现金流; EV = 市值 + 总债务 - 现金',
+  };
+
+  // 估值（可选）
+  if (p.industryEvFcf !== undefined) {
+    const lowFactor = p.fcfLowFactor ?? 0.8;
+    const highFactor = p.fcfHighFactor ?? 1.2;
+    const evLow = freeCashFlow * p.industryEvFcf * lowFactor;
+    const evHigh = freeCashFlow * p.industryEvFcf * highFactor;
+    result.estimatedValue = {
+      industryEvFcf: p.industryEvFcf,
+      evLow: round(evLow, 2),
+      evHigh: round(evHigh, 2),
+    };
+    const netDebt = totalDebt - cash;
+    result.equityValue = {
+      low: round(evLow - netDebt, 2),
+      high: round(evHigh - netDebt, 2),
+    };
+  }
+
+  return result;
+}
+
+// ─── 方法路由 ────────────────────────────────────────────────────────────────
+
+const METHODS = {
+  pe: { desc: '静态市盈率', required: [], exec: calcPE },
+  'pe-ttm': { desc: '滚动市盈率（TTM）', required: ['marketCap'], exec: calcPETTM },
+  pb: { desc: '市净率', required: ['marketCap', 'equityToParent'], exec: calcPB },
+  ps: { desc: '静态市销率', required: ['marketCap', 'revenue'], exec: calcPS },
+  'ps-ttm': { desc: '滚动市销率（TTM）', required: ['marketCap'], exec: calcPSTTM },
+  'ev-ebitda': { desc: '企业价值/EBITDA', required: ['marketCap', 'ebitda'], exec: calcEVEBITDA },
+  'ev-revenue': { desc: '企业价值/营业收入', required: ['marketCap', 'revenue'], exec: calcEVRevenue },
+  peg: { desc: 'PEG估值法', required: ['earningsGrowthRate'], exec: calcPEG },
+  arr: { desc: 'ARR倍数', required: ['marketCap', 'arr'], exec: calcARR },
+  'p-active-user': { desc: '单用户价值（MAU/DAU）', required: ['marketCap', 'activeUsers'], exec: calcPActiveUser },
+  'p-gmv': { desc: '市值/GMV', required: ['marketCap', 'gmv'], exec: calcPGMV },
+  'ev-fcf': { desc: '企业价值/自由现金流', required: ['marketCap', 'freeCashFlow'], exec: calcEVFCF },
+};
+
+const VALID_METHODS = Object.keys(METHODS);
+
+function main() {
+  const argv = process.argv.slice(2);
+
+  if (argv.length < 1 || argv[0] === '--help' || argv[0] === '-h') {
+    const help = VALID_METHODS.map((m) => `  ${m.padEnd(20)} ${METHODS[m].desc}`).join('\n');
+    console.log(`用法: node relative.mjs <method> '<params-json>'\n\n支持方法:\n${help}`);
+    process.exit(0);
+  }
+
+  const method = argv[0].toLowerCase();
+  const def = METHODS[method];
+  if (!def) {
+    throw new Error(`不支持的方法: ${method}\n支持: ${VALID_METHODS.join(', ')}`);
+  }
+
+  let params = {};
+  if (argv[1]) {
+    try {
+      params = JSON.parse(argv[1]);
+    } catch (err) {
+      throw new Error(`参数 JSON 解析失败: ${err.message}`);
+    }
+  }
+
+  const result = def.exec(params);
+  console.log(JSON.stringify({ method, ...result }, null, 2));
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
+
+export { METHODS, VALID_METHODS, calcTTM };
