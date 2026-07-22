@@ -6,7 +6,7 @@ description: >
   Best for: news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # 财经资讯数据
@@ -45,11 +45,11 @@ version: 1.3.0
 ```
 
 **执行方法**：
-`node scripts/call_api.js --api <接口名> --params '<JSON>' [--output save --dir <sessionTaskDir>]`
+`node scripts/call_api.js --api <接口名> --params '<JSON>' --output save --dir <sessionTaskDir>`
 
-**输出策略（Token 节约）**：
-- 预期结果 > 10 条或字符数 > 4000：**必须** `--output save --dir <sessionTaskDir>`
-- 预期结果 ≤ 10 条：直接输出（默认）
+**输出策略（默认落盘）**：
+- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
+- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
 - save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
 - 禁止 save 后全量 read 回上下文
 

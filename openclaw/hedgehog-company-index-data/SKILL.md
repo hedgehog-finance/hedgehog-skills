@@ -5,7 +5,7 @@ description: >
   capital flow, financial statements (income/balance/cash flow), ratios, audit opinions, main business
   composition; Shenwan industry constituents and quotes; trading calendar and trade day utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.3.1
+version: 1.3.2
 ---
 
 # 上市公司数据查询
@@ -14,10 +14,10 @@ version: 1.3.1
 1. **识别对象**：股票基础信息、行情、基本面、资金流向、财务报表、审计、主营构成、申万行业、交易日历。
 2. **代码核实**：若用户仅提供股票简称/公司名/模糊名称，必须先用 Tool-1 查准 `stock_code`，**严禁盲猜股票代码**。
 3. **查阅匹配**：根据 `Tools基础功能` 选择对应 Tool。
-4. **统一调度**：使用 `node scripts/call_api.js --api <接口名> --params '<JSON字符串>' [--output save --dir <sessionTaskDir>]` 执行调用。
-5. **输出策略（Token 节约）**：
-- 预期结果 > 10 条或字符数 > 4000：**必须** `--output save --dir <sessionTaskDir>`
-- 预期结果 ≤ 10 条：直接输出（默认）
+4. **统一调度**：使用 `node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --output save --dir <sessionTaskDir>` 执行调用。
+5. **输出策略（默认落盘）**：
+- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
+- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
 - save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
 - 禁止 save 后全量 read 回上下文
 6. **结果解析**：保留数据来源、日期口径和关键字段；无结果返回 `null`，严禁凭空编造。

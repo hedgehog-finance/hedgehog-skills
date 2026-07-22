@@ -5,7 +5,7 @@ description: >
   US: Treasury yields.
   NOT for: stock quotes/fundamentals/financials (→ hedgehog-company-index-data); news/announcements.
   Triggers: macro data, interest rate, CPI, PPI, PMI, M1, M2, social financing, money supply, US Treasury yield.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # 宏观经济数据查询
@@ -31,12 +31,12 @@ version: 1.3.0
 
 **统一执行脚本**：
 ```bash
-node scripts/call_api.js --api <接口名> --params '<JSON字符串>' [--output save --dir <sessionTaskDir>]
+node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --output save --dir <sessionTaskDir>
 ```
 
-**输出策略（Token 节约）**：
-- 预期结果 > 10 条或字符数 > 4000：**必须** `--output save --dir <sessionTaskDir>`
-- 预期结果 ≤ 10 条：直接输出（默认）
+**输出策略（默认落盘）**：
+- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
+- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
 - save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
 - 禁止 save 后全量 read 回上下文
 
