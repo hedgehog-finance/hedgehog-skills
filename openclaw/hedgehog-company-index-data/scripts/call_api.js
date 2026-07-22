@@ -267,7 +267,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/stock/sw-industry-member',
     requireAny: [['stock_code', 'l1_code', 'l2_code', 'l3_code']],
-    forced: { is_new: 'Y', page: 1, page_size: 300, sort: '-in_date' },
+    forced: { is_new: 'Y', page: 1, page_size: 300 },
     renameMap: { name: 'stock_name' },
   },
 
@@ -287,10 +287,9 @@ const API_ROUTES = {
   // ===== Tool-13 交易日历 =====
   queryTradeCal: {
     method: 'GET',
-    path: '/v1/market/trade-cal',
+    path: '/v1/trade-cal',
     require: ['start_date', 'end_date'],
     defaults: { exchange: 'SSE' },
-    forced: { page: 1, page_size: 400 },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 366 },
     },
@@ -299,16 +298,17 @@ const API_ROUTES = {
   // ===== Tool-14 判断交易日 =====
   isTradeDay: {
     method: 'GET',
-    path: '/v1/market/trade-cal',
+    path: '/v1/trade-cal',
     require: ['trade_date'],
-    forced: { page: 1, page_size: 1 },
+    defaults: { exchange: 'SSE' },
   },
 
   // ===== Tool-15 交易日偏移 =====
   tradeDayOffset: {
     method: 'GET',
-    path: '/v1/market/trade-day-offset',
+    path: '/v1/trade-cal',
     require: ['base_date', 'offset'],
+    defaults: { exchange: 'SSE' },
   },
 };
 
@@ -692,6 +692,65 @@ async function callApi(apiName, params = {}) {
   if (!route) {
     const names = Object.keys(API_ROUTES).join(', ');
     throw new Error(`未知接口: ${apiName}. 可用接口: ${names}`);
+  }
+
+  // ===== isTradeDay 特殊处理：将 trade_date 转换为 start_date=end_date + is_open=1 =====
+  if (apiName === 'isTradeDay') {
+    const tradeDate = params.trade_date;
+    if (!tradeDate) throw new Error('isTradeDay 缺少必填参数: trade_date');
+    const calResult = await callApi('queryTradeCal', {
+      start_date: tradeDate,
+      end_date: tradeDate,
+      exchange: params.exchange || 'SSE',
+    });
+    const items = Array.isArray(calResult) ? calResult : [];
+    const matched = items.find((r) => r.cal_date === tradeDate);
+    return { trade_date: tradeDate, is_open: matched ? matched.is_open : 0 };
+  }
+
+  // ===== tradeDayOffset 特殊处理：基于 trade-cal 计算交易日偏移 =====
+  if (apiName === 'tradeDayOffset') {
+    const baseDate = params.base_date;
+    const offset = parseInt(params.offset, 10);
+    if (!baseDate) throw new Error('tradeDayOffset 缺少必填参数: base_date');
+    if (Number.isNaN(offset)) throw new Error('tradeDayOffset 参数 offset 必须为整数');
+    if (offset === 0) return { base_date: baseDate, offset: 0, target_date: baseDate };
+
+    // 估算日历范围：交易日约占日历日的 70%，留足余量
+    const calDays = Math.min(Math.ceil(Math.abs(offset) * 2.2) + 10, 366);
+    const baseTs = parseDate(baseDate, 'base_date', 'tradeDayOffset');
+    let startDate, endDate;
+    if (offset > 0) {
+      startDate = baseDate;
+      endDate = new Date(baseTs + calDays * DAY_MS).toISOString().slice(0, 10);
+    } else {
+      startDate = new Date(baseTs - calDays * DAY_MS).toISOString().slice(0, 10);
+      endDate = baseDate;
+    }
+
+    const calResult = await callApi('queryTradeCal', {
+      start_date: startDate,
+      end_date: endDate,
+      exchange: params.exchange || 'SSE',
+      is_open: 1,
+    });
+    const items = Array.isArray(calResult) ? calResult : [];
+    // API 返回 cal_date 倒序，统一转为升序
+    const tradeDays = items.map((r) => r.cal_date).sort();
+
+    // 找到 base_date 在交易日序列中的位置
+    let baseIdx = tradeDays.indexOf(baseDate);
+    if (baseIdx === -1) {
+      // base_date 不是交易日，找下一个交易日作为起点
+      baseIdx = tradeDays.findIndex((d) => d > baseDate);
+      if (baseIdx === -1) throw new Error(`tradeDayOffset: 在查询范围内未找到 ${baseDate} 或之后的交易日`);
+    }
+
+    const targetIdx = baseIdx + offset;
+    if (targetIdx < 0 || targetIdx >= tradeDays.length) {
+      throw new Error(`tradeDayOffset: 偏移 ${offset} 超出查询范围，请缩小 offset 或调整 base_date`);
+    }
+    return { base_date: baseDate, offset: offset, target_date: tradeDays[targetIdx] };
   }
 
   const requestParams = { ...params };

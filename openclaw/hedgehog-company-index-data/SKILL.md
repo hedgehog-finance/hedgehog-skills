@@ -5,7 +5,7 @@ description: >
   capital flow, financial statements (income/balance/cash flow), ratios, audit opinions, main business
   composition; Shenwan industry constituents and quotes; trading calendar and trade day utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.3.0
+version: 1.3.1
 ---
 
 # 上市公司数据查询
