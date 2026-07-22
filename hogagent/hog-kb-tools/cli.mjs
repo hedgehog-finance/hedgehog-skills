@@ -155,7 +155,7 @@ async function cmdSearch(url, args) {
   const f = parseFlags(args);
   const query = unquote(positional(args).join(" "));
   if (!query) {
-    console.error("Usage: hedgehog-kb-tools search <query> [--type T] [--importance-min N] [--date-from D] [--date-to D] [--limit N]");
+    console.error("Usage: hog-kb-tools search <query> [--type T] [--importance-min N] [--date-from D] [--date-to D] [--limit N]");
     process.exit(1);
   }
   const payload = { query, limit: toInt(f.limit, 5, 1, 20) };
@@ -169,7 +169,7 @@ async function cmdSearch(url, args) {
 async function cmdGet(url, args) {
   const id = positional(args)[0];
   if (!id) {
-    console.error("Usage: hedgehog-kb-tools get <itemId>");
+    console.error("Usage: hog-kb-tools get <itemId>");
     process.exit(1);
   }
   printResult(await callMcp(url, "kb_get_document", { itemId: id }));
@@ -184,7 +184,7 @@ async function cmdCall(url, args) {
   const f = parseFlags(args);
   const tool = positional(args)[0];
   if (!tool) {
-    console.error('Usage: hedgehog-kb-tools call <tool> --json \'{"key":"value"}\'');
+    console.error('Usage: hog-kb-tools call <tool> --json \'{"key":"value"}\'');
     process.exit(1);
   }
   let payload = {};
@@ -199,21 +199,19 @@ async function cmdCall(url, args) {
   printResult(await callMcp(url, tool, payload));
 }
 
-const HELP = `hedgehog-kb-tools v1.0.0 — Gateway KB MCP Server CLI (Knowledge Base only)
+const HELP = `hog-kb-tools v1.0.0 — Gateway KB MCP Server CLI (Knowledge Base only)
 
 Usage:
-  hedgehog-kb-tools search <query> [--type T] [--importance-min 0-5] [--date-from YYYY-MM-DD] [--date-to YYYY-MM-DD] [--limit 1-20]
-  hedgehog-kb-tools get <itemId>
-  hedgehog-kb-tools list-types
-  hedgehog-kb-tools call <tool> --json '<arguments>'
+  hog-kb-tools search <query> [--type T] [--importance-min 0-5] [--date-from YYYY-MM-DD] [--date-to YYYY-MM-DD] [--limit 1-20]
+  hog-kb-tools get <itemId>
+  hog-kb-tools list-types
+  hog-kb-tools call <tool> --json '<arguments>'
 
 Global options (may appear before or after the subcommand):
   --url <url>   Override MCP endpoint (highest priority)
 
 Endpoint priority:
-  --url  >  $HEDGEHOG_MCP_KB_URL  >  ~/.hogagent/hogagent.json (memory.mcpKbUrl)  >  ${DEFAULT_URL}
-
-Note: For memory operations, use the hedgehog-memory skill instead.`;
+  --url  >  $HEDGEHOG_MCP_KB_URL  >  ~/.hogagent/hogagent.json (memory.mcpKbUrl)  >  ${DEFAULT_URL}`;
 
 // ---------------------------------------------------------------------------
 // Main.

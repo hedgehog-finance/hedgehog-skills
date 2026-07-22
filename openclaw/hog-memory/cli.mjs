@@ -168,7 +168,7 @@ async function cmdSave(mcpUrl, args) {
   }
   const content = pos.join(" ").replace(/^"(.*)"$/, "$1");
   if (!content) {
-    console.error("Usage: hedgehog-memory save <content> [--task-type TYPE] [--tags a,b,c] [--task-desc DESC]");
+    console.error("Usage: hog-memory save <content> [--task-type TYPE] [--tags a,b,c] [--task-desc DESC]");
     process.exit(1);
   }
   const payload = {
@@ -248,7 +248,7 @@ async function cmdRecall(mcpUrl, args) {
   }
   const id = pos[0];
   if (!id) {
-    console.error("Usage: hedgehog-memory recall <id> [--user-id ID]");
+    console.error("Usage: hog-memory recall <id> [--user-id ID]");
     process.exit(1);
   }
   // Respect --user-id (matches the save/search contract); the extension omits userId
@@ -284,7 +284,7 @@ async function cmdUpdate(mcpUrl, args) {
   }
   const id = pos[0];
   if (!id) {
-    console.error("Usage: hedgehog-memory update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]");
+    console.error("Usage: hog-memory update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]");
     process.exit(1);
   }
   const payload = { id, userId: f["user-id"] || "default" };
@@ -312,7 +312,7 @@ async function cmdDelete(mcpUrl, args) {
   }
   const id = pos[0];
   if (!id) {
-    console.error("Usage: hedgehog-memory delete <id> [--user-id ID]");
+    console.error("Usage: hog-memory delete <id> [--user-id ID]");
     process.exit(1);
   }
   const res = await callMcp(mcpUrl, "kb_memory_delete", {
@@ -350,8 +350,8 @@ async function cmdList(mcpUrl, args) {
 async function main() {
   // Strip global flags (--url, --user-id) from anywhere in argv so they work
   // whether placed before or after the subcommand. This lets both forms work:
-  //   hedgehog-memory --url http://... save ...
-  //   hedgehog-memory save ... --url http://...
+  //   hog-memory --url http://... save ...
+  //   hog-memory save ... --url http://...
   const globalFlags = {};
   const stripped = [];
   const argv = process.argv.slice(2);
@@ -381,15 +381,15 @@ async function main() {
   const rest = stripped.slice(1);
   if (!cmd || cmd === "-h" || cmd === "--help") {
     console.log(
-      "hedgehog-memory v1.1.0 — Cross-session persistent memory CLI\n" +
+      "hog-memory v1.1.0 — Cross-session persistent memory CLI\n" +
       "\n" +
       "Usage:\n" +
-      "  hedgehog-memory save <content> [--task-type TYPE] [--tags a,b] [--task-desc DESC]\n" +
-      "  hedgehog-memory search [query] [--task-type TYPE] [--stock-codes X,Y] [--industry Z] [--tags A,B] [--limit N] [--json]\n" +
-      "  hedgehog-memory recall <id>\n" +
-      "  hedgehog-memory update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]\n" +
-      "  hedgehog-memory delete <id>\n" +
-      "  hedgehog-memory list [--task-type T] [--limit N] [--json]\n" +
+      "  hog-memory save <content> [--task-type TYPE] [--tags a,b] [--task-desc DESC]\n" +
+      "  hog-memory search [query] [--task-type TYPE] [--stock-codes X,Y] [--industry Z] [--tags A,B] [--limit N] [--json]\n" +
+      "  hog-memory recall <id>\n" +
+      "  hog-memory update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]\n" +
+      "  hog-memory delete <id>\n" +
+      "  hog-memory list [--task-type T] [--limit N] [--json]\n" +
       "\n" +
       "Global options (may appear before or after the subcommand):\n" +
       "  --url <url>         Override MCP endpoint (highest priority)\n" +

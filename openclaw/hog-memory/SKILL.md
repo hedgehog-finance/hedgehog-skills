@@ -1,5 +1,5 @@
 ---
-name: hedgehog-memory
+name: hog-memory
 version: 1.1.0
 description: >
     Cross-session persistent memory. Save market insights, research conclusions,

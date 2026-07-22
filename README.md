@@ -17,7 +17,7 @@ hedgehog-skills/
 
 | Platform | Directory | Skills | Description |
 |----------|-----------|--------|-------------|
-| **HogAgent** | `hogagent/` | 10 | Core A-share investment research skills |
+| **HogAgent** | `hogagent/` | 9 | Core A-share investment research skills |
 | **OpenClaw** | `openclaw/` | 19 | All HogAgent skills + 9 general-purpose utility tools |
 | **Optional** | `optional/` | 2 | Global market data extensions (Finnhub & OpenBB) |
 
@@ -32,9 +32,8 @@ hedgehog-skills/
 | `hedgehog-gateway-tools` | 1.0.0 | Gateway MCP Server CLI: file delivery, task result reporting, work context, notifications, watchlist, resource recommendations, workflow push |
 | `hedgehog-in-depth-analysis` | 2.0.0 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
 | `hedgehog-information-verification` | 2.0.0 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
-| `hedgehog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
+| `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.3.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
-| `hedgehog-memory` | 1.1.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
 | `hedgehog-news-reports` | 1.3.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
 | `hedgehog-stock-research` | 2.0.0 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 

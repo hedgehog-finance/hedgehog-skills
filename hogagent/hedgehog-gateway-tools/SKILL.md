@@ -251,7 +251,7 @@ node <skill_path>/cli.mjs list-extensions --type skill --enabled true
 ```json
 [
   {
-    "name": "hedgehog-kb-tools",
+    "name": "hog-kb-tools",
     "type": "skill",
     "version": "1.1.0",
     "enabled": true,

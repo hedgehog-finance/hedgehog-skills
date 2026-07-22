@@ -1,17 +1,15 @@
 ---
-name: hedgehog-kb-tools
+name: hog-kb-tools
 version: 1.1.0
 description: >
     Query the Hedgehog knowledge base (news/research/announcements/minutes/views)
     via the Gateway KB MCP Server. Use to retrieve documents by semantic search
-    or ID, and list knowledge types. For memory operations, use hedgehog-memory.
+    or ID, and list knowledge types.
 ---
 
 # 知识库检索 (KB MCP)
 
 封装 Gateway **KB MCP Server**（`hedgehog-kb-mcp`）暴露的知识库工具，提供知识库语义检索与文档获取能力。所有调用通过 HTTP JSON-RPC 2.0 与 Gateway 交互。
-
-> **注意**：记忆（memory）相关操作请使用 `hedgehog-memory` 技能，本技能仅提供知识库接口。
 
 ## 运行环境
 
