@@ -5,7 +5,7 @@ description: >
   capital flow, financial statements (income/balance/cash flow), ratios, audit opinions, main business
   composition; Shenwan industry constituents and quotes; trading calendar and trade day utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.3.2
+version: 1.4.0
 ---
 
 # 上市公司数据查询
@@ -14,13 +14,15 @@ version: 1.3.2
 1. **识别对象**：股票基础信息、行情、基本面、资金流向、财务报表、审计、主营构成、申万行业、交易日历。
 2. **代码核实**：若用户仅提供股票简称/公司名/模糊名称，必须先用 Tool-1 查准 `stock_code`，**严禁盲猜股票代码**。
 3. **查阅匹配**：根据 `Tools基础功能` 选择对应 Tool。
-4. **统一调度**：使用 `node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --output save --dir <sessionTaskDir>` 执行调用。
-5. **输出策略（默认落盘）**：
-- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
-- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
-- save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
-- 禁止 save 后全量 read 回上下文
-6. **结果解析**：保留数据来源、日期口径和关键字段；无结果返回 `null`，严禁凭空编造。
+4. **统一调度**：使用 `node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --dir <sessionTaskDir>` 执行调用。
+5. **输出策略（脚本自动决定）**：
+- 落盘接口（Tool-2 ~ Tool-13，Tool-11 除外）：脚本自动保存为 `data-*.json`，stdout 仅输出文件指针
+- 直接输出接口（Tool-1 getStockBasic、Tool-11 querySwIndustryMember、Tool-14 isTradeDay、Tool-15 tradeDayOffset）：结果直接输出到 stdout
+- `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+6. **数据读取约束（强制）**：
+- **Sub-agent**：仅在需要生成摘要时允许全量回读 `data-*.json`，否则禁止回读
+- **主 Agent**：使用 `read(path, offset, limit)` 或 `bash("head -N <file>")` 按需读取落盘数据
+7. **结果解析**：保留数据来源、日期口径和关键字段；无结果返回 `null`，严禁凭空编造。
 
 ## 2. 通用约定
 - **返回结构**：
@@ -98,7 +100,7 @@ version: 1.3.2
 
 > 脚本内限制：`stock_code` 必填；`end_date - start_date`≤2年；默认最多 200 条（`fields`≤6 个字段时放宽至 400 条），按 `trade_date` 倒序。
 **返回**：见 `references/queryStockDaily.md`
-**典型用例**：查询股票一个月收盘价 `... --params '{"stock_code":"000001.SZ","start_date":"2023-05-01","end_date":"2023-05-31","fields":"trade_date,close"}'`
+**典型用例**：查询股票一个月收盘价 `node scripts/call_api.js --api queryStockDaily --params '{"stock_code":"000001.SZ","start_date":"2023-05-01","end_date":"2023-05-31","fields":"trade_date,close"}' --dir <sessionTaskDir>`
 
 ---
 

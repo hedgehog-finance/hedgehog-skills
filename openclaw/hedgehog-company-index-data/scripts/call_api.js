@@ -96,6 +96,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/stock/daily',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { limit: 200 },
     dynamicLimit: { default: 200, sparse: 400, threshold: 6 },
     constraints: {
@@ -109,6 +110,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/daily-basic/query',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 200 },
     constraints: {
       maxStartAge: { field: 'start_date', maxYears: 1 },
@@ -121,6 +123,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/moneyflow',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 100 },
     dynamicPageSize: { default: 100, sparse: 300, threshold: 3 },
     constraints: {
@@ -141,6 +144,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/income',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 4 },
     dynamicPageSize: { default: 4, sparse: 40, threshold: 6 },
     constraints: {
@@ -154,6 +158,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/income',
     require: ['stock_code'],
+    saveOutput: true,
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 1 },
@@ -170,6 +175,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/balance-sheet',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 4 },
     dynamicPageSize: { default: 4, sparse: 40, threshold: 6 },
     constraints: {
@@ -183,6 +189,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/balance-sheet',
     require: ['stock_code'],
+    saveOutput: true,
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 1 },
@@ -199,6 +206,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/cash-flow',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 4 },
     dynamicPageSize: { default: 4, sparse: 40, threshold: 6 },
     constraints: {
@@ -212,6 +220,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/cash-flow',
     require: ['stock_code'],
+    saveOutput: true,
     requireAny: [['fields', 'comp_type']],
     defaults: { report_type: 1 },
     forced: { page: 1, page_size: 1 },
@@ -228,6 +237,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/indicator',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 4 },
     dynamicPageSize: { default: 4, sparse: 40, threshold: 6 },
     constraints: {
@@ -241,6 +251,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/audit',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 4 },
 
     constraints: {
@@ -254,6 +265,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/finance/mainbz',
     require: ['stock_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 20 },
     renameMap: { bz_code: 'bz_type' },
     constraints: {
@@ -276,6 +288,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/stock/sw-industry-daily',
     require: ['index_code'],
+    saveOutput: true,
     forced: { page: 1, page_size: 60 },
     dynamicPageSize: { default: 60, sparse: 180, threshold: 6 },
     constraints: {
@@ -289,6 +302,7 @@ const API_ROUTES = {
     method: 'GET',
     path: '/v1/trade-cal',
     require: ['start_date', 'end_date'],
+    saveOutput: true,
     defaults: { exchange: 'SSE' },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 366 },
@@ -891,11 +905,19 @@ async function main() {
     }
   }
 
+  const route = API_ROUTES[args.api];
+  // 落盘策略由路由配置 saveOutput 硬编码决定，--output save 可强制覆盖
+  const shouldSave = args.output === 'save' || (route && route.saveOutput === true);
+
+  if (shouldSave && !args.dir) {
+    throw new Error('缺少参数: --dir <输出目录>（落盘接口必须指定输出目录）');
+  }
+
   const result = await callApi(args.api, params);
 
-  if (args.output === 'save') {
+  if (shouldSave) {
     // Save full data to file, print summary only (token-saving mode)
-    const outDir = args.dir || process.cwd();
+    const outDir = args.dir;
     fs.mkdirSync(outDir, { recursive: true });
 
     // Filename: data-<datetime>-<N>.json (N prevents collision within same second)
@@ -921,7 +943,7 @@ async function main() {
     if (count > 0) console.log(`Sample(2): ${sample.slice(0, 500)}`);
     console.log(`Hint: read("${filepath}", offset, limit) 按需查看`);
   } else {
-    // Default: full output (backward compatible)
+    // 小数据量接口：直接输出到 stdout
     console.log(JSON.stringify(result, null, 2));
   }
 }

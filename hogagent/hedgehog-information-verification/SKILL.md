@@ -6,7 +6,7 @@ description: >
     Best for: information verification and confidence assessment.
     Triggers: verify info | validate rumor | confidence score | fact check
     NOT for: deep event analysis.
-version: 2.0.0
+version: 2.1.0
 workflow_based: true
 ---
 
@@ -47,19 +47,19 @@ workflow_based: true
 | 利益动机与催化时点 | 30 分 | 发布时点无敏感特征，常规信息披露（15-30） | 敏感期+单边情绪诱导（0-14） |
 
 ## Sub-agent 执行协议
-
-- 必须严格遵守 `Sub-agent 调度与验收纪律`
+- 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个 sub-agent 追加记录，格式：
+- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {100字以内摘要：提取文中核心内容和数据}
+- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {总字数:<N>;总行数:<M>}
 ```
-- 在任务目录中创建 Sub-agent 注册表 `sub-agent-list.txt`，每个 sub-agent 追加一条记录，格式：
+- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
+- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
 ```
 Sub-agent-[index]:[session_id]:[status]:[output_file]
 ```
-其中 output_file 为摘要文件 `output-sub-<short_title>.md`
 
 ## 核心工作流
 

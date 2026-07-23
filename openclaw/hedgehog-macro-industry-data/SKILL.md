@@ -5,7 +5,7 @@ description: >
   US: Treasury yields.
   NOT for: stock quotes/fundamentals/financials (→ hedgehog-company-index-data); news/announcements.
   Triggers: macro data, interest rate, CPI, PPI, PMI, M1, M2, social financing, money supply, US Treasury yield.
-version: 1.3.1
+version: 1.4.0
 ---
 
 # 宏观经济数据查询
@@ -31,14 +31,16 @@ version: 1.3.1
 
 **统一执行脚本**：
 ```bash
-node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --output save --dir <sessionTaskDir>
+node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --dir <sessionTaskDir>
 ```
 
-**输出策略（默认落盘）**：
-- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
-- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
-- save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
-- 禁止 save 后全量 read 回上下文
+**输出策略（脚本自动决定）**：
+- 本 skill 所有接口均返回时间序列数据，脚本自动保存为 `data-*.json`，stdout 仅输出文件指针
+- `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+
+**数据读取约束（强制）**：
+- **Sub-agent**：仅在需要生成摘要时允许全量回读 `data-*.json`，否则禁止回读
+- **主 Agent**：使用 `read(path, offset, limit)` 或 `bash("head -N <file>")` 按需读取落盘数据
 
 **通用响应结构**：
 - 所有接口 → 直接返回 `items[]` 数组
@@ -61,6 +63,8 @@ node scripts/call_api.js --api <接口名> --params '<JSON字符串>' --output s
 
 ### Tool-1: 中国 Shibor 利率 (`queryShibor`)
 **适用**：Shibor、银行间同业拆借利率。**排雷**：LPR贷款利率 → Tool-2。
+
+**典型调用**：查询最近30天 Shibor `node scripts/call_api.js --api queryShibor --params '{"start_date":"2024-05-01","end_date":"2024-05-31"}' --dir <sessionTaskDir>`
 
 **输入参数**：
 | 字段 | 类型 | 必填 | 默认值 | 说明 |

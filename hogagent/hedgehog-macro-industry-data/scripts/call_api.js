@@ -46,6 +46,7 @@ const API_ROUTES = {
   queryCpi: {
     method: 'GET',
     path: '/v1/macro-cn/cpi',
+    saveOutput: true,
     forced: { page: 1, page_size: 40 },
     constraints: {
       monthRange: { startField: 'start_month', endField: 'end_month', maxMonths: 36 },
@@ -54,6 +55,7 @@ const API_ROUTES = {
   queryPpi: {
     method: 'GET',
     path: '/v1/macro-cn/ppi',
+    saveOutput: true,
     forced: { page: 1, page_size: 40 },
     constraints: {
       monthRange: { startField: 'start_month', endField: 'end_month', maxMonths: 36 },
@@ -62,6 +64,7 @@ const API_ROUTES = {
   queryMoneySupply: {
     method: 'GET',
     path: '/v1/macro-cn/money-supply',
+    saveOutput: true,
     forced: { page: 1, page_size: 40 },
     constraints: {
       monthRange: { startField: 'start_month', endField: 'end_month', maxMonths: 36 },
@@ -70,6 +73,7 @@ const API_ROUTES = {
   querySocialFinancing: {
     method: 'GET',
     path: '/v1/macro-cn/social-financing',
+    saveOutput: true,
     forced: { page: 1, page_size: 40 },
     constraints: {
       monthRange: { startField: 'start_month', endField: 'end_month', maxMonths: 36 },
@@ -78,6 +82,7 @@ const API_ROUTES = {
   queryPmi: {
     method: 'GET',
     path: '/v1/macro-cn/pmi',
+    saveOutput: true,
     forced: { page: 1, page_size: 40 },
     constraints: {
       monthRange: { startField: 'start_month', endField: 'end_month', maxMonths: 36 },
@@ -88,6 +93,7 @@ const API_ROUTES = {
   queryShibor: {
     method: 'GET',
     path: '/v1/macro-cn/shibor',
+    saveOutput: true,
     forced: { page: 1, page_size: 90 },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 90 },
@@ -96,6 +102,7 @@ const API_ROUTES = {
   queryLpr: {
     method: 'GET',
     path: '/v1/macro-cn/lpr',
+    saveOutput: true,
     forced: { page: 1, page_size: 90 },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 90 },
@@ -106,6 +113,7 @@ const API_ROUTES = {
   queryUsTreasury: {
     method: 'GET',
     path: '/v1/macro-us/treasury',
+    saveOutput: true,
     forced: { page: 1, page_size: 90 },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 90 },
@@ -114,6 +122,7 @@ const API_ROUTES = {
   queryUsTrycr: {
     method: 'GET',
     path: '/v1/macro-us/trycr',
+    saveOutput: true,
     forced: { page: 1, page_size: 90 },
     constraints: {
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 90 },
@@ -445,11 +454,19 @@ async function main() {
     }
   }
 
+  const route = API_ROUTES[args.api];
+  // 落盘策略由路由配置 saveOutput 硬编码决定，--output save 可强制覆盖
+  const shouldSave = args.output === 'save' || (route && route.saveOutput === true);
+
+  if (shouldSave && !args.dir) {
+    throw new Error('缺少参数: --dir <输出目录>（落盘接口必须指定输出目录）');
+  }
+
   const result = await callApi(args.api, params);
 
-  if (args.output === 'save') {
+  if (shouldSave) {
     // Save full data to file, print summary only (token-saving mode)
-    const outDir = args.dir || process.cwd();
+    const outDir = args.dir;
     fs.mkdirSync(outDir, { recursive: true });
 
     // Filename: data-<datetime>-<N>.json (N prevents collision within same second)
@@ -475,7 +492,7 @@ async function main() {
     if (count > 0) console.log(`Sample(2): ${sample.slice(0, 500)}`);
     console.log(`Hint: read("${filepath}", offset, limit) 按需查看`);
   } else {
-    // Default: full output (backward compatible)
+    // 小数据量接口：直接输出到 stdout
     console.log(JSON.stringify(result, null, 2));
   }
 }

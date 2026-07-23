@@ -211,9 +211,7 @@ Global options (may appear before or after the subcommand):
   --url <url>   Override MCP endpoint (highest priority)
 
 Endpoint priority:
-  --url  >  $HEDGEHOG_MCP_KB_URL  >  ~/.hogagent/hogagent.json (memory.mcpKbUrl)  >  ${DEFAULT_URL}
-
-Note: For memory operations, use the hog-memory skill instead.`;
+  --url  >  $HEDGEHOG_MCP_KB_URL  >  ~/.hogagent/hogagent.json (memory.mcpKbUrl)  >  ${DEFAULT_URL}`;
 
 // ---------------------------------------------------------------------------
 // Main.

@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.0.0
+version: 2.1.0
 workflow_based: true
 ---
 
@@ -24,7 +24,7 @@ workflow_based: true
     - 涉及一切公式计算强制调用 `math_calc` 工具，严禁模型自行幻觉心算。
     - 严格执行 `数据图表渲染机制`和`尾注规范`。
 - **子任务并发纪律**：
-    - 严格遵守 `Sub-agent 调度与验收纪律`。**严禁主Agent单线程代劳，防止查询数据过大致上下文溢出**。
+    - 严格遵守 `Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`。**严禁主Agent单线程代劳，防止查询数据过大致上下文溢出**。
 
 ## 数据源及工具约束
 - **股票/公司数据**：`hedgehog-company-index-data`
@@ -34,18 +34,19 @@ workflow_based: true
 - **估值方法**：`company-valuation`
 
 ## Sub-agent 执行协议
-- 必须严格遵守`Sub-agent 调度与验收纪律`
-- 所有落盘文件保存在任务目录下，不要建立子文件夹。
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个Sub-agent在里面追加记录，格式：
+- 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
+- 所有落盘文件保存在任务目录下，不要建立子文件夹
+- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {100字以内摘要}
+- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {总字数:<N>;总行数:<M>}
 ```
-- 在任务目录中创建Sub-agent注册表 `sub-agent-list.txt`，每个Sub-agent追加一条，格式：
+- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
+- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
 ```
-Sub-agent-[index]:[角色]:[session_id]:[status]:[output_file]
+Sub-agent-[index]:[session_id]:[status]:[output_file]
 ```
-其中output_file为摘要文件`output-sub-<short_title>.<ext>`
 
 ---
 

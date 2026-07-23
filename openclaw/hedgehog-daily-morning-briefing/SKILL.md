@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.0.0
+version: 2.1.0
 workflow_based: true
 ---
 
@@ -23,22 +23,22 @@ workflow_based: true
 ## 数据源约束
 - **资讯接口技能**：`hedgehog-news-reports`
 - **股票基本信息、财报、行情、资金流向、交易日历等**：`hedgehog-company-index-data`
-- **自选股**：拉取自选股列表。
+- **自选股**：用户指定或者使用`hedgehog-gateway-tools`拉取自选股列表。
 
 ## Sub-agent 执行协议
-- 必须严格遵守`Sub-agent 调度与验收纪律`
+- 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent在里面追加记录，格式：
+- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {100字以内摘要：提取文中核心内容和数据}
-- {file-name}: {100字以内摘要：关于什么的数据，数据条数及时间范围，最新一条记录的重要字段数据及与上一条数值的对比}
+- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {总字数:<N>;总行数:<M>}
 ```
+- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
 - 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
 ```
 Sub-agent-[index]:[session_id]:[status]:[output_file]
 ```
-其中output_file为摘要文件`output-sub-<short_title>.<ext>`
 
 ## 核心工作流
 
@@ -56,18 +56,18 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 **目标**：并行收集全量数据，所有原始数据落盘，主 Agent 上下文仅保留摘要索引。
 
 #### 批次 1（spawn 2 个Sub-agent并发）
-| Sub-agent | 任务 | 落盘文件 |
-|-----------|------|----------|
-| SA-1 | 快讯 `queryFlashNewsList(start_time=[前一日])` | `flash-news.md` |
-| SA-2 | 宏观新闻 `queryNewsList(start_date, importance_score=4, news_type='macro')` + 各行业（≤4）新闻 `queryNewsList(..., news_type='industry', tags=[行业])` + 各行业研报 `queryResearchList(..., report_type='industry', tags=[行业])` | `macro-industry.md` |
+| Sub-agent | 任务 |
+|-----------|------|
+| SA-1 | 快讯 `queryFlashNewsList(start_time=[前一日])` |
+| SA-2 | 宏观新闻 `queryNewsList(start_date, importance_score=4, news_type='macro')` + 各行业（≤4）新闻 `queryNewsList(..., news_type='industry', tags=[行业])` + 各行业研报 `queryResearchList(..., report_type='industry', tags=[行业])` |
 
 #### 批次 2+（每批 ≤3 个Sub-agent并发，滚动执行）
 按批次计划继续（每个股票spawn一个Sub-agent执行以下查询）：
-- **自选股资讯**：`stock-{code}-info.md`
+- **自选股资讯**：
     - 新闻 `queryNewsList(start_date, importance_score=3, news_type='stock', tags=[code])` 
     - 研报 `queryResearchList(start_date, importance_score=3, report_type='stock', tags=[code])`
     - 公告 `queryAnnouncementList(start_date, importance_score=3, stock_code=[code])`
-- **自选股行情**：`stock-{code}-market.md`
+- **自选股行情**：
     - 日行情 `queryStockDaily(stock_code, start_date=[30日前的日期])`
     - 资金流向 `queryMoneyflow(stock_code, start_date=[30日前的日期])`
 

@@ -6,7 +6,7 @@ description: >
     Best for: event war-gaming and impact analysis.
     Triggers: event sandbox | deep analysis | path forecast | impact assessment
     NOT for: news verification; stock fundamentals.
-version: 2.0.0
+version: 2.1.0
 workflow_based: true
 ---
 
@@ -29,19 +29,19 @@ workflow_based: true
 - **网络搜索/网页抓取**：如有可用搜索技能则调用，否则须在 `[AI生成提示]` 中声明
 
 ## Sub-agent 执行协议
-- 必须严格遵守`Sub-agent 调度与验收纪律`
+- 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent在里面追加记录，格式：
+- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: [文本] {100字以内摘要：提取文中核心内容和数据}
-- {file-name}: [数据] {100字以内摘要：关于什么的数据，数据条数及时间范围，最新一条记录的重要字段数据及与上一条数值的对比}
+- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {总字数:<N>;总行数:<M>}
 ```
+- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
 - 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
 ```
 Sub-agent-[index]:[session_id]:[status]:[output_file]
 ```
-其中output_file为摘要文件`output-sub-<short_title>.<ext>`
 
 ## 核心工作流
 
@@ -59,18 +59,18 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 **目标**：读取 Stage 1 输出的数据收集要求，并行收集全量数据，所有原始数据落盘，主 Agent 上下文仅保留摘要索引。
 
 #### 批次 1（spawn ≤3 个Sub-agent并发）
-| Sub-agent | 任务 | 落盘文件 |
-|-----------|------|----------|
-| SA-1 | 宏观数据 `hedgehog-macro-industry-data`（如事件关联宏观数据） | `macro-data.md` |
-| SA-2 | 资讯搜索① `queryNewsList(keyword=[要点1])` + `queryFlashNewsList(keyword=[要点1])` | `news-keyword1.md` |
-| SA-3 | 资讯搜索② `queryNewsList(keyword=[要点2])` + `queryResearchList(keyword=[要点2])` | `news-keyword2.md` |
+| Sub-agent | 任务 |
+|-----------|------|
+| SA-1 | 宏观数据 `hedgehog-macro-industry-data`（如事件关联宏观数据） |
+| SA-2 | 资讯搜索① `queryNewsList(keyword=[要点1])` + `queryFlashNewsList(keyword=[要点1])` |
+| SA-3 | 资讯搜索② `queryNewsList(keyword=[要点2])` + `queryResearchList(keyword=[要点2])` |
 
 #### 批次 2（spawn ≤3 个Sub-agent并发，按需执行）
-| Sub-agent | 任务 | 落盘文件 |
-|-----------|------|----------|
-| SA-4 | 资讯搜索③ `queryNewsList(keyword=[要点3])` | `news-keyword3.md` |
-| SA-5 | 网络搜索/网页抓取（多方核实，如无搜索能力则跳过） | `web-search.md` |
-| SA-6 | 受影响个股行情 `queryStockDaily` + `queryMoneyflow`（如有明确受影响标的） | `stock-{code}-market.md` |
+| Sub-agent | 任务 |
+|-----------|------|
+| SA-4 | 资讯搜索③ `queryNewsList(keyword=[要点3])` |
+| SA-5 | 网络搜索/网页抓取（多方核实，如无搜索能力则跳过） |
+| SA-6 | 受影响个股行情 `queryStockDaily` + `queryMoneyflow`（如有明确受影响标的） |
 
 > **注意**：批次 2 根据事件性质按需执行，如无明确受影响个股或无需网络搜索，可跳过对应 Sub-agent。
 

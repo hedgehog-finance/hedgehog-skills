@@ -6,7 +6,7 @@ description: >
   Best for: news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.3.1
+version: 1.4.0
 ---
 
 # 财经资讯数据
@@ -45,13 +45,15 @@ version: 1.3.1
 ```
 
 **执行方法**：
-`node scripts/call_api.js --api <接口名> --params '<JSON>' --output save --dir <sessionTaskDir>`
+`node scripts/call_api.js --api <接口名> --params '<JSON>' --dir <sessionTaskDir>`
 
-**输出策略（默认落盘）**：
-- **默认**所有查询均使用 `--output save --dir <sessionTaskDir>`，将原始数据保存为 `data-*.json` 文件
-- 仅当用户明确表示不需要保存原始数据时，才省略 `--output save`（直接输出到 stdout）
-- save 后按需查看：`read(path, offset, limit)` 或 `bash("head -20 <file>")`
-- 禁止 save 后全量 read 回上下文
+**输出策略（脚本自动决定）**：
+- 所有接口均自动保存为 `data-*.json`，stdout 仅输出文件指针
+- `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+
+**数据读取约束（强制）**：
+- **Sub-agent**：仅在需要生成摘要时允许全量回读 `data-*.json`，否则禁止回读
+- **主 Agent**：使用 `read(path, offset, limit)` 或 `bash("head -N <file>")` 按需读取落盘数据
 
 **检索区分**：
 `keyword` 向量匹配，须配合 `start_date` 限定时间；`tags` 用于精确匹配（行业/主题/股票名称/代码统一放入 tags）。
@@ -66,6 +68,7 @@ version: 1.3.1
 ### Tool-1: queryFlashNewsList (查询快讯列表)
 **适用场景**：获取最近快讯列表。
 **典型调用指南**：查询最近一天的快讯：参数 start_time:[一天前的时间]
+**典型调用**：`node scripts/call_api.js --api queryFlashNewsList --params '{"start_time":"2024-06-01 00:00:00"}' --dir <sessionTaskDir>`
 
 **输入参数 `params`：**
 | 字段 | 类型 | 必填 | 默认值 | 说明 |

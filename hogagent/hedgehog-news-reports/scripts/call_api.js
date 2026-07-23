@@ -47,10 +47,12 @@ const API_ROUTES = {
   getNewsDetail: {
     method: 'GET',
     path: '/v1/news/:news_id',
+    saveOutput: true,
   },
   queryFlashNewsList: {
     method: 'POST',
     path: '/v1/news/flash/analysis/query',
+    saveOutput: true,
     forced: { page: 1, page_size: 50 },
     paginated: true,
     defaultFields: [
@@ -66,6 +68,7 @@ const API_ROUTES = {
   queryNewsList: {
     method: 'POST',
     path: '/v1/news/analysis/query',
+    saveOutput: true,
     forced: { page: 1 },
     paginated: true,
     required: ['importance_score'],
@@ -88,10 +91,12 @@ const API_ROUTES = {
   getAnnouncementDetail: {
     method: 'GET',
     path: '/v1/announcements/:announcement_id',
+    saveOutput: true,
   },
   queryAnnouncementList: {
     method: 'POST',
     path: '/v1/announcements/analysis/query',
+    saveOutput: true,
     forced: { page: 1 },
     paginated: true,
     defaultPageSize: 10,
@@ -113,10 +118,12 @@ const API_ROUTES = {
   getResearchDetail: {
     method: 'GET',
     path: '/v1/research/:report_id',
+    saveOutput: true,
   },
   queryResearchList: {
     method: 'POST',
     path: '/v1/research/analysis/query',
+    saveOutput: true,
     forced: { page: 1 },
     paginated: true,
     defaultPageSize: 10,
@@ -519,11 +526,19 @@ async function main() {
     }
   }
 
+  const route = API_ROUTES[args.api];
+  // 落盘策略由路由配置 saveOutput 硬编码决定，--output save 可强制覆盖
+  const shouldSave = args.output === 'save' || (route && route.saveOutput === true);
+
+  if (shouldSave && !args.dir) {
+    throw new Error('缺少参数: --dir <输出目录>（落盘接口必须指定输出目录）');
+  }
+
   const result = await callApi(args.api, params);
 
-  if (args.output === 'save') {
+  if (shouldSave) {
     // Save full data to file, print summary only (token-saving mode)
-    const outDir = args.dir || process.cwd();
+    const outDir = args.dir;
     fs.mkdirSync(outDir, { recursive: true });
 
     // Filename: data-<datetime>-<N>.json (N prevents collision within same second)
@@ -549,7 +564,7 @@ async function main() {
     if (count > 0) console.log(`Sample(2): ${sample.slice(0, 500)}`);
     console.log(`Hint: read("${filepath}", offset, limit) 按需查看`);
   } else {
-    // Default: full output (backward compatible)
+    // 详情接口（小数据量）：直接输出到 stdout
     console.log(JSON.stringify(result, null, 2));
   }
 }
