@@ -1,6 +1,6 @@
 ---
-name: hedgehog-gateway-tools
-version: 1.0.0
+name: hog-gateway-tools
+version: 1.1.0
 description: >
     Interact with the Hedgehog Gateway via its General MCP Server: deliver files to the
     user, report workflow task results, fetch work/task context, send notifications,
