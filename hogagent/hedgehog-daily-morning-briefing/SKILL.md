@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.1.0
+version: 2.1.1
 workflow_based: true
 ---
 
@@ -82,10 +82,10 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 
 1. **创建文件**：写入标题 `【每日早报：YYYY-MM-DD】`。
 2. **宏观要闻章节**：
-    - 读取 `flash-news.md` + `macro-industry.md`
+    - 读取快讯、宏观、行情资讯
     - 撰写：关键数据（有则列，无则填"无"）、宏观摘要（~100字）、产业信息（每行业~50字，最多 3 行业）、重要资讯（按重要性降序前 5 条，格式 `{资讯分类:id} 标题`）
 3. **自选股雷达章节**：
-    - 逐个读取 `stock-{code}-info.md` + `stock-{code}-market.md`
+    - 逐个读取个股行情和资金流向
     - 撰写：资讯摘要（~200字）、前期异动（基于行情与资金流向，~200字）、风险排雷（~100字，无风险填"今日暂无重大排雷事项"）、重要资讯（1~5 条）
 4. **尾注**：汇总所有落盘文件中的 `[参考资料]` 引用，写入 `[AI生成提示]`。
 
