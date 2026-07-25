@@ -553,14 +553,18 @@ async function main() {
     const jsonStr = JSON.stringify(result, null, 2);
     fs.writeFileSync(filepath, jsonStr, 'utf-8');
 
-    // Print summary to stdout
-    const records = Array.isArray(result) ? result : (result && result.items ? result.items : [result]);
-    const count = Array.isArray(records) ? records.length : 1;
-    const fields = count > 0 && typeof records[0] === 'object' ? Object.keys(records[0]).join(', ') : '';
+    // Print summary to stdout. A null/empty result means the query succeeded
+    // but matched no data — report 0 records instead of crashing on Object.keys(null).
+    const records = Array.isArray(result)
+      ? result
+      : (result && Array.isArray(result.items) ? result.items : (result == null ? [] : [result]));
+    const count = records.length;
+    const fields = count > 0 && records[0] && typeof records[0] === 'object' ? Object.keys(records[0]).join(', ') : '';
     const sample = JSON.stringify(records.slice(0, 2));
 
     console.log(`[DataSaved] ${filepath}`);
     console.log(`Records: ${count} | Fields: ${fields}`);
+    if (count === 0) console.log('Note: query succeeded but returned NO data for the given filters. Do not retry the same query.');
     if (count > 0) console.log(`Sample(2): ${sample.slice(0, 500)}`);
     console.log(`Hint: read("${filepath}", offset, limit) 按需查看`);
   } else {

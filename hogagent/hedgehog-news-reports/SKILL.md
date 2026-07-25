@@ -6,7 +6,7 @@ description: >
   Best for: news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # 财经资讯数据

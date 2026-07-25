@@ -5,7 +5,7 @@ description: >
   US: Treasury yields.
   NOT for: stock quotes/fundamentals/financials (→ hedgehog-company-index-data); news/announcements.
   Triggers: macro data, interest rate, CPI, PPI, PMI, M1, M2, social financing, money supply, US Treasury yield.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # 宏观经济数据查询
