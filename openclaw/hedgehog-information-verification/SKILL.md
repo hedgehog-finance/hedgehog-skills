@@ -6,7 +6,7 @@ description: >
     Best for: information verification and confidence assessment.
     Triggers: verify info | validate rumor | confidence score | fact check
     NOT for: deep event analysis.
-version: 2.1.0
+version: 2.2.0
 workflow_based: true
 ---
 
@@ -49,17 +49,15 @@ workflow_based: true
 ## Sub-agent 执行协议
 - 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
+- 落盘数据时必须用 `call_api.js` 的 `--out <文件名>` 参数直接指定语义化文件名（如 `--out data-company-news.json`），禁止落盘后再 `mv` 重命名
+- `[DataSaved]` 输出已包含行数（Lines）与字节数（Bytes），禁止再用 `wc` 等命令验证文件
+- 在任务目录中维护原始数据文件索引 `data-index.md`，每个sub-agent落盘后直接在里面追加记录（行数/字节数直接取自 `[DataSaved]` 输出），格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {总字数:<N>;总行数:<M>}
-- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
-- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
-```
-Sub-agent-[index]:[session_id]:[status]:[output_file]
-```
+- 每个sub-agent回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**（主 Agent 评分与终稿只读摘要、不回读原始数据）：包含审计所需全部要素——信源与最早出处、发布时间线、关键数据点、相关/相反证据、逻辑矛盾点、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序），800 tokens 以内
+- Sub-agent 注册表 `sub-agent-list.txt` 由系统在每个 sub-agent 完成时自动追加记录，主 Agent 与 sub-agent 均无需创建或写入该文件
 
 ## 核心工作流
 
@@ -87,38 +85,38 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 
 #### 批次 1（spawn ≤3 个 Sub-agent 并发）
 
-| Sub-agent | 任务 | 落盘文件 |
-|-----------|------|----------|
-| SA-1 | 公司资讯+公告：`queryNewsAnalysis(tags=[股票代码])` + `queryAnnouncementAnalysis(stock_code=[股票代码])` | `company-news.md` |
-| SA-2 | 行业资讯（如适用）：`queryNewsAnalysis(news_type='industry', importance_score=4, tags=[申万行业])` | `industry-news.md` |
-| SA-3 | 网络搜索（如可用）：检索相关性及出处，最多 5 条，判断是否陈年旧闻或洗稿 | `web-search.md` |
+| Sub-agent | 任务 | 原始数据落盘（`--out`） |
+|-----------|------|------------------------|
+| SA-1 | 公司资讯+公告：`queryNewsAnalysis(tags=[股票代码])` + `queryAnnouncementAnalysis(stock_code=[股票代码])` | `data-company-news.json` |
+| SA-2 | 行业资讯（如适用）：`queryNewsAnalysis(news_type='industry', importance_score=4, tags=[申万行业])` | `data-industry-news.json` |
+| SA-3 | 网络搜索（如可用）：检索相关性及出处，最多 5 条，判断是否陈年旧闻或洗稿 | `data-web-search.md` |
 
 #### 批次 2（按需，spawn ≤1 个 Sub-agent）
 
-| Sub-agent | 任务 | 落盘文件 |
-|-----------|------|----------|
-| SA-4 | 财务验证（如适用）：`queryIncome` + `queryBalanceSheet` + `queryCashFlow`（必须输入 comp_type） | `financial-data.md` |
+| Sub-agent | 任务 | 原始数据落盘（`--out`） |
+|-----------|------|------------------------|
+| SA-4 | 财务验证（如适用）：`queryIncome` + `queryBalanceSheet` + `queryCashFlow`（必须输入 comp_type） | `data-financial.json` |
 
 #### 批次完成后
-1. 等待全部 Sub-agent 返回
-2. 更新 `data-index.md`
-3. 更新 `sub-agent-list.txt`
-4. 在上下文中提示"原始数据文件索引在 data-index.md 中，sub-agent 列表及工作摘要在 sub-agent-list.txt 中"
+1. 等待全部 Sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）
+2. 在上下文中提示"原始数据文件索引在 data-index.md 中，sub-agent 列表在 sub-agent-list.txt 中"
 
 ### Stage 3：逻辑合拢与报告生成（主 Agent 执行）
 
-**目标**：读取落盘数据，评分并生成审计报告。
+**目标**：仅基于 sub-agent 摘要评分并生成审计报告。
 
-1. **摘要提炼**：将 Sub-agent 返回内容提炼成 500 字以内摘要，核心关注时间、来源、事项的匹配度及数据细节的逻辑矛盾点。
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*` 原始数据文件；摘要缺失要素时宁可在对应维度标注"证据不足"并保守给分，也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
+
+1. **摘要提炼**：基于各 `output-sub-*.md` 摘要提炼 500 字以内求证信息概述，核心关注时间、来源、事项的匹配度及数据细节的逻辑矛盾点。
 
 2. **三维评分**：
    - 信息源可靠度（X/40）：追溯最早出处，评估渠道信用权重
    - 交叉逻辑验证（X/30）：列举相关/相反证据
    - 利益催化时点（X/30）：分析是否存在动机漏出
 
-3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`，按交付标准模板撰写。
+3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`：先 `write` 写入标题与各章节空骨架，再按交付标准模板逐章节用 `edit` 填充。
 
-4. **尾注**：汇总所有落盘文件中的 `[资料来源]` 引用，写入 `[AI 生成提示]`。
+4. **尾注**：汇总各摘要中的 `[资料来源]` 引用，`edit` 追加写入 `[AI 生成提示]`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 
@@ -129,7 +127,7 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 3. 检查所有 `[AI 生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
 5. 检查 `sub-agent-list.txt` 中 Sub-agent 数量与实际匹配。
-6. 如发现缺失，回退补全对应章节。
+6. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
 7. 最后交付 `final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件，不要交付其他文件。
 
 ## 交付标准（输出模板）

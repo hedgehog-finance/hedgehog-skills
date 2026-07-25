@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.1.1
+version: 2.2.0
 workflow_based: true
 ---
 
@@ -28,17 +28,15 @@ workflow_based: true
 ## Sub-agent 执行协议
 - 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
+- 落盘数据时必须用 `call_api.js` 的 `--out <文件名>` 参数直接指定语义化文件名（如 `--out data-flash-news.json`），禁止落盘后再 `mv` 重命名
+- `[DataSaved]` 输出已包含行数（Lines）与字节数（Bytes），禁止再用 `wc` 等命令验证文件
+- 在任务目录中维护原始数据文件索引 `data-index.md`，每个sub-agent落盘后直接在里面追加记录（行数/字节数直接取自 `[DataSaved]` 输出），格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {总字数:<N>;总行数:<M>}
-- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
-- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
-```
-Sub-agent-[index]:[session_id]:[status]:[output_file]
-```
+- 每个sub-agent回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**（主 Agent 终稿只读摘要、不回读原始数据）：包含终稿所需全部要素——关键数据点、~100字概述、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序）、行情/资金异动要点（如适用），800 tokens 以内
+- Sub-agent 注册表 `sub-agent-list.txt` 由系统在每个 sub-agent 完成时自动追加记录，主 Agent 与 sub-agent 均无需创建或写入该文件
 
 ## 核心工作流
 
@@ -72,22 +70,22 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
     - 资金流向 `queryMoneyflow(stock_code, start_date=[30日前的日期])`
 
 #### 批次完成后
-1. 等待全部 Sub-agent 返回
-2. 更新 `data-index.md` 
-3. 更新 `sub-agent-list.txt`
-4. 在上下文中提示“原始数据文件索引在 data-index.md 中，sub-agent列表及工作摘要在 sub-agent-list.txt 中”
+1. 等待全部 Sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）
+2. 在上下文中提示"原始数据文件索引在 data-index.md 中，sub-agent列表在 sub-agent-list.txt 中"
 
 ### Stage 3：逐章节生成（主 Agent 执行）
-**目标**：读取落盘数据，在任务目录创建 `final-output-morning-briefing-<YYYYMMDD>.md` 并逐章节编写。
+**目标**：仅基于 sub-agent 摘要，在任务目录创建 `final-output-morning-briefing-<YYYYMMDD>.md` 并逐章节编写。
 
-1. **创建文件**：写入标题 `【每日早报：YYYY-MM-DD】`。
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
+
+1. **创建文件**：`write` 写入标题 `【每日早报：YYYY-MM-DD】` 与各章节空骨架。
 2. **宏观要闻章节**：
-    - 读取快讯、宏观、行情资讯
-    - 撰写：关键数据（有则列，无则填"无"）、宏观摘要（~100字）、产业信息（每行业~50字，最多 3 行业）、重要资讯（按重要性降序前 5 条，格式 `{资讯分类:id} 标题`）
+    - 读取快讯/宏观/行业对应的 `output-sub-*.md` 摘要
+    - `edit` 填入：关键数据（有则列，无则填"无"）、宏观摘要（~100字）、产业信息（每行业~50字，最多 3 行业）、重要资讯（按重要性降序前 5 条，格式 `{资讯分类:id} 标题`）
 3. **自选股雷达章节**：
-    - 逐个读取个股行情和资金流向
-    - 撰写：资讯摘要（~200字）、前期异动（基于行情与资金流向，~200字）、风险排雷（~100字，无风险填"今日暂无重大排雷事项"）、重要资讯（1~5 条）
-4. **尾注**：汇总所有落盘文件中的 `[参考资料]` 引用，写入 `[AI生成提示]`。
+    - 读取各个股对应的 `output-sub-*.md` 摘要（含资讯与行情/资金异动要点）
+    - `edit` 填入：资讯摘要（~200字）、前期异动（基于摘要中的异动要点，~200字）、风险排雷（~100字，无风险填"今日暂无重大排雷事项"）、重要资讯（1~5 条）
+4. **尾注**：汇总各摘要中的 `[参考资料]` 引用，`edit` 追加写入 `[AI生成提示]`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 **目标**：验证交付物完整性和引用规范。
@@ -96,7 +94,7 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 2. 检查 `[参考资料]` 尾注格式符合 `{资讯分类:id} 标题` 规范，引用真实（非捏造）。
 3. 检查所有 `[AI生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
-5. 如发现缺失，回退补全对应章节。
+5. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
 6. 最后交付`final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件, 不要交付其他文件
 
 ## 交付标准（输出模板）

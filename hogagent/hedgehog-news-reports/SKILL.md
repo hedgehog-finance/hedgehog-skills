@@ -6,7 +6,7 @@ description: >
   Best for: news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # 财经资讯数据
@@ -45,11 +45,12 @@ version: 1.5.0
 ```
 
 **执行方法**：
-`node scripts/call_api.js --api <接口名> --params '<JSON>' --dir <sessionTaskDir>`
+`node scripts/call_api.js --api <接口名> --params '<JSON>' --dir <sessionTaskDir>[ --out <文件名>]`
 
 **输出策略（脚本自动决定）**：
 - 所有接口均自动保存为 `data-*.json`，stdout 仅输出文件指针
 - `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+- `--out <文件名>` 可选：指定落盘目标文件名（相对 `--dir`，绝对路径亦可），省略时用默认命名 `data-<datetime>-<N>.json`；`[DataSaved]` 输出附带行数（Lines）与字节数（Bytes）
 
 **数据读取约束（强制）**：
 - **Sub-agent**：仅在需要生成摘要时允许全量回读 `data-*.json`，否则禁止回读

@@ -469,14 +469,20 @@ async function main() {
     const outDir = args.dir;
     fs.mkdirSync(outDir, { recursive: true });
 
-    // Filename: data-<datetime>-<N>.json (N prevents collision within same second)
-    const ts = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-    let n = 1;
+    // --out <filename>: exact target file (relative to --dir unless absolute);
+    // falls back to default naming data-<datetime>-<N>.json when omitted
     let filepath;
-    do {
-      filepath = path.join(outDir, `data-${ts}-${n}.json`);
-      n++;
-    } while (fs.existsSync(filepath));
+    if (typeof args.out === 'string' && args.out) {
+      filepath = path.isAbsolute(args.out) ? args.out : path.join(outDir, args.out);
+      fs.mkdirSync(path.dirname(filepath), { recursive: true });
+    } else {
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+      let n = 1;
+      do {
+        filepath = path.join(outDir, `data-${ts}-${n}.json`);
+        n++;
+      } while (fs.existsSync(filepath));
+    }
 
     const jsonStr = JSON.stringify(result, null, 2);
     fs.writeFileSync(filepath, jsonStr, 'utf-8');
@@ -490,7 +496,7 @@ async function main() {
     const fields = count > 0 && records[0] && typeof records[0] === 'object' ? Object.keys(records[0]).join(', ') : '';
     const sample = JSON.stringify(records.slice(0, 2));
 
-    console.log(`[DataSaved] ${filepath}`);
+    console.log(`[DataSaved] ${filepath} | Lines: ${jsonStr.split('\n').length} | Bytes: ${Buffer.byteLength(jsonStr, 'utf-8')}`);
     console.log(`Records: ${count} | Fields: ${fields}`);
     if (count === 0) console.log('Note: query succeeded but returned NO data for the given filters. Do not retry the same query.');
     if (count > 0) console.log(`Sample(2): ${sample.slice(0, 500)}`);

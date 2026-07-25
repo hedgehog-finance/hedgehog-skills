@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.1.0
+version: 2.2.0
 workflow_based: true
 ---
 
@@ -36,17 +36,20 @@ workflow_based: true
 ## Sub-agent 执行协议
 - 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
+- 落盘数据时必须用 `call_api.js` 的 `--out <文件名>` 参数直接指定语义化文件名（如 `--out data-finance-indicator.json`），禁止落盘后再 `mv` 重命名
+- `[DataSaved]` 输出已包含行数（Lines）与字节数（Bytes），禁止再用 `wc` 等命令验证文件
+- 在任务目录中维护原始数据文件索引 `data-index.md`，每个sub-agent落盘后直接在里面追加记录（行数/字节数直接取自 `[DataSaved]` 输出），格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {总字数:<N>;总行数:<M>}
-- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
-- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
-```
-Sub-agent-[index]:[session_id]:[status]:[output_file]
-```
+- 每个数据收集 sub-agent 回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**：包含关键数据点、~100字概述、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序）、行情/资金异动要点（如适用），800 tokens 以内
+- Sub-agent 注册表 `sub-agent-list.txt` 由系统在每个 sub-agent 完成时自动追加记录，主 Agent 与 sub-agent 均无需创建或写入该文件
+
+## Token 纪律（主 Agent 全程强制）
+- **主 Agent 禁止读取任何 `data-*` 原始数据文件**；需要原始数据细节的分析工作一律 spawn Sub-agent 执行（分析型 Sub-agent 可按 references 规范读取原始数据）。
+- 主 Agent 只读取 `output-sub-*.md` 摘要与 `final-output-*.md` 分析报告。
+- 主 Agent 生成/整合终稿时，先 `write` 写入标题与章节骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。
 
 ---
 
@@ -70,18 +73,17 @@ spawn 2个 Sub-agent 并行执行数据收集：
 【第2个Sub-agent】
 3. 重大事项公告：`queryAnnouncementList(announce_type='U1', tags=[股票代码])` 及 `(announce_type='U2', tags=[股票代码])`，提取500字以内摘要。
 4. 行业数据：查询股票所属申万行业二级分类，查询行业指数行情指标。
-等所有sub-agent完成后更新 `data-index.md` 和 `sub-agent-list.txt`。
+等所有 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：基本面分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/fundamentals-agent.md` 要求执行分析。
+1. spawn Sub-agent，按 `references/fundamentals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-fundamentals-{stock_code}.md`。
-3. 更新 `data-index.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 1. 检查输出文件存在且非空，包含所有必需章节。
 2. 检查 `[参考资料]` 引用真实、格式规范。
 3. 检查所有 Sub-agent 均已保存产出文件和日志。
-4. 如缺失，回退补全。
+4. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 5. 完成 `final-output-analysis-fundamentals-{stock_code}.md`。
 
 ---
@@ -112,17 +114,16 @@ spawn 2个 Sub-agent 并行执行数据收集：
 7. 资金流向 `queryMoneyflow(stock_code, start_date=[31天前], fields='stock_code,trade_date,net_mf_amount')`
 8. 每日基本面指标 `queryDailyBasic(stock_code, start_date=[10日前日期])`
 9. 估值历史：近3年季末PE/PB（`queryDailyBasic`，每季度末前7天~季度末）
-等所有sub-agent完成后更新 `data-index.md` 和 `sub-agent-list.txt`。
+等所有 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：情绪分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/sentiment-agent.md` 要求执行分析。
+1. spawn Sub-agent，按 `references/sentiment-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-sentiment-{stock_code}.md`。
-3. 更新 `data-index.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 1. 检查输出文件存在且非空，包含所有必需章节。
 2. 检查 `[参考资料]` 引用真实、格式规范。
-3. 如缺失，回退补全。
+3. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 4. 完成 `final-output-analysis-sentiment-{stock_code}.md`。
 
 ---
@@ -142,17 +143,16 @@ spawn 2个 Sub-agent 并行执行数据收集：
 spawn 1个 Sub-agent 收集技术面数据：
 1. 近200个交易日 OHLCV 日线行情（**前复权数据**）：`queryStockDaily(stock_code, start_date=[200日前], adjust='qfq')`
 2. 技术指标：通过 `hedgehog-tech-indicator` 获取 SMA、EMA、RSI、MACD、BOLL、OBV、KDJ、ATR 等最新及200日历史序列数据。
-等所有sub-agent完成后更新 `data-index.md` 和 `sub-agent-list.txt`。
+等 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：技术面分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/technicals-agent.md` 要求执行分析。
+1. spawn Sub-agent，按 `references/technicals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-technicals-{stock_code}.md`。
-3. 更新 `data-index.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 1. 检查输出文件存在且非空，包含所有必需章节。
 2. 检查支撑/阻力位计算过程清晰、数值准确。
-3. 如缺失，回退补全。
+3. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 4. 完成 `final-output-analysis-technicals-{stock_code}.md`。
 
 ---
@@ -172,6 +172,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 2. 读取 `final-output-analysis-sentiment-{stock_code}.md`
 3. 读取 `final-output-analysis-technicals-{stock_code}.md`
 4. 如任一文件不存在，提示用户先执行对应工作流（A/B/C），**不得继续**。
+5. **整合阶段只允许读取上述三份报告，禁止读取任何 `data-*` 原始数据文件**；报告缺失要素时宁可标注"数据不足"也不得回读原始数据。
 
 ### Stage 2：CIO 终局决断（主 Agent 执行）
 按 `references/cio-integration.md` 要求：
@@ -180,7 +181,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 3. 产出明确的交易策略与仓位建议。
 
 ### Stage 3：输出与完整性检查
-1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`。
+1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`：先 `write` 写入标题与章节骨架，再逐章节用 `edit` 填充，禁止 `write` 整篇重写。
 2. 检查所有章节已填充，引用真实。
 
 ---
@@ -203,13 +204,12 @@ spawn 1个 Sub-agent 收集技术面数据：
 
 ### Stage 3：验证与整合
 1. 验证三份报告文件均已生成且非空。
-2. 更新`data-index.md`。
-3. 按工作流 D 执行 CIO 整合 → `final-output-research-{stock_code}-{YYYYMMDD}.md`。
+2. 按工作流 D 执行 CIO 整合 → `final-output-research-{stock_code}-{YYYYMMDD}.md`（只读三份报告，禁读 `data-*` 原始数据）。
 
 ### Stage 4：强制验证
 1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`。
 2. 检查所有章节已填充，引用真实。
-如果不符合，视为执行失败，补全后重新输出。
+如果不符合，视为执行失败，补全后重新输出（用 `edit` 补全缺失章节，禁止整篇重写）。
 
 ---
 

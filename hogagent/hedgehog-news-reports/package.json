@@ -1,7 +1,7 @@
 {
   "name": "hedgehog-news-reports",
   "license": "GPL-3.0",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "type": "commonjs",
   "description": "Financial news and reports: breaking news, news analysis, A-share research reports, listed company announcements.",

@@ -6,7 +6,7 @@ description: >
     Best for: event war-gaming and impact analysis.
     Triggers: event sandbox | deep analysis | path forecast | impact assessment
     NOT for: news verification; stock fundamentals.
-version: 2.1.0
+version: 2.2.0
 workflow_based: true
 ---
 
@@ -31,17 +31,15 @@ workflow_based: true
 ## Sub-agent 执行协议
 - 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`
 - 所有落盘文件保存在任务目录下，不要建立子文件夹
-- 在任务目录中创建原始数据文件索引 `data-index.md`，每个sub-agent直接在里面追加记录，格式：
+- 落盘数据时必须用 `call_api.js` 的 `--out <文件名>` 参数直接指定语义化文件名（如 `--out data-news-keyword1.json`），禁止落盘后再 `mv` 重命名
+- `[DataSaved]` 输出已包含行数（Lines）与字节数（Bytes），禁止再用 `wc` 等命令验证文件
+- 在任务目录中维护原始数据文件索引 `data-index.md`，每个sub-agent落盘后直接在里面追加记录（行数/字节数直接取自 `[DataSaved]` 输出），格式：
 ```
 ## Sub-agent-[index]:
-- {file-name}: {总字数:<N>;总行数:<M>}
-- {file-name}: {总字数:<N>;总行数:<M>}
+- {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据，做 500 tokens以内的摘要，并落盘 output_file `output-sub-<short_title>.<ext>`
-- 在任务目录中创建Sub-agent 注册表 `sub-agent-list.txt`，每个sub-agent在里面追加一条记录，格式：
-```
-Sub-agent-[index]:[session_id]:[status]:[output_file]
-```
+- 每个sub-agent回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**（主 Agent 推演与终稿只读摘要、不回读原始数据）：包含推演所需全部要素——关键数据点、~100字概述、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序）、行情/资金异动要点（如适用），800 tokens 以内
+- Sub-agent 注册表 `sub-agent-list.txt` 由系统在每个 sub-agent 完成时自动追加记录，主 Agent 与 sub-agent 均无需创建或写入该文件
 
 ## 核心工作流
 
@@ -75,13 +73,13 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 > **注意**：批次 2 根据事件性质按需执行，如无明确受影响个股或无需网络搜索，可跳过对应 Sub-agent。
 
 #### 批次完成后
-1. 等待全部 Sub-agent 返回
-2. 更新 `data-index.md`
-3. 更新 `sub-agent-list.txt`
-4. 在上下文中提示"原始数据文件索引在 data-index.md 中，sub-agent列表及工作摘要在 sub-agent-list.txt 中"
+1. 等待全部 Sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）
+2. 在上下文中提示"原始数据文件索引在 data-index.md 中，sub-agent列表在 sub-agent-list.txt 中"
 
 ### Stage 3：推演分析与报告生成（主 Agent 执行）
-**目标**：读取落盘数据，构建概率树，生成深度推演报告。
+**目标**：仅基于 sub-agent 摘要构建概率树，生成深度推演报告。
+
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
 
 1. **构建演化路径表格**：
     - 一阶推演：从事件 $T$ 到 $T_1$ 和 $T_2$（对立假设，如：政策加码 vs 落空）
@@ -94,7 +92,7 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 
 3. **影响分析**：将 Top 3 路径转化为股/债/汇/商及具体产业链的定价变化。
 
-4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`，按交付标准模板逐章节编写。
+4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`：先 `write` 写入标题与各章节空骨架，再按交付标准模板逐章节用 `edit` 填充。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 **目标**：验证交付物完整性和引用规范。
@@ -104,7 +102,7 @@ Sub-agent-[index]:[session_id]:[status]:[output_file]
 3. 检查所有 `[AI生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
 5. 检查 `sub-agent-list.txt` 文件，核实 Sub-agent 数量是否匹配。
-6. 如发现缺失，回退补全对应章节。
+6. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
 7. 最后交付 `final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件，不要交付其他文件。
 
 ## 演化路径表格模板

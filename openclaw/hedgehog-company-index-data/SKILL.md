@@ -5,7 +5,7 @@ description: >
   capital flow, financial statements (income/balance/cash flow), ratios, audit opinions, main business
   composition; Shenwan industry constituents and quotes; trading calendar and trade day utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # 上市公司数据查询
@@ -19,6 +19,7 @@ version: 1.5.0
 - 落盘接口（Tool-2 ~ Tool-13，Tool-11 除外）：脚本自动保存为 `data-*.json`，stdout 仅输出文件指针
 - 直接输出接口（Tool-1 getStockBasic、Tool-11 querySwIndustryMember、Tool-14 isTradeDay、Tool-15 tradeDayOffset）：结果直接输出到 stdout
 - `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+- `--out <文件名>` 可选：指定落盘目标文件名（相对 `--dir`，绝对路径亦可），省略时用默认命名 `data-<datetime>-<N>.json`；`[DataSaved]` 输出附带行数（Lines）与字节数（Bytes）
 6. **数据读取约束（强制）**：
 - **Sub-agent**：仅在需要生成摘要时允许全量回读 `data-*.json`，否则禁止回读
 - **主 Agent**：使用 `read(path, offset, limit)` 或 `bash("head -N <file>")` 按需读取落盘数据
