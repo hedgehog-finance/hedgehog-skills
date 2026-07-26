@@ -1,11 +1,11 @@
 {
   "hogagent-company-index-data": "1.6.0",
-  "hogagent-daily-morning-briefing": "2.2.0",
+  "hogagent-daily-morning-briefing": "2.2.1",
   "hogagent-gateway-tools": "1.1.0",
-  "hogagent-in-depth-analysis": "2.2.0",
-  "hogagent-information-verification": "2.2.0",
+  "hogagent-in-depth-analysis": "2.2.1",
+  "hogagent-information-verification": "2.2.1",
   "hogagent-kb-tools": "1.1.0",
   "hogagent-macro-industry-data": "1.6.0",
   "hogagent-news-reports": "1.6.0",
-  "hogagent-stock-research": "2.2.0"
+  "hogagent-stock-research": "2.2.1"
 }

@@ -6,7 +6,7 @@ description: >
     Best for: event war-gaming and impact analysis.
     Triggers: event sandbox | deep analysis | path forecast | impact assessment
     NOT for: news verification; stock fundamentals.
-version: 2.2.0
+version: 2.2.1
 workflow_based: true
 ---
 
@@ -79,7 +79,7 @@ workflow_based: true
 ### Stage 3：推演分析与报告生成（主 Agent 执行）
 **目标**：仅基于 sub-agent 摘要构建概率树，生成深度推演报告。
 
-**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。**
 
 1. **构建演化路径表格**：
     - 一阶推演：从事件 $T$ 到 $T_1$ 和 $T_2$（对立假设，如：政策加码 vs 落空）
@@ -92,7 +92,7 @@ workflow_based: true
 
 3. **影响分析**：将 Top 3 路径转化为股/债/汇/商及具体产业链的定价变化。
 
-4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`：先 `write` 写入标题与各章节空骨架，再按交付标准模板逐章节用 `edit` 填充。
+4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 `write(append:true)` 追加。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 **目标**：验证交付物完整性和引用规范。

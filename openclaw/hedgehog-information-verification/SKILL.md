@@ -6,7 +6,7 @@ description: >
     Best for: information verification and confidence assessment.
     Triggers: verify info | validate rumor | confidence score | fact check
     NOT for: deep event analysis.
-version: 2.2.0
+version: 2.2.1
 workflow_based: true
 ---
 
@@ -105,7 +105,7 @@ workflow_based: true
 
 **目标**：仅基于 sub-agent 摘要评分并生成审计报告。
 
-**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*` 原始数据文件；摘要缺失要素时宁可在对应维度标注"证据不足"并保守给分，也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*` 原始数据文件；摘要缺失要素时宁可在对应维度标注"证据不足"并保守给分，也不得回读原始数据。终稿文件首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。**
 
 1. **摘要提炼**：基于各 `output-sub-*.md` 摘要提炼 500 字以内求证信息概述，核心关注时间、来源、事项的匹配度及数据细节的逻辑矛盾点。
 
@@ -114,9 +114,9 @@ workflow_based: true
    - 交叉逻辑验证（X/30）：列举相关/相反证据
    - 利益催化时点（X/30）：分析是否存在动机漏出
 
-3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`：先 `write` 写入标题与各章节空骨架，再按交付标准模板逐章节用 `edit` 填充。
+3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 `write(append:true)` 追加。
 
-4. **尾注**：汇总各摘要中的 `[资料来源]` 引用，`edit` 追加写入 `[AI 生成提示]`。
+4. **尾注**：汇总各摘要中的 `[资料来源]` 引用，`write(append:true)` 追加写入 `[AI 生成提示]`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 

@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.2.0
+version: 2.2.1
 workflow_based: true
 ---
 
@@ -49,7 +49,7 @@ workflow_based: true
 ## Token 纪律（主 Agent 全程强制）
 - **主 Agent 禁止读取任何 `data-*` 原始数据文件**；需要原始数据细节的分析工作一律 spawn Sub-agent 执行（分析型 Sub-agent 可按 references 规范读取原始数据）。
 - 主 Agent 只读取 `output-sub-*.md` 摘要与 `final-output-*.md` 分析报告。
-- 主 Agent 生成/整合终稿时，先 `write` 写入标题与章节骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。
+- 主 Agent 生成/整合终稿时，首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。
 
 ---
 
@@ -181,7 +181,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 3. 产出明确的交易策略与仓位建议。
 
 ### Stage 3：输出与完整性检查
-1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`：先 `write` 写入标题与章节骨架，再逐章节用 `edit` 填充，禁止 `write` 整篇重写。
+1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`：首次 `write` 写入标题，再逐章节用 `write(append:true)` 追加，禁止整篇覆盖重写。
 2. 检查所有章节已填充，引用真实。
 
 ---

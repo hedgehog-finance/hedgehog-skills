@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.2.0
+version: 2.2.1
 workflow_based: true
 ---
 
@@ -76,16 +76,16 @@ workflow_based: true
 ### Stage 3：逐章节生成（主 Agent 执行）
 **目标**：仅基于 sub-agent 摘要，在任务目录创建 `final-output-morning-briefing-<YYYYMMDD>.md` 并逐章节编写。
 
-**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件先 `write` 创建骨架，之后逐章节用 `edit` 追加填充，禁止用 `write` 整篇重写。**
+**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。**
 
-1. **创建文件**：`write` 写入标题 `【每日早报：YYYY-MM-DD】` 与各章节空骨架。
+1. **创建文件**：`write` 写入标题 `【每日早报：YYYY-MM-DD】`。
 2. **宏观要闻章节**：
     - 读取快讯/宏观/行业对应的 `output-sub-*.md` 摘要
-    - `edit` 填入：关键数据（有则列，无则填"无"）、宏观摘要（~100字）、产业信息（每行业~50字，最多 3 行业）、重要资讯（按重要性降序前 5 条，格式 `{资讯分类:id} 标题`）
+    - `write(append:true)` 追加本章节：关键数据（有则列，无则填"无"）、宏观摘要（~100字）、产业信息（每行业~50字，最多 3 行业）、重要资讯（按重要性降序前 5 条，格式 `{资讯分类:id} 标题`）
 3. **自选股雷达章节**：
     - 读取各个股对应的 `output-sub-*.md` 摘要（含资讯与行情/资金异动要点）
-    - `edit` 填入：资讯摘要（~200字）、前期异动（基于摘要中的异动要点，~200字）、风险排雷（~100字，无风险填"今日暂无重大排雷事项"）、重要资讯（1~5 条）
-4. **尾注**：汇总各摘要中的 `[参考资料]` 引用，`edit` 追加写入 `[AI生成提示]`。
+    - `write(append:true)` 追加本章节：资讯摘要（~200字）、前期异动（基于摘要中的异动要点，~200字）、风险排雷（~100字，无风险填"今日暂无重大排雷事项"）、重要资讯（1~5 条）
+4. **尾注**：汇总各摘要中的 `[参考资料]` 引用，`write(append:true)` 追加写入 `[AI生成提示]`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 **目标**：验证交付物完整性和引用规范。
