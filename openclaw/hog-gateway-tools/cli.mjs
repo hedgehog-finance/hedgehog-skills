@@ -2,7 +2,7 @@
 // HogAgent Gateway Tools CLI — General MCP Server (hedgehog-general-mcp).
 //
 // Wraps every tool exposed by the Gateway General MCP Server:
-//   deliver_files, report_task_result, get_work_context, send_notification,
+//   report_task_result, get_work_context, send_notification,
 //   get_watchlist, recommend_resource, push_workflow, list_extensions
 //
 // Global options (may appear before or after the subcommand):
@@ -153,24 +153,6 @@ function parseJsonFlag(f, key) {
 // Commands.
 // ---------------------------------------------------------------------------
 
-// deliver_files: positional file paths + optional --summary applied to all,
-// or --files-json for full control (path + per-file summary).
-async function cmdDeliverFiles(url, args) {
-  const f = parseFlags(args);
-  let files = parseJsonFlag(f, "files-json");
-  if (!files) {
-    const paths = positional(args);
-    if (!paths.length) {
-      console.error('Usage: hedgehog-gateway-tools deliver-files <path...> [--summary S] [--task-id ID]\n       hedgehog-gateway-tools deliver-files --files-json \'[{"path":"...","summary":"..."}]\' [--task-id ID]');
-      process.exit(1);
-    }
-    files = paths.map((p) => (f.summary && f.summary !== true ? { path: p, summary: f.summary } : { path: p }));
-  }
-  const payload = { files };
-  if (f["task-id"]) payload.task_id = f["task-id"];
-  printResult(await callMcp(url, "deliver_files", payload));
-}
-
 async function cmdReportTaskResult(url, args) {
   const f = parseFlags(args);
   const taskId = positional(args)[0];
@@ -239,12 +221,13 @@ async function cmdPushWorkflow(url, args) {
   const f = parseFlags(args);
   const def = parseJsonFlag(f, "workflow-def");
   if (!f.name || !def) {
-    console.error("Usage: hedgehog-gateway-tools push-workflow --name N --workflow-def '<json>' [--description D] [--agent-type A]");
+    console.error("Usage: hedgehog-gateway-tools push-workflow --name N --workflow-def '<json>' [--description D] [--agent-type A] [--work-id ID]");
     process.exit(1);
   }
   const payload = { name: f.name, workflow_def: def };
   if (f.description) payload.description = f.description;
   if (f["agent-type"]) payload.agent_type = f["agent-type"];
+  if (f["work-id"] && f["work-id"] !== true) payload.work_id = f["work-id"];
   printResult(await callMcp(url, "push_workflow", payload));
 }
 
@@ -268,16 +251,15 @@ async function cmdCall(url, args) {
   printResult(await callMcp(url, tool, payload));
 }
 
-const HELP = `hedgehog-gateway-tools v1.0.0 — Gateway General MCP Server CLI
+const HELP = `hedgehog-gateway-tools v2.0.1 — Gateway General MCP Server CLI
 
 Usage:
-  hedgehog-gateway-tools deliver-files <path...> [--summary S] [--task-id ID]
   hedgehog-gateway-tools report-task-result <task_id> [--content C] [--summary S] [--delivery-files-json '<json>']
   hedgehog-gateway-tools get-work-context <work_id> [--task-id ID]
   hedgehog-gateway-tools send-notification <type> <title> <body>
   hedgehog-gateway-tools get-watchlist [--user-id ID]
   hedgehog-gateway-tools recommend-resource --source-type T --title X [--content-type T] [--ciwei-id ID] [--resource-url U] [--summary S] [--full-content C] [--recommend-reason R]
-  hedgehog-gateway-tools push-workflow --name N --workflow-def '<json>' [--description D] [--agent-type A]
+  hedgehog-gateway-tools push-workflow --name N --workflow-def '<json>' [--description D] [--agent-type A] [--work-id ID]
   hedgehog-gateway-tools list-extensions [--type skill|mcp] [--enabled true|false]
   hedgehog-gateway-tools call <tool> --json '<arguments>'
 
@@ -328,7 +310,6 @@ async function main() {
   const url = await resolveMcpUrl(urlOverride);
   try {
     switch (cmd) {
-      case "deliver-files": await cmdDeliverFiles(url, rest); break;
       case "report-task-result": await cmdReportTaskResult(url, rest); break;
       case "get-work-context": await cmdGetWorkContext(url, rest); break;
       case "send-notification": await cmdSendNotification(url, rest); break;

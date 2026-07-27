@@ -1,16 +1,16 @@
 ---
 name: hog-gateway-tools
-version: 1.1.0
+version: 2.0.1
 description: >
-    Interact with the Hedgehog Gateway via its General MCP Server: deliver files to the
-    user, report workflow task results, fetch work/task context, send notifications,
-    read the user's watchlist, recommend resources, push workflow definitions and list
-    installed extensions. Use for agent-to-Gateway orchestration and delivery tasks.
+    Interact with the Hedgehog Gateway via its General MCP Server: report workflow
+    task results, fetch work/task context, send notifications, read the user's
+    watchlist, recommend resources, push workflow definitions and list installed
+    extensions. Use for agent-to-Gateway orchestration tasks.
 ---
 
 # Gateway 通用工具 (General MCP)
 
-封装 Gateway **General MCP Server**（`hedgehog-general-mcp`）暴露的全部工具，提供文件交付、任务编排、通知推送、自选股读取、资料推荐等 Agent 与 Gateway 协作能力。所有调用通过 HTTP JSON-RPC 2.0 与 Gateway 交互。
+封装 Gateway **General MCP Server**（`hedgehog-general-mcp`）暴露的工具，提供任务编排、通知推送、自选股读取、资料推荐等 Agent 与 Gateway 协作能力。所有调用通过 HTTP JSON-RPC 2.0 与 Gateway 交互。
 
 ## 运行环境
 
@@ -36,7 +36,6 @@ node <skill_path>/cli.mjs <command> [args] [--url http://127.0.0.1:59102]
 
 | 命令 | 对应 MCP 工具 | 说明 |
 |---|---|---|
-| `deliver-files` | `deliver_files` | 向用户交付可下载文件（批量） |
 | `report-task-result` | `report_task_result` | 上报工作流任务执行结果 |
 | `get-work-context` | `get_work_context` | 获取 work/task 上下文 |
 | `send-notification` | `send_notification` | 发送通知事件 |
@@ -47,44 +46,6 @@ node <skill_path>/cli.mjs <command> [args] [--url http://127.0.0.1:59102]
 | `call` | 任意工具 | 通用逃生舱：传原始 JSON 参数 |
 
 ## 参数说明
-
-### deliver-files — 交付文件
-
-文件路径相对 Gateway workspace 目录（或绝对路径）。
-
-```bash
-node <skill_path>/cli.mjs deliver-files tasks/abc/report.pdf tasks/abc/chart.png --summary "分析报告" --task-id abc
-# 或用 JSON 精确控制每个文件的 summary：
-node <skill_path>/cli.mjs deliver-files --files-json '[{"path":"tasks/abc/report.pdf","summary":"报告"}]' --task-id abc
-```
-
-| 参数 | 必填 | 说明 |
-|---|---|---|
-| `<path...>` (位置参数) | 是* | 一个或多个文件路径 |
-| `--summary S` | 否 | 统一附加到所有位置参数文件的描述 |
-| `--files-json '<json>'` | 是* | 文件数组 `[{path, summary?}]`，与位置参数二选一 |
-| `--task-id ID` | 否 | 关联的工作流任务 ID |
-
-> `*` 位置参数与 `--files-json` 至少提供其一。
-
-**输出 JSON**：
-
-```json
-{
-  "delivered": [
-    {
-      "name": "report.pdf",
-      "path": "tasks/abc/report.pdf",
-      "size": 1048576,
-      "mime_type": "application/pdf",
-      "summary": "报告"
-    }
-  ],
-  "errors": []
-}
-```
-
-路径越界或文件不存在时，该文件计入 `errors` 数组。
 
 ### report-task-result — 上报任务结果
 
@@ -224,6 +185,7 @@ node <skill_path>/cli.mjs push-workflow --name "每日复盘" \
 | `--workflow-def '<json>'` | 是 | 工作流定义（见下方结构） |
 | `--description D` | 否 | 工作流描述 |
 | `--agent-type A` | 否 | Agent 类型，默认 hogagent |
+| `--work-id ID` | 否 | 指定 Work ID，透传给编排器 |
 
 **workflow-def JSON 结构**：
 
@@ -273,7 +235,7 @@ node <skill_path>/cli.mjs call send_notification --json '{"type":"custom","title
 ## 约束
 
 - MCP 请求超时 15 秒，超时返回错误而非挂起。
-- `deliver-files` 的相对路径不得越出 workspace 目录，否则该文件被拒绝并计入 `errors`。
+- 向用户交付可下载文件请使用独立的 `deliver-files` 工具。
 - `report-task-result`、`push-workflow` 依赖 Gateway 的 WorkEngine；若未启用会返回错误。
 - 传入的 `--*-json` / `--workflow-def` 必须为合法 JSON，否则报错退出。
 - 所有命令在失败时输出错误信息到 stderr 并以非零退出码退出：`Error: MCP request failed: <reason>`

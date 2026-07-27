@@ -1,6 +1,6 @@
 # OpenClaw Skills
 
-适配 OpenClaw 平台的技能集合，共 19 个技能模块。包含全部 HogAgent 投研核心技能及 9 个额外通用工具技能。
+适配 OpenClaw 平台的技能集合，共 20 个技能模块。包含全部 HogAgent 投研核心技能及 11 个额外技能（`deliver-files`、`hog-memory` 及 9 个通用工具）。
 
 ## 技能列表
 
@@ -10,7 +10,8 @@
 |------|------|------|
 | `hedgehog-company-index-data` | 1.6.0 | A 股上市公司数据查询：基本信息、日行情、基本面、资金流、财务报表、申万行业、交易日历 |
 | `hedgehog-daily-morning-briefing` | 2.2.1 | 盘前情报简报，筛选宏观/板块/自选股新闻并提取核心逻辑 |
-| `hog-gateway-tools` | 1.1.0 | Gateway MCP Server CLI：文件投递、任务结果上报、工作上下文、通知、自选股、资源推荐、工作流推送 |
+| `deliver-files` | 1.0.0 | Gateway MCP Server CLI：向用户批量交付可下载文件 |
+| `hog-gateway-tools` | 2.0.1 | Gateway MCP Server CLI：任务结果上报、工作上下文、通知、自选股、资源推荐、工作流推送 |
 | `hedgehog-in-depth-analysis` | 2.2.1 | 重大事件概率树情景分析（宏观波动/黑天鹅/地缘政治/政策转向），预测高概率路径并衡量市场影响 |
 | `hedgehog-information-verification` | 2.2.1 | 多源交叉验证市场传闻与未确认新闻，量化置信度，防止误判 |
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI：知识库搜索与跨会话记忆管理 |
