@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.2.1
+version: 2.2.2
 workflow_based: true
 ---
 
@@ -23,7 +23,7 @@ workflow_based: true
 ## 数据源约束
 - **资讯接口技能**：`hedgehog-news-reports`
 - **股票基本信息、财报、行情、资金流向、交易日历等**：`hedgehog-company-index-data`
-- **自选股**：用户指定或者使用`hedgehog-gateway-tools`拉取自选股列表。
+- **自选股**：用户指定或者使用`hedgehog-gateway-tools`的`get_watchlist`拉取自选股列表, 不得凭空捏造。
 
 ## Sub-agent 执行协议
 - 必须严格遵守`Sub-agent 调度与验收纪律`和`Token Efficiency Discipline`

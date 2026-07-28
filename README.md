@@ -28,7 +28,7 @@ hedgehog-skills/
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.6.0 | Query A-share listed company data: basic info, daily quotes, fundamentals, capital flow, financial statements, Shenwan industry data, trading calendar |
-| `hedgehog-daily-morning-briefing` | 2.2.1 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
+| `hedgehog-daily-morning-briefing` | 2.2.2 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `hog-gateway-tools` | 2.0.1 | Gateway General MCP Server CLI: task result reporting, work context, notifications, watchlist, resource recommendation, workflow push |
 | `hedgehog-in-depth-analysis` | 2.2.1 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
 | `hedgehog-information-verification` | 2.2.1 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
