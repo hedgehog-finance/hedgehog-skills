@@ -3,7 +3,7 @@ name: gen-chart
 description: >
     Generate charts as PNG/SVG (Vega-Lite, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
     Triggers: chart, diagram, graph, flowchart, sequence diagram, mermaid, vega, echarts.
-version: 2.1.0
+version: 2.1.1
 ---
 
 # GenChart — Chart & Diagram Generator

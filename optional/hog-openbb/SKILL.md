@@ -7,7 +7,7 @@ description: >
   Triggers: GDP, CPI, unemployment, federal funds rate, options chain, Greeks, treasury yield,
   economic calendar, stock index, forex, commodity, gold, crude oil.
   NOT for: China A-shares (use hedgehog-company-index-data).
-version: 1.0.0
+version: 1.0.1
 ---
 
 # 全球金融数据查询（OpenBB Platform）

@@ -14,10 +14,10 @@
 
 ## 前置输入
 
-CIO 整合需要以下三份报告文件，缺一不可：
-- `final-output-analysis-fundamentals-{stock_code}.md` — 基本面分析报告（工作流 A 输出）
-- `final-output-analysis-sentiment-{stock_code}.md` — 情绪分析报告（工作流 B 输出）
-- `final-output-analysis-technicals-{stock_code}.md` — 技术面分析报告（工作流 C 输出）
+CIO 整合需要以下三份报告文件，缺一不可，由调用方提供文件路径（相对于当前 workspace 的路径、相对于当前任务目录的路径或绝对路径均可）：
+- 基本面分析报告文件，如 `final-output-analysis-fundamentals-{stock_code}.md`（工作流 A 输出）
+- 情绪分析报告文件，如 `final-output-analysis-sentiment-{stock_code}.md`（工作流 B 输出）
+- 技术面分析报告文件，如 `final-output-analysis-technicals-{stock_code}.md`（工作流 C 输出）
 
 如果任一文件缺失，**必须终止**，提示用户先执行对应工作流。
 

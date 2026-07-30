@@ -16,11 +16,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
+import { tmpdir, platform } from "node:os";
 import { resolveTheme, toMermaidThemeVars, isDark, THEME_NAMES } from "./themes.mjs";
+
+const IS_WIN = platform() === "win32";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -75,26 +77,36 @@ const absInput = resolve(inputPath);
 const absOutput = resolve(outputPath);
 
 // Find mmdc: walk up from this script to find project root's node_modules/.bin/mmdc
+// Cross-platform: on Windows the shim is mmdc.cmd (npm creates .cmd/.ps1 shims)
 let mmdcPath;
 let searchDir = __dirname;
-for (let i = 0; i < 10; i++) {
-  const candidate = resolve(searchDir, "node_modules", ".bin", "mmdc");
-  if (existsSync(candidate)) {
-    mmdcPath = candidate;
-    break;
+const binNames = IS_WIN ? ["mmdc.cmd", "mmdc"] : ["mmdc"];
+for (let i = 0; i < 10 && !mmdcPath; i++) {
+  for (const name of binNames) {
+    const candidate = resolve(searchDir, "node_modules", ".bin", name);
+    if (existsSync(candidate)) {
+      mmdcPath = candidate;
+      break;
+    }
   }
   const parent = dirname(searchDir);
   if (parent === searchDir) break;
   searchDir = parent;
 }
 
+// Fallback: locate mmdc on PATH (which on POSIX, where on Windows)
 if (!mmdcPath) {
   try {
-    mmdcPath = execSync("which mmdc", { stdio: "pipe" }).toString().trim();
-  } catch {
-    console.error("Error: mmdc not found. Run: cd <hogagent_root> && npm install");
-    process.exit(1);
-  }
+    const out = spawnSync(IS_WIN ? "where" : "which", ["mmdc"], { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+    if (out.status === 0 && out.stdout) {
+      mmdcPath = out.stdout.split(/\r?\n/)[0].trim();
+    }
+  } catch { /* ignore */ }
+}
+
+if (!mmdcPath) {
+  console.error("Error: mmdc not found. Run: cd <hogagent_root> && npm install");
+  process.exit(1);
 }
 
 // Resolve theme: financial preset or Mermaid built-in
@@ -151,23 +163,26 @@ if (finTheme) {
   writeFileSync(configFile, JSON.stringify(mermaidConfig, null, 2));
 }
 
-// Build command
-const cmdParts = [`"${mmdcPath}"`, `-i "${absInput}"`, `-o "${absOutput}"`, `--outputFormat ${format}`, `--backgroundColor transparent`];
+// Build argument list (array form avoids shell quoting pitfalls across platforms)
+const mmdcArgs = ["-i", absInput, "-o", absOutput, "--outputFormat", format, "--backgroundColor", "transparent"];
 if (configFile) {
-  cmdParts.push(`--configFile "${configFile}"`);
+  mmdcArgs.push("--configFile", configFile);
 } else if (mermaidTheme) {
-  cmdParts.push(`--theme ${mermaidTheme}`);
+  mmdcArgs.push("--theme", mermaidTheme);
 }
 
-const cmd = cmdParts.join(" ");
-
 try {
-  execSync(cmd, { stdio: "pipe" });
+  // shell:true lets Windows run the .cmd shim; args stay an array so no manual quoting is needed
+  const result = spawnSync(mmdcPath, mmdcArgs, { stdio: "pipe", shell: IS_WIN });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const stderr = result.stderr ? result.stderr.toString() : "";
+    throw new Error(stderr || `mmdc exited with code ${result.status}`);
+  }
   const info = finTheme ? ` (theme: ${finTheme.name})` : "";
   console.log(`Diagram generated: ${outputPath}${info}`);
 } catch (err) {
   console.error(`Mermaid CLI error: ${err.message}`);
-  if (err.stderr) console.error(err.stderr.toString());
   process.exit(1);
 } finally {
   if (configFile && existsSync(configFile)) {

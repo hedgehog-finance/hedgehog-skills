@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.2.1
+version: 2.2.2
 workflow_based: true
 ---
 
@@ -159,18 +159,18 @@ spawn 1个 Sub-agent 收集技术面数据：
 
 ## 工作流 D：CIO 整合报告
 **触发**：`整合报告 [股票代码]` / `生成研报 [股票名称]`
-**前置条件**：三位分析师的报告文件必须已存在于任务目录中。
+**前置条件**：调用本工作流的用户或者skill必须提供三位分析师的报告文件路径（相对于当前workspace的路径、相对于当前任务目录的路径或者绝对路径）
 **依赖文件**：
-- `final-output-analysis-fundamentals-{stock_code}.md`（工作流 A 输出）
-- `final-output-analysis-sentiment-{stock_code}.md`（工作流 B 输出）
-- `final-output-analysis-technicals-{stock_code}.md`（工作流 C 输出）
+- 基本面分析师文件，如 `final-output-analysis-fundamentals-{stock_code}.md`（工作流 A 输出）
+- 情绪分析师文件，如 `final-output-analysis-sentiment-{stock_code}.md`（工作流 B 输出）
+- 技术面分析师文件，如 `final-output-analysis-technicals-{stock_code}.md`（工作流 C 输出）
 **输出文件**：`final-output-research-{stock_code}-{YYYYMMDD}.md`
 **参考规范**：`references/cio-integration.md`
 
 ### Stage 1：读取报告（主 Agent 执行）
-1. 读取 `final-output-analysis-fundamentals-{stock_code}.md`
-2. 读取 `final-output-analysis-sentiment-{stock_code}.md`
-3. 读取 `final-output-analysis-technicals-{stock_code}.md`
+1. 读取基本面分析师文件
+2. 读取情绪分析师文件
+3. 读取技术面分析师文件
 4. 如任一文件不存在，提示用户先执行对应工作流（A/B/C），**不得继续**。
 5. **整合阶段只允许读取上述三份报告，禁止读取任何 `data-*` 原始数据文件**；报告缺失要素时宁可标注"数据不足"也不得回读原始数据。
 

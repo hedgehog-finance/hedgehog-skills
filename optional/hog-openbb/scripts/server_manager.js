@@ -21,6 +21,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// 跨平台标记：Windows 下 which/SIGTERM 等 POSIX 语义不可用
+const IS_WIN = process.platform === 'win32';
+
 // ─── 路径常量 ──────────────────────────────────────────────────────────────────
 // 技能根目录 = scripts/ 的上一级
 const SKILL_DIR = path.resolve(__dirname, '..');
@@ -106,6 +109,40 @@ function isPidAlive(pid) {
   }
 }
 
+/**
+ * 跨平台查找可执行文件。
+ * Windows 使用 `where`（可能返回多行，取首个），POSIX 使用 `which`。
+ * @returns {string|null} 可执行文件路径，未找到返回 null
+ */
+function findExecutable(name) {
+  try {
+    const out = execSync(`${IS_WIN ? 'where' : 'which'} ${name}`, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const first = out.split(/\r?\n/)[0].trim();
+    return first || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * 跨平台终止进程。
+ * POSIX：发送 SIGTERM 请求优雅退出；Windows 无信号语义，process.kill 直接终止进程。
+ */
+function terminateProcess(pid) {
+  try { process.kill(pid, IS_WIN ? undefined : 'SIGTERM'); } catch (_) { /* ignore */ }
+}
+
+/**
+ * 跨平台强制终止进程。
+ * POSIX：发送 SIGKILL；Windows 与 terminateProcess 等价（直接终止）。
+ */
+function forceKillProcess(pid) {
+  try { process.kill(pid, IS_WIN ? undefined : 'SIGKILL'); } catch (_) { /* ignore */ }
+}
+
 // ─── 健康检查 ──────────────────────────────────────────────────────────────────
 
 /**
@@ -161,11 +198,9 @@ async function startServer(config, entry) {
     return { alreadyRunning: true };
   }
 
-  // 检查 openbb-api 命令是否存在
-  let openbbBin = 'openbb-api';
-  try {
-    openbbBin = execSync('which openbb-api', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim() || 'openbb-api';
-  } catch (_) {
+  // 检查 openbb-api 命令是否存在（跨平台：which / where）
+  const openbbBin = findExecutable('openbb-api');
+  if (!openbbBin) {
     throw new Error(
       '未找到 openbb-api 命令。请先安装 OpenBB 平台：pip install openbb[all]\n' +
       '安装后运行一次 `openbb-api --help` 确认命令可用。'
@@ -205,7 +240,7 @@ async function startServer(config, entry) {
   const ready = await waitForReady(config.apiUrl, 15000);
   if (!ready) {
     // 启动超时，清理子进程
-    try { process.kill(child.pid, 'SIGTERM'); } catch (_) { /* ignore */ }
+    terminateProcess(child.pid);
     removePidFile(PID_SERVER_FILE);
     throw new Error(
       `openbb-api 启动超时（15s 内未就绪）。端口 ${port} 可能被占用，或 Python 环境存在问题。`
@@ -217,7 +252,7 @@ async function startServer(config, entry) {
 
 /**
  * 停止 openbb-api 进程。
- * 读取 PID 文件，发送 SIGTERM，等待最多 5s，超时则 SIGKILL。
+ * 读取 PID 文件，请求终止（POSIX 为 SIGTERM，Windows 直接终止），等待最多 5s，超时则强杀。
  */
 async function stopServer() {
   const pid = readPidFile(PID_SERVER_FILE);
@@ -226,7 +261,7 @@ async function stopServer() {
     return { wasRunning: false };
   }
 
-  process.kill(pid, 'SIGTERM');
+  terminateProcess(pid);
 
   // 等待退出（最多 5s）
   for (let i = 0; i < 50; i++) {
@@ -236,7 +271,7 @@ async function stopServer() {
 
   // 仍未退出则强杀
   if (isPidAlive(pid)) {
-    try { process.kill(pid, 'SIGKILL'); } catch (_) { /* ignore */ }
+    forceKillProcess(pid);
   }
 
   removePidFile(PID_SERVER_FILE);
@@ -292,8 +327,8 @@ function spawnWatchdog() {
     'use strict';
     const fs = require('fs');
     const path = require('path');
-    const { execSync: cpExecSync } = require('child_process');
 
+    const IS_WIN = process.platform === 'win32';
     const SKILL_DIR = ${JSON.stringify(skillDir)};
     const LAST_USED_FILE = path.join(SKILL_DIR, '.openbb_last_used');
     const PID_SERVER_FILE = path.join(SKILL_DIR, '.openbb_server.pid');
@@ -319,21 +354,35 @@ function spawnWatchdog() {
       try { process.kill(pid, 0); return true; } catch(_) { return false; }
     }
 
+    function terminate(pid) {
+      try { process.kill(pid, IS_WIN ? undefined : 'SIGTERM'); } catch(_) {}
+    }
+
+    function forceKill(pid) {
+      try { process.kill(pid, IS_WIN ? undefined : 'SIGKILL'); } catch(_) {}
+    }
+
+    // 跨平台同步等待：Atomics.wait 不依赖 shell（替代 POSIX 的 sleep 命令）
+    function sleepMs(ms) {
+      try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+      catch(_) { const t = Date.now() + ms; while (Date.now() < t) {} }
+    }
+
     function stopServer() {
       const pid = readServerPid();
       if (!pid || !isPidAlive(pid)) {
         try { fs.unlinkSync(PID_SERVER_FILE); } catch(_) {}
         return;
       }
-      try { process.kill(pid, 'SIGTERM'); } catch(_) {}
+      terminate(pid);
       // 同步等待退出（最多 5s），不能用 setInterval 因为 process.exit 会立即结束事件循环
       let waited = 0;
       while (waited < 5000) {
-        try { cpExecSync('sleep 0.1', { stdio: 'ignore', timeout: 150 }); } catch(_) {}
+        sleepMs(100);
         waited += 100;
         if (!isPidAlive(pid)) break;
       }
-      if (isPidAlive(pid)) { try { process.kill(pid, 'SIGKILL'); } catch(_) {} }
+      if (isPidAlive(pid)) { forceKill(pid); }
       try { fs.unlinkSync(PID_SERVER_FILE); } catch(_) {}
     }
 
@@ -413,7 +462,7 @@ async function main() {
     // 同时停止看门狗
     const wPid = readPidFile(PID_WATCHDOG_FILE);
     if (wPid && isPidAlive(wPid)) {
-      try { process.kill(wPid, 'SIGTERM'); } catch (_) { /* ignore */ }
+      terminateProcess(wPid);
     }
     removePidFile(PID_WATCHDOG_FILE);
     console.log(JSON.stringify({ status: result.wasRunning ? 'stopped' : 'not_running' }));

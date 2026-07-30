@@ -7,7 +7,7 @@
 | 技能 | 版本 | 说明 |
 |------|------|------|
 | `hog-finnhub` | 1.0.0 | 通过 Finnhub API 获取全球股票数据（不含 A 股） |
-| `hog-openbb` | 1.0.0 | 通过 OpenBB Platform 获取全球金融数据（不含 A 股） |
+| `hog-openbb` | 1.0.1 | 通过 OpenBB Platform 获取全球金融数据（不含 A 股） |
 
 ## 目录结构
 
