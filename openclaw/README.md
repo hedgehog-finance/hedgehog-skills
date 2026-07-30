@@ -27,8 +27,8 @@
 | `company-valuation` | 2.0.0 | 估值引擎：相对估值、绝对估值、战略估值 |
 | `doc-convert` | 2.0.0 | 文档格式转换：MD / HTML / PDF / DOCX 互转 |
 | `fin-calc` | 1.0.0 | 金融计算器：PV、FV、PMT、NPV、IRR、RATE |
-| `gen-chart` | 2.1.1 | 图表生成（Vega-Lite / Mermaid / ECharts） |
-| `gen-ppt` | 2.0.0 | 从 Markdown 生成 PPTX 演示文稿 |
+| `gen-chart` | 2.1.2 | 图表生成（Vega-Lite / Mermaid / ECharts） |
+| `gen-ppt` | 2.0.1 | 从 Markdown 生成 PPTX 演示文稿 |
 | `math_calc` | 1.0.0 | 安全数学表达式求值 CLI |
 | `table-convert` | 1.0.0 | 电子表格转换（xlsx / xls / csv → JSON / Markdown） |
 | `tech-indicators` | 1.0.0 | 本地技术指标计算引擎 |

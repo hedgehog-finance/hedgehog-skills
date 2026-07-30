@@ -3,7 +3,7 @@ name: gen-chart
 description: >
     Generate charts as PNG/SVG (Vega-Lite, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
     Triggers: chart, diagram, graph, flowchart, sequence diagram, mermaid, vega, echarts.
-version: 2.1.1
+version: 2.1.2
 ---
 
 # GenChart — Chart & Diagram Generator
@@ -108,6 +108,8 @@ Script auto-detects and fixes common LLM data issues (stderr warnings):
 - `-o <output>` — Alt output flag
 - `--format=svg` — Force SVG (or use `.svg` extension)
 - `--theme=<name>` — Theme preset. **Default: `fintech`** (auto-applied). `none` to disable. Mermaid also: `default`, `dark`, `forest`, `neutral`. `list` to print all.
+
+**Output format choice**: Use **PNG** when the chart will be embedded into PPTX/DOCX/PDF (gen-ppt, gen-doc, etc.) — SVG embeds render blank in most office viewers. Use SVG only for web/HTML display.
 
 ## Financial Color Themes
 

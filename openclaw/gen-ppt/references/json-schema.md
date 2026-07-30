@@ -133,7 +133,7 @@ Plain strings also work: `"Simple bullet"` = `{ text: "Simple bullet", level: 0 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `path` | string | Absolute file path (mutual exclusive with `data`) |
+| `path` | string | Absolute file path (mutual exclusive with `data`). **Use PNG/JPG — SVG renders blank in most PPT viewers** (a same-name `.png` is auto-substituted if present) |
 | `data` | string | Base64 data URI (mutual exclusive with `path`) |
 | `alt` | string | Alt text |
 | `position` | string | `"left"` (default) or `"right"` (image-text only) |
@@ -154,7 +154,13 @@ Plain strings also work: `"Simple bullet"` = `{ text: "Simple bullet", level: 0 
 }
 ```
 
-Types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`
+Types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, `image`
+
+**Pre-rendered chart image** (e.g. from the gen-chart skill) — use `type: "image"` with a `path` (PNG recommended); `data` field is not required:
+
+```json
+{ "type": "image", "path": "/absolute/path/to/chart.png", "alt": "Chart description" }
+```
 
 **Series:** `{ "name": string, "labels": string[], "values": number[] }`
 
@@ -187,7 +193,7 @@ Types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `headers` | string[] | Column headers |
+| `headers` | string[] | Column headers (`head` accepted as alias) |
 | `rows` | (string\|object)[][] | Row data (strings or `{text, options}` objects) |
 | `colW` | number[] | Column widths (inches) |
 | `rowH` | number[] | Row heights (inches) |

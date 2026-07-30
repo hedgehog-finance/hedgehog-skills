@@ -5,7 +5,7 @@ description: >
     Applicable: slide decks, pitch decks, meeting presentations, web presentations.
     Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
     Blocking: Keynote/Google Slides-only exports, video.
-version: 2.0.0
+version: 2.0.1
 ---
 
 # GenPPT — Presentation Generator
@@ -71,7 +71,7 @@ Resolve `./scripts/*` to absolute paths using this SKILL.md's directory. Use abs
 | `closing` | title, subtitle, logo |
 | `blank` | elements only |
 
-All slides support custom `elements` array. Charts: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`.
+All slides support custom `elements` array. Charts: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, or `image` (pre-rendered chart file, e.g. from gen-chart: `"chart": { "type": "image", "path": "/abs/chart.png" }`).
 
 ### Minimal JSON
 
@@ -88,9 +88,11 @@ All slides support custom `elements` array. Charts: `bar`, `line`, `pie`, `dough
 ### Common Mistakes to Avoid
 
 - Relative paths for `image.path` — always absolute
+- **SVG images — always use PNG/JPG.** SVG embeds render blank in most PPT viewers (WPS, older Office, macOS Preview). When generating charts with gen-chart for PPT embedding, output PNG
 - Omitting `"layout"` field (defaults to `"content"`)
 - `#` prefix inconsistency in color values (both accepted, be consistent)
 - Chart/table options at slide level — nest inside `chart.options` / `table.options`
+- Table headers field is `headers`, not `head` (alias tolerated but avoid)
 
 ### References
 - `references/json-schema.md` — Full JSON schema

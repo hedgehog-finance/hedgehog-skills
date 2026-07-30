@@ -604,9 +604,21 @@ function renderBullets(slide, bullets, pos, theme) {
 function renderImage(slide, image, pos) {
   if (!image) return;
   const opts = { ...pos };
-  if (image.path) {
-    if (!existsSync(image.path)) {
-      console.warn(`Warning [gen-ppt]: Image not found: ${image.path}`);
+  let imagePath = image.path;
+  // SVG embedding produces a tiny PNG fallback in PptxGenJS that renders blank
+  // in most viewers (WPS/older Office/Preview). Prefer a same-name PNG if present.
+  if (imagePath && /\.svg$/i.test(imagePath)) {
+    const pngPath = imagePath.replace(/\.svg$/i, ".png");
+    if (existsSync(pngPath)) {
+      console.warn(`Warning [gen-ppt]: SVG replaced with PNG for compatibility: ${pngPath}`);
+      imagePath = pngPath;
+    } else {
+      console.warn(`Warning [gen-ppt]: SVG images render blank in many PPT viewers, use PNG instead: ${imagePath}`);
+    }
+  }
+  if (imagePath) {
+    if (!existsSync(imagePath)) {
+      console.warn(`Warning [gen-ppt]: Image not found: ${imagePath}`);
       // Render placeholder rectangle
       slide.addShape("roundRect", {
         ...pos,
@@ -619,7 +631,7 @@ function renderImage(slide, image, pos) {
       });
       return;
     }
-    opts.path = image.path;
+    opts.path = imagePath;
   } else if (image.data) {
     opts.data = image.data;
   } else {
@@ -631,6 +643,13 @@ function renderImage(slide, image, pos) {
 
 /** Render a chart slot. */
 function renderChart(slide, chart, pos, theme) {
+  // Pre-rendered chart image (e.g. produced by the gen-chart skill):
+  // { "type": "image", "path": "chart.png" } → delegate to image rendering.
+  if (chart.type === "image" && (chart.path || chart.data)) {
+    renderImage(slide, chart, pos);
+    return;
+  }
+
   if (!chart.type || !chart.data) {
     console.warn("Warning [gen-ppt]: Chart missing 'type' or 'data', skipping.");
     return;
@@ -675,12 +694,13 @@ function renderChart(slide, chart, pos, theme) {
 
 /** Render a table slot. */
 function renderTable(slide, table, pos, theme) {
-  if (!table.headers && !table.rows) {
+  if (!table.headers && !table.head && !table.rows) {
     console.warn("Warning [gen-ppt]: Table missing 'headers' or 'rows', skipping.");
     return;
   }
 
-  const headers = table.headers || [];
+  // Accept "head" as an alias of "headers" (common LLM output variant)
+  const headers = table.headers || table.head || [];
   const rows = table.rows || [];
 
   // Build header row with theme styling
