@@ -5,7 +5,7 @@ description: >
     Applicable: slide decks, pitch decks, meeting presentations, web presentations.
     Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
     Blocking: Keynote/Google Slides-only exports, video.
-version: 2.0.1
+version: 2.1.0
 ---
 
 # GenPPT — Presentation Generator
@@ -65,13 +65,20 @@ Resolve `./scripts/*` to absolute paths using this SKILL.md's directory. Use abs
 | `section` | sectionNumber, title, subtitle |
 | `content` | title, bullets/body, footnote |
 | `two-column` | title, left, right, footnote |
-| `image-text` | title, image, bullets/body, footnote |
+| `image-text` | title, image, bullets/body, footnote. `image.position`: `left`(default)/`right`/`top`/`bottom` — pick freely per content (e.g. wide charts → top/bottom; tall images → left/right). Images auto-scale proportionally (no stretching), centered in slot |
 | `chart` | title, subtitle, chart, footnote |
 | `table` | title, subtitle, table, footnote |
 | `closing` | title, subtitle, logo |
 | `blank` | elements only |
 
 All slides support custom `elements` array. Charts: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, or `image` (pre-rendered chart file, e.g. from gen-chart: `"chart": { "type": "image", "path": "/abs/chart.png" }`).
+
+### Inline Text Formatting
+
+All text fields (title, subtitle, bullets, body, footnote, table cells, text elements) support simple inline markup:
+
+- Markdown: `**bold**`, `*italic*`, `~~strike~~`, `` `code` `` (monospace). Underscore emphasis (`_x_`) is NOT supported (avoids snake_case false positives); unpaired markers stay literal
+- HTML tags: `<strong>`/`<b>`, `<em>`/`<i>`, `<u>`, `<s>`/`<del>`/`<strike>`, `<sub>`, `<sup>`, `<br>` (line break), `<center>` (paragraph centering)
 
 ### Minimal JSON
 

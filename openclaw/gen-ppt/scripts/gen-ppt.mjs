@@ -27,6 +27,16 @@ const VALID_LAYOUTS = [
 
 const DEFAULT_THEME = "fintech";
 
+// Inline formatting tokens: **bold**, *italic*, ~~strike~~, `code`, and HTML tags
+// (declared here because top-level `await generate()` runs before later consts)
+const INLINE_TOKEN_RE = /(\*\*|\*|~~|`|<\/?(?:strong|b|em|i|u|s|del|strike|sub|sup)\s*>|<br\s*\/?\s*>)/gi;
+
+// HTML tag name → style-state key
+const HTML_STATE = {
+  strong: "bold", b: "bold", em: "italic", i: "italic", u: "underline",
+  s: "strike", del: "strike", strike: "strike", sub: "sub", sup: "sup",
+};
+
 // Default PPT theme when --theme=none or unknown theme
 const FALLBACK_THEME = {
   name: "Default",
@@ -276,7 +286,7 @@ function renderTitleLayout(slide, config, theme) {
 
   // Title
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.8, y: 1.5, w: 8.4, h: 1.0,
       fontSize: 36, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "center", valign: "middle",
@@ -291,7 +301,7 @@ function renderTitleLayout(slide, config, theme) {
 
   // Subtitle
   if (config.subtitle) {
-    slide.addText(config.subtitle, {
+    addFmtText(slide, config.subtitle, {
       x: 0.8, y: 2.7, w: 8.4, h: 0.6,
       fontSize: 18, fontFace: "Calibri",
       color: theme.subtleText, align: "center", valign: "top",
@@ -329,7 +339,7 @@ function renderSectionLayout(slide, config, theme) {
 
   // Title
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.8, y: 2.2, w: 8.4, h: 0.8,
       fontSize: 32, fontFace: "Calibri", bold: true,
       color: theme.textColor, align: "left",
@@ -338,7 +348,7 @@ function renderSectionLayout(slide, config, theme) {
 
   // Subtitle
   if (config.subtitle) {
-    slide.addText(config.subtitle, {
+    addFmtText(slide, config.subtitle, {
       x: 0.8, y: 3.2, w: 8.4, h: 0.5,
       fontSize: 14, fontFace: "Calibri",
       color: theme.subtleText, align: "left",
@@ -359,7 +369,7 @@ function renderContentLayout(slide, config, theme) {
       color: theme.textColor, valign: "top",
     }, theme);
   } else if (config.body) {
-    slide.addText(config.body, {
+    addFmtText(slide, config.body, {
       x: 0.5, y: 1.2, w: 9.0, h: 3.8,
       fontSize: 16, fontFace: "Calibri",
       color: theme.textColor, valign: "top",
@@ -397,28 +407,48 @@ function renderTwoColumnLayout(slide, config, theme) {
 function renderImageTextLayout(slide, config, theme) {
   renderSlideHeader(slide, config, theme);
 
-  const imgRight = config.image?.position === "right";
-  const imgX = imgRight ? 5.2 : 0.5;
-  const txtX = imgRight ? 0.5 : 5.5;
-  const imgW = imgRight ? 4.3 : 4.7;
-  const txtW = imgRight ? 4.4 : 3.7;
+  // Four arrangements via image.position: "left" (default) = image left / text
+  // right; "right" = text left / image right; "top" = image top / text bottom;
+  // "bottom" = text top / image bottom.
+  const position = config.image?.position || "left";
+  let imgPos, txtPos, txtFontSize;
+
+  if (position === "top" || position === "bottom") {
+    // Vertical split: image gets the larger band, text the remainder
+    const imgBand = { x: 0.5, w: 9.0, h: 2.3 };
+    const txtBand = { x: 0.5, w: 9.0, h: 1.4 };
+    if (position === "top") {
+      imgPos = { ...imgBand, y: 1.2 };
+      txtPos = { ...txtBand, y: 3.6 };
+    } else {
+      txtPos = { ...txtBand, y: 1.2 };
+      imgPos = { ...imgBand, y: 2.7 };
+    }
+    txtFontSize = 14;
+  } else {
+    // Horizontal split (original behavior)
+    const imgRight = position === "right";
+    imgPos = { x: imgRight ? 5.2 : 0.5, y: 1.2, w: imgRight ? 4.3 : 4.7, h: 3.8 };
+    txtPos = { x: imgRight ? 0.5 : 5.5, y: 1.2, w: imgRight ? 4.4 : 3.7, h: 3.8 };
+    txtFontSize = 14;
+  }
 
   // Image
   if (config.image) {
-    renderImage(slide, config.image, { x: imgX, y: 1.2, w: imgW, h: 3.8 });
+    renderImage(slide, config.image, imgPos);
   }
 
   // Text (bullets or body)
   if (config.bullets && config.bullets.length > 0) {
     renderBullets(slide, config.bullets, {
-      x: txtX, y: 1.2, w: txtW, h: 3.8,
-      fontSize: 14, fontFace: "Calibri",
+      ...txtPos,
+      fontSize: txtFontSize, fontFace: "Calibri",
       color: theme.textColor, valign: "top",
     }, theme);
   } else if (config.body) {
-    slide.addText(config.body, {
-      x: txtX, y: 1.2, w: txtW, h: 3.8,
-      fontSize: 14, fontFace: "Calibri",
+    addFmtText(slide, config.body, {
+      ...txtPos,
+      fontSize: txtFontSize, fontFace: "Calibri",
       color: theme.textColor, valign: "top",
     });
   }
@@ -431,7 +461,7 @@ function renderImageTextLayout(slide, config, theme) {
 function renderChartLayout(slide, config, theme) {
   // Title
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.5, y: 0.3, w: 9.0, h: 0.5,
       fontSize: 24, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "left",
@@ -440,7 +470,7 @@ function renderChartLayout(slide, config, theme) {
 
   // Subtitle
   if (config.subtitle) {
-    slide.addText(config.subtitle, {
+    addFmtText(slide, config.subtitle, {
       x: 0.5, y: 0.85, w: 9.0, h: 0.3,
       fontSize: 12, fontFace: "Calibri",
       color: theme.subtleText, align: "left",
@@ -462,7 +492,7 @@ function renderChartLayout(slide, config, theme) {
 function renderTableLayout(slide, config, theme) {
   // Title
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.5, y: 0.3, w: 9.0, h: 0.5,
       fontSize: 24, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "left",
@@ -471,7 +501,7 @@ function renderTableLayout(slide, config, theme) {
 
   // Subtitle
   if (config.subtitle) {
-    slide.addText(config.subtitle, {
+    addFmtText(slide, config.subtitle, {
       x: 0.5, y: 0.85, w: 9.0, h: 0.3,
       fontSize: 12, fontFace: "Calibri",
       color: theme.subtleText, align: "left",
@@ -493,7 +523,7 @@ function renderTableLayout(slide, config, theme) {
 function renderClosingLayout(slide, config, theme) {
   // Title
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.8, y: 1.8, w: 8.4, h: 0.8,
       fontSize: 36, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "center", valign: "middle",
@@ -502,7 +532,7 @@ function renderClosingLayout(slide, config, theme) {
 
   // Subtitle
   if (config.subtitle) {
-    slide.addText(config.subtitle, {
+    addFmtText(slide, config.subtitle, {
       x: 0.8, y: 2.8, w: 8.4, h: 0.5,
       fontSize: 14, fontFace: "Calibri",
       color: theme.subtleText, align: "center",
@@ -515,12 +545,101 @@ function renderClosingLayout(slide, config, theme) {
   }
 }
 
+// ── Inline Formatting (simple Markdown + HTML tags) ────────────────────────
+
+/**
+ * Parse simple inline Markdown (**bold**, *italic*, ~~strike~~, `code`) and
+ * HTML tags (<b>/<strong>, <i>/<em>, <u>, <s>/<del>/<strike>, <sub>, <sup>,
+ * <br>, <center>) into PptxGenJS text runs.
+ * Underscore emphasis (_x_/__x__) is intentionally NOT supported to avoid
+ * false positives on snake_case identifiers. Unpaired Markdown toggles are
+ * kept as literal text.
+ * Returns { runs, blockOpts }: runs is a plain string when no markup is
+ * present, otherwise an array of { text, options }; blockOpts carries
+ * paragraph-level options (e.g. align from <center>).
+ */
+function parseFormattedText(text) {
+  const str = String(text ?? "");
+  const blockOpts = {};
+  if (!/[*~`<]/.test(str)) return { runs: str, blockOpts };
+
+  let t = str;
+  // <center> is paragraph-level: strip tags, set alignment
+  if (/<center\s*>/i.test(t)) {
+    blockOpts.align = "center";
+    t = t.replace(/<\/?center\s*>/gi, "");
+  }
+
+  const parts = t.split(INLINE_TOKEN_RE).filter((p) => p !== undefined && p !== "");
+  // Unpaired Markdown toggles are literal (e.g. "5 * 3" stays as-is)
+  const counts = { "**": 0, "*": 0, "~~": 0, "`": 0 };
+  for (const p of parts) if (p in counts) counts[p]++;
+  const literal = new Set(Object.keys(counts).filter((k) => counts[k] % 2 === 1));
+
+  const state = { bold: false, italic: false, underline: false, strike: false, code: false, sub: false, sup: false };
+  const optsOf = () => {
+    const o = {};
+    if (state.bold) o.bold = true;
+    if (state.italic) o.italic = true;
+    if (state.underline) o.underline = true;
+    if (state.strike) o.strike = true;
+    if (state.code) o.fontFace = "Courier New";
+    if (state.sub) o.subscript = true;
+    if (state.sup) o.superscript = true;
+    return o;
+  };
+
+  const runs = [];
+  let buf = "";
+  let bufOpts = optsOf();
+  const flush = () => {
+    if (buf) { runs.push({ text: buf, options: { ...bufOpts } }); buf = ""; }
+  };
+  const toggle = (key) => { flush(); state[key] = !state[key]; bufOpts = optsOf(); };
+  const setState = (key, on) => { flush(); state[key] = on; bufOpts = optsOf(); };
+
+  for (const part of parts) {
+    if (part === "**" && !literal.has("**")) { toggle("bold"); continue; }
+    if (part === "*" && !literal.has("*")) { toggle("italic"); continue; }
+    if (part === "~~" && !literal.has("~~")) { toggle("strike"); continue; }
+    if (part === "`" && !literal.has("`")) { toggle("code"); continue; }
+    if (/^<br\s*\/?\s*>$/i.test(part)) {
+      flush();
+      if (runs.length > 0) runs[runs.length - 1].options.breakLine = true;
+      else runs.push({ text: "", options: { breakLine: true } });
+      continue;
+    }
+    const m = part.match(/^<(\/?)([a-zA-Z]+)\s*>$/);
+    if (m && HTML_STATE[m[2].toLowerCase()]) { setState(HTML_STATE[m[2].toLowerCase()], m[1] !== "/"); continue; }
+    buf += part;
+  }
+  flush();
+
+  if (runs.length === 0) return { runs: "", blockOpts };
+  // No effective inline markup → keep plain-string behavior
+  if (runs.length === 1 && Object.keys(runs[0].options).length === 0) {
+    return { runs: runs[0].text, blockOpts };
+  }
+  return { runs, blockOpts };
+}
+
+/** addText with inline Markdown/HTML formatting support. */
+function addFmtText(slide, text, opts) {
+  const { runs, blockOpts } = parseFormattedText(text);
+  slide.addText(runs, { ...opts, ...blockOpts });
+}
+
+/** Format a table cell value → string or text-run array. */
+function fmtCellText(text) {
+  return parseFormattedText(text).runs;
+}
+
 // ── Shared Rendering Helpers ─────────────────────────────────────────────────
 
 /** Render slide title + decorative line (used by content, two-column, image-text). */
 function renderSlideHeader(slide, config, theme) {
   if (config.title) {
-    slide.addText(config.title, {
+    addFmtText(slide, config.title, {
       x: 0.5, y: 0.3, w: 9.0, h: 0.6,
       fontSize: 24, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "left",
@@ -536,7 +655,7 @@ function renderSlideHeader(slide, config, theme) {
 /** Render footnote at bottom of slide. */
 function renderFootnote(slide, config, theme) {
   if (config.footnote) {
-    slide.addText(config.footnote, {
+    addFmtText(slide, config.footnote, {
       x: 0.5, y: 5.1, w: 9.0, h: 0.3,
       fontSize: 9, fontFace: "Calibri", italic: true,
       color: theme.subtleText, align: "left",
@@ -550,7 +669,7 @@ function renderColumn(slide, col, pos, theme) {
   let hRemain = pos.h;
 
   if (col.title) {
-    slide.addText(col.title, {
+    addFmtText(slide, col.title, {
       x: pos.x, y: yOff, w: pos.w, h: 0.4,
       fontSize: 16, fontFace: "Calibri", bold: true,
       color: theme.primary, align: "left", valign: "top",
@@ -566,7 +685,7 @@ function renderColumn(slide, col, pos, theme) {
       color: theme.textColor, valign: "top",
     }, theme);
   } else if (col.body) {
-    slide.addText(col.body, {
+    addFmtText(slide, col.body, {
       x: pos.x, y: yOff, w: pos.w, h: hRemain,
       fontSize: 14, fontFace: "Calibri",
       color: theme.textColor, valign: "top",
@@ -580,30 +699,89 @@ function renderBullets(slide, bullets, pos, theme) {
   for (const bullet of bullets) {
     const item = typeof bullet === "string" ? { text: bullet, level: 0 } : bullet;
     const fontSize = [16, 14, 12][item.level] || 12;
-    textItems.push({
-      text: item.text,
-      options: {
-        fontSize,
-        fontFace: "Calibri",
-        bold: item.bold || false,
-        italic: item.italic || false,
-        color: item.color
-          ? (item.color.startsWith("#") ? item.color.slice(1) : item.color)
-          : theme.textColor,
-        indentLevel: item.level || 0,
-        bullet: true,
-        paraSpaceBefore: 6,
-        paraSpaceAfter: 3,
-      },
-    });
+    const baseOpts = {
+      fontSize,
+      fontFace: "Calibri",
+      bold: item.bold || false,
+      italic: item.italic || false,
+      color: item.color
+        ? (item.color.startsWith("#") ? item.color.slice(1) : item.color)
+        : theme.textColor,
+      paraSpaceBefore: 6,
+      paraSpaceAfter: 3,
+    };
+    const bulletOpts = { indentLevel: item.level || 0, bullet: true };
+    const { runs } = parseFormattedText(item.text);
+    if (typeof runs === "string") {
+      textItems.push({ text: runs, options: { ...baseOpts, ...bulletOpts } });
+    } else {
+      // Inline-formatted bullet: first run opens the bulleted paragraph,
+      // subsequent runs continue on the same line
+      runs.forEach((r, i) => {
+        textItems.push({
+          text: r.text,
+          options: { ...baseOpts, ...r.options, ...(i === 0 ? bulletOpts : {}) },
+        });
+      });
+    }
   }
   slide.addText(textItems, pos);
+}
+
+/** Parse intrinsic pixel size from PNG/JPEG/GIF/BMP header bytes (no deps). */
+function getImageSizePx(buf) {
+  // PNG: IHDR width/height at fixed offsets
+  if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50) {
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  }
+  // JPEG: scan for SOFn marker
+  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < buf.length) {
+      if (buf[i] !== 0xff) { i++; continue; }
+      const marker = buf[i + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+      }
+      i += 2 + buf.readUInt16BE(i + 2);
+    }
+    return null;
+  }
+  // GIF: logical screen size (little-endian)
+  if (buf.length > 10 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+    return { w: buf.readUInt16LE(6), h: buf.readUInt16LE(8) };
+  }
+  // BMP: DIB header (little-endian)
+  if (buf.length > 26 && buf[0] === 0x42 && buf[1] === 0x4d) {
+    return { w: buf.readInt32LE(18), h: Math.abs(buf.readInt32LE(22)) };
+  }
+  return null;
+}
+
+/** Scale image to fit inside the slot preserving aspect ratio, centered. */
+function fitImageIntoSlot(px, pos) {
+  if (!px || !px.w || !px.h) return pos;
+  const imgRatio = px.w / px.h;
+  const slotRatio = pos.w / pos.h;
+  let w, h;
+  if (imgRatio >= slotRatio) {
+    w = pos.w;
+    h = pos.w / imgRatio;
+  } else {
+    h = pos.h;
+    w = pos.h * imgRatio;
+  }
+  return {
+    x: pos.x + (pos.w - w) / 2,
+    y: pos.y + (pos.h - h) / 2,
+    w: Math.round(w * 100) / 100,
+    h: Math.round(h * 100) / 100,
+  };
 }
 
 /** Render an image slot (path or base64 data). */
 function renderImage(slide, image, pos) {
   if (!image) return;
-  const opts = { ...pos };
   let imagePath = image.path;
   // SVG embedding produces a tiny PNG fallback in PptxGenJS that renders blank
   // in most viewers (WPS/older Office/Preview). Prefer a same-name PNG if present.
@@ -616,6 +794,8 @@ function renderImage(slide, image, pos) {
       console.warn(`Warning [gen-ppt]: SVG images render blank in many PPT viewers, use PNG instead: ${imagePath}`);
     }
   }
+  const opts = {};
+  let sizePx = null;
   if (imagePath) {
     if (!existsSync(imagePath)) {
       console.warn(`Warning [gen-ppt]: Image not found: ${imagePath}`);
@@ -632,11 +812,20 @@ function renderImage(slide, image, pos) {
       return;
     }
     opts.path = imagePath;
+    try {
+      sizePx = getImageSizePx(readFileSync(imagePath));
+    } catch { /* fall back to slot size */ }
   } else if (image.data) {
     opts.data = image.data;
+    const b64 = String(image.data).replace(/^data:[^,]*,/, "");
+    try {
+      sizePx = getImageSizePx(Buffer.from(b64, "base64"));
+    } catch { /* fall back to slot size */ }
   } else {
     return; // No image source
   }
+  // Preserve aspect ratio: scale to fit inside the slot, centered
+  Object.assign(opts, fitImageIntoSlot(sizePx, pos));
   if (image.alt) opts.altText = image.alt;
   slide.addImage(opts);
 }
@@ -705,7 +894,7 @@ function renderTable(slide, table, pos, theme) {
 
   // Build header row with theme styling
   const headerRow = headers.map(h => ({
-    text: String(h),
+    text: fmtCellText(h),
     options: {
       bold: true,
       color: theme.tableHeaderText,
@@ -721,10 +910,10 @@ function renderTable(slide, table, pos, theme) {
   const dataRows = rows.map((row, idx) =>
     row.map(cell => {
       if (typeof cell === "object" && cell.text) {
-        return { text: String(cell.text), options: { ...cell.options } };
+        return { text: fmtCellText(cell.text), options: { ...cell.options } };
       }
       return {
-        text: String(cell),
+        text: fmtCellText(cell),
         options: {
           fontSize: 11,
           fontFace: "Calibri",
@@ -767,7 +956,7 @@ function renderElements(slide, elements, theme) {
 
     switch (el.type) {
       case "text":
-        slide.addText(el.content || "", {
+        addFmtText(slide, el.content || "", {
           ...pos,
           fontSize: 12, fontFace: "Calibri",
           color: theme.textColor,

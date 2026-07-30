@@ -42,6 +42,21 @@ All fields optional. Hex values may include or omit `#`.
 
 ## Slide Object
 
+All text fields (title, subtitle, bullets, body, footnote, table cells, text elements) support inline formatting:
+
+| Markup | Effect |
+|--------|--------|
+| `**text**`, `<strong>`, `<b>` | Bold |
+| `*text*`, `<em>`, `<i>` | Italic (underscore `_x_` NOT supported — avoids snake_case false positives) |
+| `~~text~~`, `<s>`, `<del>`, `<strike>` | Strikethrough |
+| `` `text` `` | Monospace (Courier New) |
+| `<u>` | Underline |
+| `<sub>` / `<sup>` | Subscript / superscript |
+| `<br>` | Line break |
+| `<center>` | Center the paragraph |
+
+Unpaired Markdown markers (e.g. `5 * 3`) are kept as literal text.
+
 ```json
 {
   "layout": "content",
@@ -91,7 +106,7 @@ All fields optional. Hex values may include or omit `#`.
 | `section` — Divider | sectionNumber, title, subtitle |
 | `content` — Bullets/text | title, bullets/body, footnote |
 | `two-column` — Side-by-side | title, left (ColumnContent), right (ColumnContent), footnote |
-| `image-text` — Image+text | title, image, bullets/body, footnote. Set `image.position:"right"` to swap sides |
+| `image-text` — Image+text | title, image, bullets/body, footnote. `image.position` picks the arrangement: `"left"` (default, image left / text right), `"right"` (text left / image right), `"top"` (image top / text bottom), `"bottom"` (text top / image bottom) |
 | `chart` — Data chart | title, subtitle, chart, footnote |
 | `table` — Data table | title, subtitle, table, footnote |
 | `closing` — End page | title, subtitle, logo |
@@ -125,6 +140,8 @@ Plain strings also work: `"Simple bullet"` = `{ text: "Simple bullet", level: 0 
 
 ### ImageSlot
 
+Images are never stretched: the intrinsic pixel size (PNG/JPEG/GIF/BMP) is read from the file header and the image is scaled proportionally to fit its slot, centered.
+
 ```json
 // File path (absolute) or base64
 { "path": "/absolute/path/to/image.png", "alt": "Description" }
@@ -136,7 +153,7 @@ Plain strings also work: `"Simple bullet"` = `{ text: "Simple bullet", level: 0 
 | `path` | string | Absolute file path (mutual exclusive with `data`). **Use PNG/JPG — SVG renders blank in most PPT viewers** (a same-name `.png` is auto-substituted if present) |
 | `data` | string | Base64 data URI (mutual exclusive with `path`) |
 | `alt` | string | Alt text |
-| `position` | string | `"left"` (default) or `"right"` (image-text only) |
+| `position` | string | `"left"` (default), `"right"`, `"top"`, `"bottom"` — image placement relative to text (image-text only) |
 
 ### ChartSlot
 
