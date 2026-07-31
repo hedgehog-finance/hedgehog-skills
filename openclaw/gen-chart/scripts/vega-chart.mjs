@@ -223,13 +223,13 @@ function sanitizeDataForEncoding(values, encoding, context) {
   }
 
   if (dateFixCount > 0) {
-    warnings.push(`[${context}] 自动修复 ${dateFixCount} 个日期值（中文/非标准格式 → ISO 8601）`);
+    warnings.push(`[${context}] Auto-fixed ${dateFixCount} date values (Chinese/non-standard format \u2192 ISO 8601)`);
   }
   if (nullDateCount > 0) {
-    warnings.push(`[${context}] ⚠ ${nullDateCount} 个日期值无法解析为 temporal 类型，建议改用 type:"ordinal" 或修正日期格式`);
+    warnings.push(`[${context}] \u26a0 ${nullDateCount} date values cannot be parsed as temporal type; consider type:"ordinal" or fix date format`);
   }
   if (numFixCount > 0) {
-    warnings.push(`[${context}] 自动转换 ${numFixCount} 个字符串数值为 number（quantitative 字段不应使用字符串）`);
+    warnings.push(`[${context}] Auto-converted ${numFixCount} string values to number (quantitative fields should not contain strings)`);
   }
 }
 
@@ -255,8 +255,8 @@ function detectUniformQuantitativeColor(values, encoding, context) {
   // All identical or within 0.1% of each other
   if (range < Math.abs(min) * 0.001 || range < 0.01) {
     warnings.push(
-      `[${context}] ⚠⚠ color 字段 "${field}" 所有值均相同 (${nums[0]})，图表将无法显示差异。` +
-      `请确认数据来源——敏感性分析等计算型图表必须调用对应 skill 获取真实计算结果，禁止手动编造 value 值。`
+      `[${context}] \u26a0\u26a0 color field "${field}" has uniform values (${nums[0]}), chart will show no variation. ` +
+      `Verify data source — computational charts (e.g. sensitivity analysis) must call the relevant skill for real calculated results; do not manually fabricate values.`
     );
   }
 }
@@ -269,7 +269,7 @@ function sanitizeSpec(spec) {
   const values = spec.data?.values;
   if (!Array.isArray(values) || values.length === 0) {
     if (values && values.length === 0) {
-      warnings.push("⚠ data.values 为空数组，图表将无数据");
+      warnings.push("\u26a0 data.values is empty array, chart will have no data");
     }
     return spec;
   }
@@ -296,6 +296,69 @@ function sanitizeSpec(spec) {
 
 // Run sanitization before any theme/point/bar processing
 sanitizeSpec(specJson);
+
+/**
+ * Detect encoding fields that don't exist in the data rows.
+ * This catches the silent-empty-chart case where the spec references
+ * field names that mismatch the actual data (e.g. spec uses "macd" but
+ * data has "macd_MACD"). Walks nested specs, tracking the effective
+ * data values (child data overrides parent).
+ */
+const missingFields = new Set();
+
+function detectMissingFields(spec, inheritedValues) {
+  const values = Array.isArray(spec.data?.values) ? spec.data.values : inheritedValues;
+
+  if (spec.encoding && Array.isArray(values) && values.length > 0) {
+    // Sample up to 5 rows — field counts as present if any sampled row has it
+    const sample = values.slice(0, 5);
+    for (const enc of Object.values(spec.encoding)) {
+      const field = enc?.field;
+      if (!field || typeof field !== "string") continue;
+      if (field.includes(".") || field.includes("[")) continue; // nested accessor — skip
+      const calculated = calculatedFields.has(field);
+      if (!calculated && !sample.some((row) => row != null && field in row)) {
+        missingFields.add(field);
+      }
+    }
+  }
+
+  if (Array.isArray(spec.layer)) for (const l of spec.layer) detectMissingFields(l, values);
+  if (spec.spec) detectMissingFields(spec.spec, values);
+  for (const key of ["concat", "vconcat", "hconcat"]) {
+    if (Array.isArray(spec[key])) for (const sub of spec[key]) detectMissingFields(sub, values);
+  }
+}
+
+// Fields produced by transforms (calculate/fold/aggregate/...) are not in raw data
+const calculatedFields = new Set();
+function collectTransformFields(spec) {
+  for (const t of spec.transform ?? []) {
+    if (t.as) {
+      for (const a of Array.isArray(t.as) ? t.as : [t.as]) calculatedFields.add(a);
+    }
+    if (Array.isArray(t.aggregate)) for (const a of t.aggregate) a?.as && calculatedFields.add(a.as);
+    if (Array.isArray(t.joinaggregate)) for (const a of t.joinaggregate) a?.as && calculatedFields.add(a.as);
+    if (Array.isArray(t.window)) for (const w of t.window) w?.as && calculatedFields.add(w.as);
+  }
+  if (Array.isArray(spec.layer)) for (const l of spec.layer) collectTransformFields(l);
+  if (spec.spec) collectTransformFields(spec.spec);
+  for (const key of ["concat", "vconcat", "hconcat"]) {
+    if (Array.isArray(spec[key])) for (const sub of spec[key]) collectTransformFields(sub);
+  }
+}
+
+collectTransformFields(specJson);
+detectMissingFields(specJson);
+if (missingFields.size > 0) {
+  console.error(`[vega-chart] \u274c encoding references fields not found in data: ${[...missingFields].join(", ")}`);
+  const sampleKeys = Object.keys((specJson.data?.values ?? [])[0] ?? {});
+  if (sampleKeys.length > 0) {
+    console.error(`[vega-chart] Actual data fields: ${sampleKeys.join(", ")}`);
+  }
+  console.error(`[vega-chart] Chart will render empty; fix spec field names and retry`);
+  process.exit(1);
+}
 
 /**
  * Detect if spec is Vega-Lite (vs raw Vega).
@@ -576,7 +639,7 @@ view.finalize();
 
 // Print warnings
 if (warnings.length > 0) {
-  console.error("[vega-chart] 数据诊断:");
+  console.error("[vega-chart] Data diagnostics:");
   for (const w of warnings) {
     console.error(`  ${w}`);
   }
@@ -584,11 +647,11 @@ if (warnings.length > 0) {
 
 const themeInfo = theme ? ` (theme: ${theme.name})` : "";
 if (!hasData) {
-  console.error(`[vega-chart] ⚠ 图表无数据！请检查:`);
-  console.error(`  1. data.values 是否为空`);
-  console.error(`  2. encoding.field 是否匹配数据字段名`);
-  console.error(`  3. temporal 字段值是否为 ISO 8601 格式（如 "2024-01-01"）`);
-  console.error(`  4. quantitative 字段值是否为数字类型`);
+  console.error(`[vega-chart] \u26a0 Chart has no data! Please check:`);
+  console.error(`  1. data.values is not empty`);
+  console.error(`  2. encoding.field matches data field names`);
+  console.error(`  3. temporal field values are ISO 8601 format (e.g. "2024-01-01")`);
+  console.error(`  4. quantitative field values are numeric`);
   console.log(`Chart generated (empty): ${outputPath}${themeInfo}`);
   process.exitCode = 1;
 } else {

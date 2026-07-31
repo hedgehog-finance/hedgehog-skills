@@ -6,6 +6,7 @@
  * Generates a self-contained HTML presentation with:
  * - All CSS/JS inlined
  * - All images (local + URL) embedded as base64 data URIs
+ * - Live ECharts rendering via ```echarts fenced blocks (option JSON)
  * - Keyboard/touch/button navigation, overview mode, progress bar
  * - 10 financial color themes matching gen-chart
  *
@@ -135,12 +136,34 @@ async function embedImage(src) {
   }
 }
 
+// ─── ECharts Blocks ──────────────────────────────────────────────────────────
+// ```echarts fenced blocks carry an ECharts option JSON (or {chart, option} from
+// gen-chart echarts-config.mjs). They are replaced by placeholder divs and
+// rendered live in the browser via the ECharts runtime.
+
+const echartsOptions = [];
+
+function extractEchartsBlocks(markdown) {
+  return markdown.replace(/```echarts[^\n]*\n([\s\S]*?)\n```/g, (match, body) => {
+    try {
+      const parsed = JSON.parse(body);
+      const option = parsed && typeof parsed === "object" && parsed.option ? parsed.option : parsed;
+      const idx = echartsOptions.length;
+      echartsOptions.push(option);
+      return `\n<div class="echarts-box" data-ec-idx="${idx}"></div>\n`;
+    } catch (err) {
+      console.error(`Warning: invalid ECharts option JSON in \`\`\`echarts block (${err.message}); rendered as code`);
+      return match;
+    }
+  });
+}
+
 // ─── Render Slides ───────────────────────────────────────────────────────────
 
 async function renderSlides() {
   const out = [];
   for (const slide of slides) {
-    let html = marked.parse(slide);
+    let html = marked.parse(extractEchartsBlocks(slide));
     const imgRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
     for (const m of [...html.matchAll(imgRegex)]) {
       const embedded = await embedImage(m[1]);
@@ -232,6 +255,10 @@ html, body {
 
 /* Images */
 .slide img { max-width: 100%; max-height: 60vh; border-radius: 8px; margin: 0.5em 0; box-shadow: var(--slide-shadow); }
+
+/* ECharts containers */
+.slide .echarts-box { width: 100%; height: 55vh; min-height: 320px; margin: 0.5em 0; }
+.deck.overview .slide .echarts-box { height: 120px; min-height: 0; }
 
 /* Title slide */
 .slide:first-child { text-align: center; align-items: center; }
@@ -340,6 +367,7 @@ const JS = `
       if (j < current) slides[j].classList.add('prev');
     }
     slides[current].classList.add('active');
+    if (window.__onSlideShown) window.__onSlideShown(slides[current]);
     if (progressBar) progressBar.style.width = ((current + 1) / total * 100) + '%';
     if (pageCounter) pageCounter.textContent = (current + 1) + ' / ' + total;
     if (prevBtn) prevBtn.classList.toggle('disabled', current === 0);
@@ -400,6 +428,39 @@ const JS = `
 })();
 `;
 
+// ─── ECharts Runtime (only injected when ```echarts blocks are present) ─────
+
+const ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js";
+
+function buildEchartsScripts() {
+  if (echartsOptions.length === 0) return "";
+  const optionsJson = JSON.stringify(echartsOptions).replace(/</g, "\\u003c");
+  return `
+<script src="${ECHARTS_CDN}"></script>
+<script>
+(function() {
+  var OPTIONS = ${optionsJson};
+  var instances = {};
+  function initIn(root) {
+    if (!window.echarts || !root) return;
+    var boxes = root.querySelectorAll('.echarts-box');
+    for (var i = 0; i < boxes.length; i++) {
+      var idx = boxes[i].getAttribute('data-ec-idx');
+      if (instances[idx]) { instances[idx].resize(); continue; }
+      var chart = echarts.init(boxes[i], null, { renderer: 'canvas' });
+      chart.setOption(OPTIONS[idx]);
+      instances[idx] = chart;
+    }
+  }
+  window.__onSlideShown = function(slideEl) { initIn(slideEl); };
+  window.addEventListener('resize', function() {
+    for (var k in instances) instances[k].resize();
+  });
+  initIn(document.querySelector('.slide.active'));
+})();
+</script>`;
+}
+
 // Logo is in the same directory as this script (gen-ppt/scripts/logo.png)
 const BRANDING_LOGO_SRC = `${new URL('./logo.png', import.meta.url).pathname}`;
 
@@ -446,7 +507,7 @@ ${slidesHtml}
 <div class="page-counter">1 / ${renderedSlides.length}</div>
 <button class="nav-btn nav-prev" aria-label="Previous slide">&#8249;</button>
 <button class="nav-btn nav-next" aria-label="Next slide">&#8250;</button>
-<script>${JS}</script>
+<script>${JS}</script>${buildEchartsScripts()}
 </body>
 </html>`;
 
@@ -457,7 +518,8 @@ ${slidesHtml}
     ? `${(size / 1024 / 1024).toFixed(1)} MB`
     : `${(size / 1024).toFixed(1)} KB`;
 
-  console.log(`HTML slides generated: ${outputPath} (${renderedSlides.length} slides, ${sizeStr}, theme: ${theme})`);
+  const chartNote = echartsOptions.length > 0 ? `, ${echartsOptions.length} echarts` : "";
+  console.log(`HTML slides generated: ${outputPath} (${renderedSlides.length} slides${chartNote}, ${sizeStr}, theme: ${theme})`);
 }
 
 build().catch(err => {

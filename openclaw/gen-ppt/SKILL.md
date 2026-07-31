@@ -5,7 +5,7 @@ description: >
     Applicable: slide decks, pitch decks, meeting presentations, web presentations.
     Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
     Blocking: Keynote/Google Slides-only exports, video.
-version: 2.1.0
+version: 2.1.1
 ---
 
 # GenPPT — Presentation Generator
@@ -126,10 +126,9 @@ All text fields (title, subtitle, bullets, body, footnote, table cells, text ele
 |-------|-------|
 | Val 1 | Val 2 |
 ---
-## Code Example
-```python
-def hello():
-    print("Hello!")
+## Live Chart
+```echarts
+{ "title": { "text": "Revenue" }, "xAxis": { "type": "category", "data": ["Q1", "Q2"] }, "yAxis": { "type": "value" }, "series": [{ "type": "bar", "data": [120, 200] }] }
 ```
 ---
 # Thank You
@@ -139,7 +138,8 @@ def hello():
 
 - **10-20 slides** typical; `##`/`###` heading per slide, 3-6 bullets max
 - Fenced code blocks with language tags for syntax highlighting
-- `![alt](url)` — images embedded as base64 for offline playback
+- **Images: `![alt](path)` — always embedded as base64 data URIs directly into the HTML** (local paths and URLs both supported; use absolute local paths). Never reference external image files. PNG preferred for chart images; SVG also renders fine in browsers (HTML mode only — PPTX still requires PNG)
+- **ECharts must be rendered inside the slides**: put the ECharts option JSON (or the `{chart, option}` output of gen-chart `echarts-config.mjs`) in a ` ```echarts ` fenced block. The script injects the ECharts runtime and renders the chart live when the slide is shown. Never paste ECharts JSON as plain code/text
 - **Options:** `--theme=<name>`, `--title="Tab Title"`
 - **Navigation:** Arrow/Space/PgUp/PgDn keys, on-screen/touch buttons, F=fullscreen, O=overview, Home/End
 
