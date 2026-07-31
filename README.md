@@ -35,7 +35,7 @@ hedgehog-skills/
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.6.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.6.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
-| `hedgehog-stock-research` | 2.2.2 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
+| `hedgehog-stock-research` | 2.2.3 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 
 ### OpenClaw Extra Utility Tools
 
