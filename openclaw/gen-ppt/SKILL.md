@@ -5,7 +5,7 @@ description: >
     Applicable: slide decks, pitch decks, meeting presentations, web presentations.
     Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
     Blocking: Keynote/Google Slides-only exports, video.
-version: 2.1.1
+version: 2.1.2
 ---
 
 # GenPPT — Presentation Generator

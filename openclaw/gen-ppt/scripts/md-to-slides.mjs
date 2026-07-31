@@ -143,11 +143,54 @@ async function embedImage(src) {
 
 const echartsOptions = [];
 
+/**
+ * Fix common ECharts layout issues where title/legend overlap with chart area.
+ * LLMs frequently set legend.top too small or grid.top too tight.
+ */
+function fixEchartsLayout(opt) {
+  if (!opt || typeof opt !== "object") return opt;
+  const hasTitle = opt.title && (opt.title.text || opt.title.subtext);
+  const hasLegend = opt.legend && opt.legend.data && opt.legend.data.length > 0;
+
+  if (hasTitle && hasLegend) {
+    // Title ~25px + legend ~25px → legend starts at 30, grid needs ≥70px headroom
+    if (opt.legend.top == null || Number(opt.legend.top) < 30) {
+      opt.legend.top = 30;
+    }
+    const grids = Array.isArray(opt.grid) ? opt.grid : (opt.grid ? [opt.grid] : []);
+    if (grids.length > 0) {
+      const g = grids[0];
+      const cur = parseFloat(g.top);
+      if (isNaN(cur) || cur < 18) {
+        g.top = "70";
+      } else if (typeof g.top === "string" && g.top.endsWith("%") && cur < 22) {
+        g.top = "22%";
+      }
+    } else if (!opt.grid) {
+      opt.grid = { left: "10%", right: "5%", top: 70, bottom: "12%" };
+    }
+  } else if (hasTitle && !hasLegend) {
+    // Title only → grid needs ≥45px headroom
+    const grids = Array.isArray(opt.grid) ? opt.grid : (opt.grid ? [opt.grid] : []);
+    if (grids.length > 0) {
+      const g = grids[0];
+      const cur = parseFloat(g.top);
+      if (isNaN(cur) || cur < 12) {
+        g.top = "45";
+      } else if (typeof g.top === "string" && g.top.endsWith("%") && cur < 12) {
+        g.top = "12%";
+      }
+    }
+  }
+  return opt;
+}
+
 function extractEchartsBlocks(markdown) {
   return markdown.replace(/```echarts[^\n]*\n([\s\S]*?)\n```/g, (match, body) => {
     try {
       const parsed = JSON.parse(body);
       const option = parsed && typeof parsed === "object" && parsed.option ? parsed.option : parsed;
+      fixEchartsLayout(option);
       const idx = echartsOptions.length;
       echartsOptions.push(option);
       return `\n<div class="echarts-box" data-ec-idx="${idx}"></div>\n`;
