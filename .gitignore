@@ -43,3 +43,4 @@ logs/
 *.env.local
 api-doc/
 test/
+node_modules/

@@ -14,7 +14,7 @@
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI：知识库搜索与跨会话记忆管理 |
 | `hedgehog-macro-industry-data` | 1.6.0 | 中美宏观数据查询：Shibor、LPR、CPI、PPI、PMI、M0/M1/M2、社融、美债收益率 |
 | `hedgehog-news-reports` | 1.6.0 | 财经新闻与研报：突发新闻、新闻分析、A 股研报、上市公司公告 |
-| `hedgehog-stock-research` | 2.2.3 | 个股多维度深度分析：基本面、情绪面、技术面三位分析师 + CIO 整合输出最终研报 |
+| `hedgehog-stock-research` | 2.2.4 | 个股多维度深度分析：基本面、情绪面、技术面三位分析师 + CIO 整合输出最终研报 |
 
 ## 目录结构
 

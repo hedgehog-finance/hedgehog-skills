@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.2.3
+version: 2.2.4
 workflow_based: true
 ---
 
@@ -76,7 +76,7 @@ spawn 2个 Sub-agent 并行执行数据收集：
 等所有 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：基本面分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/fundamentals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
+1. 按 `references/fundamentals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-fundamentals-{stock_code}.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
@@ -117,7 +117,7 @@ spawn 2个 Sub-agent 并行执行数据收集：
 等所有 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：情绪分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/sentiment-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
+1. 按 `references/sentiment-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-sentiment-{stock_code}.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
@@ -146,7 +146,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 等 sub-agent 返回（`data-index.md` 由 sub-agent 追加、`sub-agent-list.txt` 由系统自动维护，主 Agent 无需读写这两个文件）。
 
 ### Stage 3：技术面分析（Sub-agent 执行）
-1. spawn Sub-agent，按 `references/technicals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
+1. 按 `references/technicals-agent.md` 要求执行分析（分析所需原始数据由该 Sub-agent 自行读取 `data-*` 文件）。
 2. 输出到 `final-output-analysis-technicals-{stock_code}.md`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
