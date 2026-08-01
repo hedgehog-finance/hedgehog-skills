@@ -1,6 +1,6 @@
 {
   "company-valuation": "2.0.0",
-  "deliver-files": "1.0.0",
+  "deliver_files": "1.0.0",
   "doc-convert": "2.0.0",
   "fin-calc": "1.0.0",
   "gen-chart": "2.1.3",

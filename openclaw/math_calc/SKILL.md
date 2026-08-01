@@ -8,120 +8,120 @@ description: >
     Triggers: calculate | math | compute | evaluate expression
 ---
 
-# 数学计算器
+# Math Calculator
 
-安全数学表达式求值工具，基于 expr-eval 解析器实现，支持算术运算、三角函数、对数、阶乘、条件表达式等。
+A safe mathematical expression evaluator built on the expr-eval parser. Supports arithmetic operations, trigonometric functions, logarithms, factorials, conditional expressions, and more.
 
-## 运行环境
+## Runtime
 
 - **Node.js**: >=18
 
-## 依赖安装
+## Dependencies
 
-首次使用前需安装依赖：
+Install before first use:
 
 ```bash
 cd <skill_path> && npm install
 ```
 
-## 使用方法
+## Usage
 
 ```bash
 node <skill_path>/cli.mjs "<expression>" [--precision N]
 ```
 
-其中 `<skill_path>` 替换为本技能的实际安装路径。
+Where `<skill_path>` is the actual installed path of this skill.
 
-## 参数说明
+## Parameters
 
-| 参数 | 必填 | 说明 |
+| Parameter | Required | Description |
 |---|---|---|
-| `<expression>` (位置参数) | 是 | 数学表达式 |
-| `--precision N` | 否 | 小数精度，默认 10，最大 15 |
+| `<expression>` (positional) | Yes | Mathematical expression |
+| `--precision N` | No | Decimal precision, default 10, max 15 |
 
-## 支持的运算
+## Supported Operations
 
-### 基础运算
-- 加减乘除：`+`, `-`, `*`, `/`
-- 幂运算：`^` 或 `**`
-- 取模：`%`
-- 括号：`()`
+### Basic Operations
+- Addition, subtraction, multiplication, division: `+`, `-`, `*`, `/`
+- Exponentiation: `^` or `**`
+- Modulo: `%`
+- Parentheses: `()`
 
-### 三角函数
+### Trigonometric Functions
 - `sin(x)`, `cos(x)`, `tan(x)`
 - `asin(x)`, `acos(x)`, `atan(x)`
 
-### 对数函数
+### Logarithmic Functions
 
-> **⚠️ 注意**：`log(x)` 是**自然对数**（底 e），不是常用对数！
-> 如需以 10 为底的对数，必须使用 `log10(x)`。
+> **⚠️ Note**: `log(x)` is the **natural logarithm** (base e), NOT the common logarithm!
+> For base-10 logarithm, use `log10(x)`.
 
-| 函数 | 含义 | 底数 | 示例 |
+| Function | Meaning | Base | Example |
 |------|------|------|------|
-| `log(x)` 或 `ln(x)` | 自然对数 | e ≈ 2.718 | `log(e)` = 1 |
-| `log10(x)` | 常用对数 | 10 | `log10(1000)` = 3 |
-| `log2(x)` | 二进制对数 | 2 | `log2(8)` = 3 |
+| `log(x)` or `ln(x)` | Natural logarithm | e ≈ 2.718 | `log(e)` = 1 |
+| `log10(x)` | Common logarithm | 10 | `log10(1000)` = 3 |
+| `log2(x)` | Binary logarithm | 2 | `log2(8)` = 3 |
 
-### 其他函数
-- `sqrt(x)`：平方根
-- `cbrt(x)`：立方根
-- `abs(x)`：绝对值
-- `ceil(x)`, `floor(x)`, `round(x)`：取整
-- `trunc(x)`：截断小数
-- `exp(x)`：e 的 x 次方
-- `hypot(x, y)`：平方和开方
-- `sign(x)`：符号函数
-- `fact(x)` 或 `x!`：阶乘
+### Other Functions
+- `sqrt(x)`: Square root
+- `cbrt(x)`: Cube root
+- `abs(x)`: Absolute value
+- `ceil(x)`, `floor(x)`, `round(x)`: Rounding
+- `trunc(x)`: Truncate decimals
+- `exp(x)`: e raised to the power of x
+- `hypot(x, y)`: Square root of sum of squares
+- `sign(x)`: Sign function
+- `fact(x)` or `x!`: Factorial
 
-### 常量
-- `pi` 或 `PI`：圆周率 (3.14159...)
-- `e` 或 `E`：自然常数 (2.71828...)
+### Constants
+- `pi` or `PI`: Pi (3.14159...)
+- `e` or `E`: Euler's number (2.71828...)
 
-### 条件表达式
-- `x > y ? x : y`：三元运算符
-- 比较：`<`, `>`, `<=`, `>=`, `==`, `!=`
-- 逻辑：`and`, `or`, `not`
+### Conditional Expressions
+- `x > y ? x : y`: Ternary operator
+- Comparison: `<`, `>`, `<=`, `>=`, `==`, `!=`
+- Logic: `and`, `or`, `not`
 
-## 示例
+## Examples
 
 ```bash
-# 基础运算
+# Basic arithmetic
 node <skill_path>/cli.mjs "2 + 3 * 4"
-# 输出: 14
+# Output: 14
 
-# 三角函数
+# Trigonometric function
 node <skill_path>/cli.mjs "sin(pi / 2)"
-# 输出: 1
+# Output: 1
 
-# 对数
+# Logarithm
 node <skill_path>/cli.mjs "log10(1000)"
-# 输出: 3
+# Output: 3
 
-# 对数（注意 log 是自然对数）
+# Logarithm (note: log is natural logarithm)
 node <skill_path>/cli.mjs "log(e)"
-# 输出: 1
+# Output: 1
 node <skill_path>/cli.mjs "log10(100)"
-# 输出: 2
+# Output: 2
 
-# 阶乘
+# Factorial
 node <skill_path>/cli.mjs "fact(5)"
-# 输出: 120
+# Output: 120
 
-# 复合表达式
+# Compound expression
 node <skill_path>/cli.mjs "sqrt(3^2 + 4^2)"
-# 输出: 5
+# Output: 5
 
-# 指定精度
+# Specify precision
 node <skill_path>/cli.mjs "pi" --precision 15
-# 输出: 3.141592653589793
+# Output: 3.141592653589793
 
-# 条件表达式
+# Conditional expression
 node <skill_path>/cli.mjs "5 > 3 ? 100 : 200"
-# 输出: 100
+# Output: 100
 ```
 
-## 约束
+## Constraints
 
-- 表达式为空或无效时返回错误信息。
-- 结果为非有限数（溢出或无效运算）时返回错误。
-- 不支持变量赋值或自定义变量（仅支持内置常量 pi、e）。
+- Returns an error message when the expression is empty or invalid.
+- Returns an error when the result is non-finite (overflow or invalid operation).
+- Variable assignment or custom variables are not supported (only built-in constants pi and e).

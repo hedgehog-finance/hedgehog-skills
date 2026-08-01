@@ -5,8 +5,8 @@
 // files to the user (in batch) via HTTP JSON-RPC.
 //
 // Usage:
-//   deliver-files <path...> [--summary S] [--task-id ID]
-//   deliver-files --files-json '[{"path":"...","summary":"..."}]' [--task-id ID]
+//   deliver_files <path...> [--summary S] [--task-id ID]
+//   deliver_files --files-json '[{"path":"...","summary":"..."}]' [--task-id ID]
 //
 // Global options (may appear anywhere):
 //   --url <url>   Override Gateway General MCP endpoint (highest priority)
@@ -145,11 +145,11 @@ function parseJsonFlag(f, key) {
   }
 }
 
-const HELP = `deliver-files — deliver downloadable files to the user via Gateway General MCP
+const HELP = `deliver_files — deliver downloadable files to the user via Gateway General MCP
 
 Usage:
-  deliver-files <path...> [--summary S] [--task-id ID]
-  deliver-files --files-json '[{"path":"...","summary":"..."}]' [--task-id ID]
+  deliver_files <path...> [--summary S] [--task-id ID]
+  deliver_files --files-json '[{"path":"...","summary":"..."}]' [--task-id ID]
 
 Options:
   --summary S             Summary applied to all positional file paths

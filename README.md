@@ -42,7 +42,7 @@ hedgehog-skills/
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `company-valuation` | 2.0.0 | Valuation engine: relative, absolute, and strategic methods |
-| `deliver-files` | 1.0.0 | Gateway General MCP Server CLI: deliver downloadable files to the user in batch |
+| `deliver_files` | 1.0.0 | Gateway General MCP Server CLI: deliver downloadable files to the user in batch |
 | `doc-convert` | 2.0.0 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.1.3 | Chart generation (Vega-Lite / Mermaid / ECharts) |

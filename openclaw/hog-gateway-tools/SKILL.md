@@ -235,7 +235,7 @@ node <skill_path>/cli.mjs call send_notification --json '{"type":"custom","title
 ## 约束
 
 - MCP 请求超时 15 秒，超时返回错误而非挂起。
-- 向用户交付可下载文件请使用独立的 `deliver-files` 工具。
+- 向用户交付可下载文件请使用独立的 `deliver_files` 工具。
 - `report-task-result`、`push-workflow` 依赖 Gateway 的 WorkEngine；若未启用会返回错误。
 - 传入的 `--*-json` / `--workflow-def` 必须为合法 JSON，否则报错退出。
 - 所有命令在失败时输出错误信息到 stderr 并以非零退出码退出：`Error: MCP request failed: <reason>`
