@@ -1,26 +1,26 @@
 # Optional Skills
 
-可选扩展技能，提供海外市场与全球金融数据能力，不包含 A 股数据。共 2 个技能模块。
+Optional extension skills providing overseas market and global financial data capabilities. Does not include China A-share data. Contains 2 skill modules.
 
-## 技能列表
+## Skill List
 
-| 技能 | 版本 | 说明 |
+| Skill | Version | Description |
 |------|------|------|
-| `hog-finnhub` | 1.0.0 | 通过 Finnhub API 获取全球股票数据（不含 A 股） |
-| `hog-openbb` | 1.0.1 | 通过 OpenBB Platform 获取全球金融数据（不含 A 股） |
+| `hog-finnhub` | 1.0.0 | Global stock data via Finnhub API (excludes China A-shares) |
+| `hog-openbb` | 1.0.1 | Global financial data via OpenBB Platform (excludes China A-shares) |
 
-## 目录结构
+## Directory Structure
 
-每个技能模块的标准结构：
+Standard structure for each skill module:
 
 ```
 <skill-name>/
-├── SKILL.md        # 技能定义文件（Agent 指令与工具描述）
-├── package.json    # 元数据与依赖声明
-├── references/     # （可选）API 端点参考文档
-└── scripts/        # （可选）调用脚本
+├── SKILL.md        # Skill definition file (Agent instructions & tool descriptions)
+├── package.json    # Metadata & dependency declarations
+├── references/     # (Optional) API endpoint reference docs
+└── scripts/        # (Optional) Invocation scripts
 ```
 
-## 许可证
+## License
 
 [GPL-3.0](../LICENSE)

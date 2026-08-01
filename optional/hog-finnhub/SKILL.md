@@ -11,50 +11,50 @@ description: >
 version: 1.0.0
 ---
 
-# 全球金融数据查询（Finnhub）
+# Global Financial Data Query (Finnhub)
 
-基于 [Finnhub REST API](https://finnhub.io/docs/api) 的全球金融数据查询技能。
-覆盖股票报价、公司基本面、分析师评级、财报、市场新闻、外汇等数据，**不支持中国A股市场数据**。
-
----
-
-## 1. 前置依赖
-
-无额外依赖，仅需 Node.js 内置模块（`https`、`fs`、`path`、`os`）。
+A global financial data query skill based on the [Finnhub REST API](https://finnhub.io/docs/api).
+Covers stock quotes, company fundamentals, analyst ratings, earnings, market news, forex, and more. **Does not support China A-share market data.**
 
 ---
 
-## 2. 配置说明
+## 1. Prerequisites
 
-配置优先级：**`~/.hogagent/skills_config.json`（WebUI / RPC 统一写入）> 环境变量**。
+No additional dependencies required. Uses only Node.js built-in modules (`https`, `fs`, `path`, `os`).
+
+---
+
+## 2. Configuration
+
+Configuration priority: **`~/.hogagent/skills_config.json` (written by WebUI / RPC) > environment variables**.
 
 ```
 value = skills_config.json["hog-finnhub"]["api-key" || "apiKey"] ?? process.env.ENV_VAR
 ```
 
-> 推荐通过 **WebUI 技能配置界面** 设置 API Key（点击技能旁的配置按钮），配置将自动保存到 `skills_config.json`。
+> Recommended: Set the API Key via the **WebUI skill configuration panel** (click the config button next to the skill). The configuration will be automatically saved to `skills_config.json`.
 
-### 配置项
+### Configuration Fields
 
-| 配置字段 | 环境变量 | 说明 |
+| Field | Environment Variable | Description |
 |---|---|---|
-| `api-key`（WebUI）/ `apiKey`（兼容） | `FINNHUB_API_KEY` | Finnhub API 密钥（**必填**） |
+| `api-key` (WebUI) / `apiKey` (compat) | `FINNHUB_API_KEY` | Finnhub API key (**required**) |
 
-### API 密钥获取
+### Obtaining an API Key
 
-1. 访问 https://finnhub.io/register 注册免费账号
-2. 登录后在 Dashboard 中获取 API Key
-3. 免费套餐限制：**每分钟 60 次 API 调用**，超出返回 HTTP 429（脚本内置指数退避重试）
+1. Visit https://finnhub.io/register to create a free account
+2. After login, get your API Key from the Dashboard
+3. Free tier limit: **60 API calls per minute**; exceeding returns HTTP 429 (script has built-in exponential backoff retry)
 
-### 配置示例
+### Configuration Examples
 
-**方式一：WebUI 技能配置（推荐）**
+**Option 1: WebUI Skill Configuration (Recommended)**
 
-在 WebUI 技能管理界面，点击本技能的配置按钮，输入 API Key 并保存。
+In the WebUI skill management panel, click the config button for this skill, enter the API Key, and save.
 
-**方式二：手动编辑配置文件**
+**Option 2: Manually Edit Config File**
 
-直接编辑 `~/.hogagent/skills_config.json`，添加本技能约定的 key：
+Directly edit `~/.hogagent/skills_config.json` and add the skill's designated key:
 
 ```json
 {
@@ -64,7 +64,7 @@ value = skills_config.json["hog-finnhub"]["api-key" || "apiKey"] ?? process.env.
 }
 ```
 
-**方式三：环境变量**
+**Option 3: Environment Variable**
 
 ```bash
 export FINNHUB_API_KEY="your-finnhub-api-key"
@@ -72,274 +72,274 @@ export FINNHUB_API_KEY="your-finnhub-api-key"
 
 ---
 
-## 3. 速率限制说明
+## 3. Rate Limiting
 
-| 套餐 | 调用限制 | 说明 |
+| Tier | Call Limit | Notes |
 |---|---|---|
-| 免费 | 60 次/分钟 | 适合一般查询场景，批量查询需注意间隔 |
-| 付费 | 更高额度 | 详见 https://finnhub.io/pricing |
+| Free | 60 calls/min | Suitable for general queries; mind intervals for batch queries |
+| Paid | Higher quota | See https://finnhub.io/pricing |
 
-- 脚本在收到 HTTP 429 响应时，自动执行**指数退避重试**（最多 1 次，间隔 1s→2s）
-- 建议在高频调用场景中，合理分散请求时间，避免集中触发限流
+- The script automatically performs **exponential backoff retry** on HTTP 429 responses (max 1 retry, interval 1s→2s)
+- For high-frequency scenarios, spread requests over time to avoid triggering rate limits
 
 ---
 
-## 4. Tools 字典
+## 4. Tools Dictionary
 
-**统一执行方式**：
+**Unified invocation**:
 
 ```bash
-node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
+node scripts/call_api.js --api <api-name> --params '<JSON-string>'
 ```
 
-**通用参数 `fields`**：所有 Tool 均支持传入 `fields`（类型 `string[]`），用于裁剪响应字段以节约 Token。
+**Common parameter `fields`**: All Tools support a `fields` parameter (type `string[]`) to trim response fields and save tokens.
 
 ---
 
-### Tool-1: 实时股票报价 (`getQuote`)
+### Tool-1: Real-time Stock Quote (`getQuote`)
 
-**适用**：查询任意全球股票的实时价格、涨跌幅、成交量。
+**Use case**: Query real-time price, change, and volume for any global stock.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码，如 `AAPL`、`TSLA`、`MSFT` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol, e.g. `AAPL`, `TSLA`, `MSFT` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**响应字段**：
+**Response Fields**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |---|---|---|
-| `c` | number | 当前价格 |
-| `d` | number | 价格变动（绝对值） |
-| `dp` | number | 价格变动（百分比） |
-| `h` | number | 当日最高价 |
-| `l` | number | 当日最低价 |
-| `o` | number | 开盘价 |
-| `pc` | number | 昨日收盘价 |
-| `t` | number | 时间戳（Unix秒） |
+| `c` | number | Current price |
+| `d` | number | Price change (absolute) |
+| `dp` | number | Price change (percentage) |
+| `h` | number | Day high |
+| `l` | number | Day low |
+| `o` | number | Open price |
+| `pc` | number | Previous close |
+| `t` | number | Timestamp (Unix seconds) |
 
 ---
 
-### Tool-2: 公司概况 (`getCompanyProfile`)
+### Tool-2: Company Profile (`getCompanyProfile`)
 
-**适用**：查询上市公司基本信息——行业、市值、交易所、上市国家、Logo URL。
+**Use case**: Query basic info of a listed company — industry, market cap, exchange, listing country, Logo URL.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**响应字段**：
+**Response Fields**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |---|---|---|
-| `country` | string | 上市国家 |
-| `currency` | string | 报价货币 |
-| `exchange` | string | 交易所代码 |
-| `name` | string | 公司名称 |
-| `ticker` | string | 股票代码 |
-| `ipo` | string | IPO 日期 |
-| `marketCapitalization` | number | 市值（百万美元） |
-| `shareOutstanding` | number | 流通股数（百万股） |
-| `logo` | string | 公司 Logo URL |
-| `weburl` | string | 公司官网 |
-| `finnhubIndustry` | string | 所属行业 |
+| `country` | string | Listing country |
+| `currency` | string | Quote currency |
+| `exchange` | string | Exchange code |
+| `name` | string | Company name |
+| `ticker` | string | Stock symbol |
+| `ipo` | string | IPO date |
+| `marketCapitalization` | number | Market cap (millions USD) |
+| `shareOutstanding` | number | Shares outstanding (millions) |
+| `logo` | string | Company Logo URL |
+| `weburl` | string | Company website |
+| `finnhubIndustry` | string | Industry |
 
 ---
 
-### Tool-3: 财务指标快照 (`getFinancials`)
+### Tool-3: Financial Metrics Snapshot (`getFinancials`)
 
-**适用**：查询公司关键财务指标快照——市盈率、市净率、52 周高低、Beta、股息率等当前值。
+**Use case**: Query a company's key financial metrics snapshot — P/E ratio, P/B ratio, 52-week high/low, Beta, dividend yield, etc. (current values).
 
-> 注意：本接口返回的是当前时点的**关键指标快照**（单一扁平对象），不是完整的财务报表（利润表/资产负债表/现金流量表）。如需完整财务报表数据，请使用其他数据源。
+> Note: This endpoint returns a **key metrics snapshot** at the current point in time (a single flat object), not a full financial statement (income statement / balance sheet / cash flow statement). Use other data sources for full financial statements.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-> 内部自动注入 `metric=all`，返回全部可用财务指标。
+> Internally auto-injects `metric=all` to return all available financial metrics.
 
 ---
 
-### Tool-4: 分析师评级 (`getRecommendations`)
+### Tool-4: Analyst Recommendations (`getRecommendations`)
 
-**适用**：查询分析师对股票的评级趋势——买入/持有/卖出数量及目标价。
+**Use case**: Query analyst rating trends for a stock — buy/hold/sell counts and target prices.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**响应字段（数组，每条为一个月份的汇总）**：
+**Response Fields (array, each entry is a monthly summary)**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |---|---|---|
-| `period` | string | 月份，`YYYY-MM-DD` |
-| `strongBuy` | int | 强烈买入数量 |
-| `buy` | int | 买入数量 |
-| `hold` | int | 持有数量 |
-| `sell` | int | 卖出数量 |
-| `strongSell` | int | 强烈卖出数量 |
+| `period` | string | Month, `YYYY-MM-DD` |
+| `strongBuy` | int | Strong buy count |
+| `buy` | int | Buy count |
+| `hold` | int | Hold count |
+| `sell` | int | Sell count |
+| `strongSell` | int | Strong sell count |
 
 ---
 
-### Tool-5: 盈利预期 (`getEarnings`)
+### Tool-5: Earnings (`getEarnings`)
 
-**适用**：查询公司历史实际 EPS vs 预期 EPS，以及惊喜幅度。
+**Use case**: Query a company's historical actual EPS vs estimated EPS, and surprise magnitude.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**响应字段（数组）**：
+**Response Fields (array)**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |---|---|---|
-| `actual` | number | 实际 EPS |
-| `estimate` | number | 预期 EPS |
-| `hour` | string | 报告时间（BMO=开盘前，AMC=收盘后） |
-| `quarter` | int | 季度（1-4） |
-| `surprise` | number | EPS 惊喜幅度 |
-| `surprisePercent` | number | 惊喜百分比 |
-| `symbol` | string | 股票代码 |
-| `year` | int | 年份 |
+| `actual` | number | Actual EPS |
+| `estimate` | number | Estimated EPS |
+| `hour` | string | Report time (BMO=before market open, AMC=after market close) |
+| `quarter` | int | Quarter (1-4) |
+| `surprise` | number | EPS surprise magnitude |
+| `surprisePercent` | number | Surprise percentage |
+| `symbol` | string | Stock symbol |
+| `year` | int | Year |
 
 ---
 
-### Tool-6: 内部人士交易 (`getInsiderTransactions`)
+### Tool-6: Insider Transactions (`getInsiderTransactions`)
 
-**适用**：查询公司高管/大股东的买卖记录。
+**Use case**: Query buy/sell records of company executives / major shareholders.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-7: 市场新闻 (`getMarketNews`)
+### Tool-7: Market News (`getMarketNews`)
 
-**适用**：查询市场新闻。传入 `symbol` 时返回该公司相关新闻（路由至 `/company-news`），否则返回通用市场新闻（路由至 `/news`）。
+**Use case**: Query market news. When `symbol` is provided, returns company-related news (routes to `/company-news`); otherwise returns general market news (routes to `/news`).
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `category` | string | 否 | 新闻类别（无 symbol 时有效）：`general`（默认）、`forex`、`crypto`、`merger` |
-| `symbol` | string | 否 | 股票代码（传入时自动路由至公司新闻端点，此时 category 无效） |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `category` | string | No | News category (effective without symbol): `general` (default), `forex`, `crypto`, `merger` |
+| `symbol` | string | No | Stock symbol (when provided, auto-routes to company news endpoint; category is ignored) |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-8: 经济日历 (`getEconomicCalendar`)
+### Tool-8: Economic Calendar (`getEconomicCalendar`)
 
-**适用**：查询重要经济数据发布时间（非农、GDP、央行决议等）。
+**Use case**: Query important economic data release times (non-farm payrolls, GDP, central bank decisions, etc.).
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `from` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `to` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `from` | string | No | Start date, `YYYY-MM-DD` |
+| `to` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-9: 外汇汇率 (`getForexRates`)
+### Tool-9: Forex Rates (`getForexRates`)
 
-**适用**：查询外汇汇率（base 货币对全球主要货币）。
+**Use case**: Query forex rates (base currency against major global currencies).
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `base` | string | 否 | 基础货币代码，默认 `USD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `base` | string | No | Base currency code, defaults to `USD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-10: 加密货币报价 (`getCryptoQuote`)
+### Tool-10: Crypto Quote (`getCryptoQuote`)
 
-**适用**：查询加密货币实时价格。
+**Use case**: Query real-time cryptocurrency prices.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 加密货币代码，格式：`交易所:交易对`，如 `BINANCE:BTCUSDT`、`COINBASE:BTC-USD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Crypto symbol, format: `EXCHANGE:PAIR`, e.g. `BINANCE:BTCUSDT`, `COINBASE:BTC-USD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**常用代码**：
+**Common Symbols**:
 
-| 代码 | 说明 |
+| Symbol | Description |
 |---|---|
-| `BINANCE:BTCUSDT` | 比特币（USDT 计价） |
-| `BINANCE:ETHUSDT` | 以太坊（USDT 计价） |
-| `COINBASE:BTC-USD` | 比特币（USD 计价，Coinbase） |
+| `BINANCE:BTCUSDT` | Bitcoin (USDT-denominated) |
+| `BINANCE:ETHUSDT` | Ethereum (USDT-denominated) |
+| `COINBASE:BTC-USD` | Bitcoin (USD-denominated, Coinbase) |
 
 ---
 
-### Tool-11: 股票代码搜索 (`searchSymbol`)
+### Tool-11: Symbol Search (`searchSymbol`)
 
-**适用**：按关键词搜索全球股票代码（模糊匹配）。
+**Use case**: Search global stock symbols by keyword (fuzzy match).
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `q` | string | 是 | 搜索关键词（公司名称或代码片段） |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `q` | string | Yes | Search keyword (company name or symbol fragment) |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**响应字段（数组）**：
+**Response Fields (array)**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |---|---|---|
-| `description` | string | 公司/证券描述 |
-| `displaySymbol` | string | 显示用代码 |
-| `symbol` | string | 完整代码（可直接用于其他接口） |
-| `type` | string | 证券类型（Common Stock、ETP 等） |
+| `description` | string | Company/security description |
+| `displaySymbol` | string | Display symbol |
+| `symbol` | string | Full symbol (can be used directly in other endpoints) |
+| `type` | string | Security type (Common Stock, ETP, etc.) |
 
 ---
 
-## 5. 错误处理
+## 5. Error Handling
 
-| 错误类型 | 处理方式 |
+| Error Type | Resolution |
 |---|---|
-| API Key 未配置 | 报错提示配置方式（WebUI 技能配置 / 环境变量） |
-| HTTP 401/403 | API Key 无效，请检查密钥是否正确 |
-| HTTP 429 | 速率限制，脚本自动重试（最多 1 次，指数退避） |
-| HTTP 4xx | 检查参数格式（symbol 代码是否正确、日期格式是否为 YYYY-MM-DD） |
-| HTTP 5xx | 服务端错误，建议稍后重试 |
-| 连接超时 | 检查网络连通性 |
+| API Key not configured | Error message with configuration instructions (WebUI skill config / environment variable) |
+| HTTP 401/403 | Invalid API Key; verify the key is correct |
+| HTTP 429 | Rate limited; script auto-retries (max 1 retry, exponential backoff) |
+| HTTP 4xx | Check parameter format (symbol correctness, date format YYYY-MM-DD) |
+| HTTP 5xx | Server error; retry later |
+| Connection timeout | Check network connectivity |
 
 ---
 
-## 6. 与其他 Skill 的边界与路由
+## 6. Boundaries & Routing with Other Skills
 
-| 数据类型 | 优先技能 | 条件 |
+| Data Type | Preferred Skill | Condition |
 |---|---|---|
-| 期权数据（链、到期日、Greeks） | `hog-openbb` | 始终优先 |
-| 宏观经济数据（全球/美国） | `hog-openbb` | 始终优先 |
-| 股票报价/基本面/财报 | **本 skill**（`hog-finnhub`） | API Key 有效时优先 |
-| 市场新闻/分析师评级 | **本 skill**（`hog-finnhub`） | API Key 有效时优先 |
-| 外汇/加密货币 | **本 skill**（`hog-finnhub`） | API Key 有效时优先 |
-| 中国 A 股数据 | `hedgehog-company-index-data` / `hedgehog-macro-industry-data` | 不使用本技能 |
+| Options data (chains, expiry, Greeks) | `hog-openbb` | Always preferred |
+| Macroeconomic data (global/US) | `hog-openbb` | Always preferred |
+| Stock quotes/fundamentals/financials | **This skill** (`hog-finnhub`) | Preferred when API Key is valid |
+| Market news/analyst ratings | **This skill** (`hog-finnhub`) | Preferred when API Key is valid |
+| Forex/crypto | **This skill** (`hog-finnhub`) | Preferred when API Key is valid |
+| China A-share data | `hedgehog-company-index-data` / `hedgehog-macro-industry-data` | Do not use this skill |
 
-**降级策略**：若本技能的 API Key 未配置或调用返回 401/403，应降级至 `hog-openbb`（需 OpenBB 服务可用且对应 provider 已配置）。
+**Fallback strategy**: If this skill's API Key is not configured or calls return 401/403, fall back to `hog-openbb` (requires OpenBB service available and corresponding provider configured).
 
 > Resolve `./scripts/*` to absolute paths using this SKILL.md's directory (shown in system prompt `available_skills`).
 > Output is JSON to stdout; redirect to session task dir if needed.

@@ -1,53 +1,53 @@
-# Finnhub API 端点参考
+# Finnhub API Endpoint Reference
 
-本文档列出 `hog-finnhub` 技能所支持的全部 API 端点，供快速查阅。
+This document lists all API endpoints supported by the `hog-finnhub` skill for quick reference.
 
-基地址：`https://finnhub.io/api/v1`
+Base URL: `https://finnhub.io/api/v1`
 
-认证方式：每次请求附加 `token=<API_KEY>` 查询参数。
+Authentication: Append `token=<API_KEY>` query parameter to each request.
 
 ---
 
-## 端点汇总表
+## Endpoint Summary
 
-| 接口名 | HTTP 方法 | API 路径 | 必填参数 | 说明 |
+| API Name | HTTP Method | API Path | Required Params | Description |
 |---|---|---|---|---|
-| `getQuote` | GET | `/quote` | `symbol` | 实时股票报价 |
-| `getCompanyProfile` | GET | `/stock/profile2` | `symbol` | 公司概况 |
-| `getFinancials` | GET | `/stock/metric` | `symbol` | 核心财务指标（自动注入 `metric=all`） |
-| `getRecommendations` | GET | `/scan/recommendation-trends` | `symbol` | 分析师评级趋势 |
-| `getEarnings` | GET | `/stock/earnings` | `symbol` | 历史 EPS（实际 vs 预期） |
-| `getInsiderTransactions` | GET | `/stock/insider-transactions` | `symbol` | 内部人士交易记录 |
-| `getMarketNews` | GET | `/news` | — | 市场新闻 |
-| `getEconomicCalendar` | GET | `/calendar/economic` | — | 经济日历 |
-| `getForexRates` | GET | `/forex/rates` | — | 外汇汇率 |
-| `getCryptoQuote` | GET | `/quote` | `symbol` | 加密货币报价 |
-| `searchSymbol` | GET | `/search` | `q` | 股票代码搜索 |
+| `getQuote` | GET | `/quote` | `symbol` | Real-time stock quote |
+| `getCompanyProfile` | GET | `/stock/profile2` | `symbol` | Company profile |
+| `getFinancials` | GET | `/stock/metric` | `symbol` | Key financial metrics (auto-injects `metric=all`) |
+| `getRecommendations` | GET | `/scan/recommendation-trends` | `symbol` | Analyst rating trends |
+| `getEarnings` | GET | `/stock/earnings` | `symbol` | Historical EPS (actual vs estimate) |
+| `getInsiderTransactions` | GET | `/stock/insider-transactions` | `symbol` | Insider transaction records |
+| `getMarketNews` | GET | `/news` | — | Market news |
+| `getEconomicCalendar` | GET | `/calendar/economic` | — | Economic calendar |
+| `getForexRates` | GET | `/forex/rates` | — | Forex rates |
+| `getCryptoQuote` | GET | `/quote` | `symbol` | Crypto quote |
+| `searchSymbol` | GET | `/search` | `q` | Symbol search |
 
 ---
 
-## 常用查询参数
+## Common Query Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `symbol` | string | 证券代码，如 `AAPL`、`MSFT`、`TSLA` |
-| `q` | string | 搜索关键词（用于 `searchSymbol`） |
-| `category` | string | 新闻类别：`general`、`forex`、`crypto`、`merger` |
-| `base` | string | 外汇基础货币，默认 `USD` |
-| `from` / `to` | string | 日期范围，`YYYY-MM-DD`（经济日历） |
-| `exchange` | string | 交易所代码（加密货币：`BINANCE`、`COINBASE`） |
+| `symbol` | string | Security symbol, e.g. `AAPL`, `MSFT`, `TSLA` |
+| `q` | string | Search keyword (for `searchSymbol`) |
+| `category` | string | News category: `general`, `forex`, `crypto`, `merger` |
+| `base` | string | Forex base currency, defaults to `USD` |
+| `from` / `to` | string | Date range, `YYYY-MM-DD` (economic calendar) |
+| `exchange` | string | Exchange code (crypto: `BINANCE`, `COINBASE`) |
 
 ---
 
-## 示例调用
+## Example Calls
 
-### 查询苹果实时报价
+### Query Apple Real-time Quote
 
 ```bash
 node scripts/call_api.js --api getQuote --params '{"symbol":"AAPL"}'
 ```
 
-响应示例：
+Response example:
 ```json
 {
   "c": 185.42,
@@ -61,37 +61,37 @@ node scripts/call_api.js --api getQuote --params '{"symbol":"AAPL"}'
 }
 ```
 
-### 查询特斯拉公司概况
+### Query Tesla Company Profile
 
 ```bash
 node scripts/call_api.js --api getCompanyProfile --params '{"symbol":"TSLA"}'
 ```
 
-### 查询分析师对微软的评级
+### Query Analyst Recommendations for Microsoft
 
 ```bash
 node scripts/call_api.js --api getRecommendations --params '{"symbol":"MSFT"}'
 ```
 
-### 查询加密货币（比特币）
+### Query Cryptocurrency (Bitcoin)
 
 ```bash
 node scripts/call_api.js --api getCryptoQuote --params '{"symbol":"BINANCE:BTCUSDT"}'
 ```
 
-### 搜索包含"apple"的股票代码
+### Search Stock Symbols Containing "apple"
 
 ```bash
 node scripts/call_api.js --api searchSymbol --params '{"q":"apple"}'
 ```
 
-### 查询外汇汇率（以 USD 为基础货币）
+### Query Forex Rates (USD as Base Currency)
 
 ```bash
 node scripts/call_api.js --api getForexRates --params '{"base":"USD"}'
 ```
 
-### 查询经济日历（指定日期范围）
+### Query Economic Calendar (Specified Date Range)
 
 ```bash
 node scripts/call_api.js --api getEconomicCalendar \
@@ -100,26 +100,26 @@ node scripts/call_api.js --api getEconomicCalendar \
 
 ---
 
-## 响应结构说明
+## Response Structure
 
-Finnhub 响应格式较简单，与 OpenBB 的多层嵌套不同：
+Finnhub response format is relatively simple, unlike OpenBB's multi-layer nesting:
 
-- **单对象响应**（`getQuote`、`getCompanyProfile`、`getFinancials`、`getForexRates`）：
-  直接返回 JSON 对象，字段在顶层。
+- **Single object response** (`getQuote`, `getCompanyProfile`, `getFinancials`, `getForexRates`):
+  Returns a JSON object directly with fields at the top level.
 
-- **数组响应**（`getRecommendations`、`getEarnings`、`getInsiderTransactions`、`getMarketNews`、`searchSymbol`）：
-  返回 JSON 数组，每个元素为一条记录。
+- **Array response** (`getRecommendations`, `getEarnings`, `getInsiderTransactions`, `getMarketNews`, `searchSymbol`):
+  Returns a JSON array where each element is one record.
 
-- **经济日历**（`getEconomicCalendar`）：
-  返回 `{ "economicCalendar": [...] }` 结构。
+- **Economic calendar** (`getEconomicCalendar`):
+  Returns `{ "economicCalendar": [...] }` structure.
 
 ---
 
-## 免费套餐速率限制
+## Free Tier Rate Limits
 
-| 场景 | 建议 |
+| Scenario | Recommendation |
 |---|---|
-| 单只股票查询 | 正常使用，无压力 |
-| 批量查询多只股票 | 每次请求间隔至少 1 秒（60 次/分钟） |
-| 高频轮询 | 建议增加查询间隔或使用付费套餐 |
-| 收到 HTTP 429 | 脚本自动重试 1 次，若仍失败则提示降速 |
+| Single stock query | Normal usage, no pressure |
+| Batch queries for multiple stocks | At least 1 second interval between requests (60 calls/min) |
+| High-frequency polling | Increase query intervals or use a paid tier |
+| HTTP 429 received | Script auto-retries once; if still failing, reduce request rate |

@@ -2,17 +2,17 @@
 'use strict';
 
 /**
- * OpenBB API 服务生命周期管理器。
+ * OpenBB API service lifecycle manager.
  *
- * 核心职责：
- *   1. 按需启动 openbb-api 服务（首次调用时自动拉起）
- *   2. 空闲超时后自动关闭（看门狗机制，默认 30 分钟）
- *   3. 提供手动 start / stop / status CLI 入口
+ * Core responsibilities:
+ *   1. Start openbb-api service on demand (auto-start on first call)
+ *   2. Auto-shutdown after idle timeout (watchdog mechanism, default 30 minutes)
+ *   3. Provide manual start / stop / status CLI entry points
  *
- * 运行时状态文件（存放于技能根目录，以 . 开头隐藏）：
- *   .openbb_server.pid   — openbb-api 进程 PID
- *   .openbb_watchdog.pid — 看门狗进程 PID
- *   .openbb_last_used    — 最后一次 API 调用时间戳（epoch ms）
+ * Runtime state files (stored in skill root directory, hidden with . prefix):
+ *   .openbb_server.pid   — openbb-api process PID
+ *   .openbb_watchdog.pid — watchdog process PID
+ *   .openbb_last_used    — last API call timestamp (epoch ms)
  */
 
 const { spawn, execSync } = require('child_process');
@@ -21,22 +21,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// 跨平台标记：Windows 下 which/SIGTERM 等 POSIX 语义不可用
+// Cross-platform note: which/SIGTERM and other POSIX semantics are unavailable on Windows
 const IS_WIN = process.platform === 'win32';
 
-// ─── 路径常量 ──────────────────────────────────────────────────────────────────
-// 技能根目录 = scripts/ 的上一级
+// ─── Path Constants ─────────────────────────────────────────────────────────────
+// Skill root directory = parent of scripts/
 const SKILL_DIR = path.resolve(__dirname, '..');
 
 const PID_SERVER_FILE   = path.join(SKILL_DIR, '.openbb_server.pid');
 const PID_WATCHDOG_FILE = path.join(SKILL_DIR, '.openbb_watchdog.pid');
 const LAST_USED_FILE    = path.join(SKILL_DIR, '.openbb_last_used');
 
-// ─── 配置加载 ──────────────────────────────────────────────────────────────────
+// ─── Configuration Loading ───────────────────────────────────────────────────────
 
 /**
- * 读取技能配置。
- * 统一从 ~/.hogagent/skills_config.json 读取（WebUI 和 RPC 均写入此文件）。
+ * Read skill configuration.
+ * Reads from ~/.hogagent/skills_config.json (written by both WebUI and RPC).
  */
 function readSkillConfig() {
   try {
@@ -50,11 +50,11 @@ function readSkillConfig() {
 }
 
 /**
- * 兼容两种 key 名格式：camelCase（旧格式）和 kebab-case（WebUI 格式）。
- * 例如：fredApiKey 和 fred-api-key 都会被识别。
+ * Compatible with two key name formats: camelCase (legacy) and kebab-case (WebUI format).
+ * For example: both fredApiKey and fred-api-key will be recognized.
  */
 function getConfigValue(entry, camelKey, envKey) {
-  // 将 camelCase 转为 kebab-case（如 fredApiKey -> fred-api-key）
+  // Convert camelCase to kebab-case (e.g. fredApiKey -> fred-api-key)
   const kebabKey = camelKey.replace(/([A-Z])/g, '-$1').toLowerCase();
   return entry[camelKey] || entry[kebabKey] || process.env[envKey] || '';
 }
@@ -66,7 +66,7 @@ function loadConfig() {
   return { apiUrl, idleTimeoutMs };
 }
 
-// ─── 端口解析 ──────────────────────────────────────────────────────────────────
+// ─── Port Parsing ───────────────────────────────────────────────────────────────
 
 function parsePort(apiUrl) {
   try {
@@ -76,7 +76,7 @@ function parsePort(apiUrl) {
   }
 }
 
-// ─── PID 文件操作 ──────────────────────────────────────────────────────────────
+// ─── PID File Operations ─────────────────────────────────────────────────────────
 
 function readPidFile(filePath) {
   try {
@@ -96,8 +96,8 @@ function removePidFile(filePath) {
 }
 
 /**
- * 判断给定 PID 是否存活。
- * 向进程发送 signal 0（不实际杀死）探测。
+ * Check if a given PID is alive.
+ * Probes by sending signal 0 to the process (does not actually kill it).
  */
 function isPidAlive(pid) {
   if (!pid) return false;
@@ -110,9 +110,9 @@ function isPidAlive(pid) {
 }
 
 /**
- * 跨平台查找可执行文件。
- * Windows 使用 `where`（可能返回多行，取首个），POSIX 使用 `which`。
- * @returns {string|null} 可执行文件路径，未找到返回 null
+ * Cross-platform executable lookup.
+ * Windows uses `where` (may return multiple lines, takes the first); POSIX uses `which`.
+ * @returns {string|null} Executable path, or null if not found
  */
 function findExecutable(name) {
   try {
@@ -128,25 +128,25 @@ function findExecutable(name) {
 }
 
 /**
- * 跨平台终止进程。
- * POSIX：发送 SIGTERM 请求优雅退出；Windows 无信号语义，process.kill 直接终止进程。
+ * Cross-platform process termination.
+ * POSIX: sends SIGTERM for graceful exit; Windows has no signal semantics, process.kill terminates directly.
  */
 function terminateProcess(pid) {
   try { process.kill(pid, IS_WIN ? undefined : 'SIGTERM'); } catch (_) { /* ignore */ }
 }
 
 /**
- * 跨平台强制终止进程。
- * POSIX：发送 SIGKILL；Windows 与 terminateProcess 等价（直接终止）。
+ * Cross-platform force kill.
+ * POSIX: sends SIGKILL; Windows equivalent to terminateProcess (direct termination).
  */
 function forceKillProcess(pid) {
   try { process.kill(pid, IS_WIN ? undefined : 'SIGKILL'); } catch (_) { /* ignore */ }
 }
 
-// ─── 健康检查 ──────────────────────────────────────────────────────────────────
+// ─── Health Check ───────────────────────────────────────────────────────────────
 
 /**
- * HTTP GET apiUrl/health，200ms 超时视为不可达。
+ * HTTP GET apiUrl/health; 200ms timeout considered unreachable.
  * @returns {Promise<boolean>}
  */
 function isRunning(apiUrl) {
@@ -155,7 +155,7 @@ function isRunning(apiUrl) {
     const req = http.get(
       { hostname: url.hostname, port: url.port, path: url.pathname, timeout: 200 },
       (res) => {
-        // 消费响应体，避免内存泄漏
+        // Consume response body to avoid memory leaks
         res.resume();
         resolve(res.statusCode >= 200 && res.statusCode < 400);
       }
@@ -166,7 +166,7 @@ function isRunning(apiUrl) {
 }
 
 /**
- * 轮询等待服务就绪，最多 maxWaitMs（默认 15 000ms），间隔 500ms。
+ * Poll and wait for service readiness, up to maxWaitMs (default 15,000ms), interval 500ms.
  * @returns {Promise<boolean>}
  */
 async function waitForReady(apiUrl, maxWaitMs = 15000) {
@@ -180,34 +180,34 @@ async function waitForReady(apiUrl, maxWaitMs = 15000) {
   return false;
 }
 
-// ─── 服务启动 / 停止 ───────────────────────────────────────────────────────────
+// ─── Service Start / Stop ────────────────────────────────────────────────────────
 
 /**
- * 启动 openbb-api 进程。
- * - detached 模式，独立于父进程生命周期
- * - PID 写入 .openbb_server.pid
- * - 等待健康检查就绪（最多 15s）
+ * Start the openbb-api process.
+ * - Detached mode, independent of parent process lifecycle
+ * - PID written to .openbb_server.pid
+ * - Wait for health check readiness (max 15s)
  */
 async function startServer(config, entry) {
   config = config || loadConfig();
   entry = entry || readSkillConfig();
   const port = parsePort(config.apiUrl);
 
-  // 已运行则跳过
+  // Skip if already running
   if (await isRunning(config.apiUrl)) {
     return { alreadyRunning: true };
   }
 
-  // 检查 openbb-api 命令是否存在（跨平台：which / where）
+  // Check if openbb-api command exists (cross-platform: which / where)
   const openbbBin = findExecutable('openbb-api');
   if (!openbbBin) {
     throw new Error(
-      '未找到 openbb-api 命令。请先安装 OpenBB 平台：pip install openbb[all]\n' +
-      '安装后运行一次 `openbb-api --help` 确认命令可用。'
+      'openbb-api command not found. Please install OpenBB Platform first: pip install openbb[all]\n' +
+      'After installation, run `openbb-api --help` once to confirm the command is available.'
     );
   }
 
-  // 将数据源 API Key 注入环境变量（OpenBB 通过环境变量读取 provider 配置）
+  // Inject data source API Keys into environment variables (OpenBB reads provider config via env vars)
   const envExtras = {};
   const envMap = {
     fredApiKey:         'OPENBB_FRED_API_KEY',
@@ -231,19 +231,19 @@ async function startServer(config, entry) {
   child.unref();
 
   if (!child.pid) {
-    throw new Error('openbb-api 启动失败：未能获取子进程 PID');
+    throw new Error('openbb-api failed to start: unable to get child process PID');
   }
 
   writePidFile(PID_SERVER_FILE, child.pid);
 
-  // 等待就绪
+  // Wait for readiness
   const ready = await waitForReady(config.apiUrl, 15000);
   if (!ready) {
-    // 启动超时，清理子进程
+    // Startup timeout, clean up child process
     terminateProcess(child.pid);
     removePidFile(PID_SERVER_FILE);
     throw new Error(
-      `openbb-api 启动超时（15s 内未就绪）。端口 ${port} 可能被占用，或 Python 环境存在问题。`
+      `openbb-api startup timeout (not ready within 15s). Port ${port} may be occupied, or there may be a Python environment issue.`
     );
   }
 
@@ -251,8 +251,8 @@ async function startServer(config, entry) {
 }
 
 /**
- * 停止 openbb-api 进程。
- * 读取 PID 文件，请求终止（POSIX 为 SIGTERM，Windows 直接终止），等待最多 5s，超时则强杀。
+ * Stop the openbb-api process.
+ * Reads PID file, requests termination (SIGTERM on POSIX, direct kill on Windows), waits up to 5s, force kills on timeout.
  */
 async function stopServer() {
   const pid = readPidFile(PID_SERVER_FILE);
@@ -263,13 +263,13 @@ async function stopServer() {
 
   terminateProcess(pid);
 
-  // 等待退出（最多 5s）
+  // Wait for exit (max 5s)
   for (let i = 0; i < 50; i++) {
     if (!isPidAlive(pid)) break;
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  // 仍未退出则强杀
+  // Force kill if still running
   if (isPidAlive(pid)) {
     forceKillProcess(pid);
   }
@@ -279,8 +279,8 @@ async function stopServer() {
 }
 
 /**
- * 确保 openbb-api 正在运行。
- * 供 call_api.js 在每次调用前执行。
+ * Ensure openbb-api is running.
+ * Called by call_api.js before each invocation.
  */
 async function ensureRunning(config, entry) {
   config = config || loadConfig();
@@ -290,14 +290,14 @@ async function ensureRunning(config, entry) {
   return startServer(config, entry);
 }
 
-// ─── 时间戳 & 看门狗 ──────────────────────────────────────────────────────────
+// ─── Timestamp & Watchdog ────────────────────────────────────────────────────────
 
-/** 更新最后一次调用时间戳。 */
+/** Update the last call timestamp. */
 function touchLastUsed() {
   fs.writeFileSync(LAST_USED_FILE, String(Date.now()), 'utf-8');
 }
 
-/** 读取最后一次调用时间戳，不存在则返回 0。 */
+/** Read the last call timestamp; returns 0 if not present. */
 function readLastUsed() {
   try {
     return parseInt(fs.readFileSync(LAST_USED_FILE, 'utf-8').trim(), 10) || 0;
@@ -307,22 +307,22 @@ function readLastUsed() {
 }
 
 /**
- * 启动看门狗进程。
+ * Spawn the watchdog process.
  *
- * 看门狗为 detached Node.js 子进程，执行逻辑：
- *   1. sleep idleTimeoutMs（默认 30min）
- *   2. 读取 .openbb_last_used 时间戳
- *   3. 若时间戳 > 看门狗启动时间 → 有新调用，watchdog 自行退出
- *   4. 否则 → 调用 stopServer() 关闭服务
+ * The watchdog is a detached Node.js child process with the following logic:
+ *   1. Sleep for idleTimeoutMs (default 30min)
+ *   2. Read .openbb_last_used timestamp
+ *   3. If timestamp > watchdog start time → new calls occurred, watchdog exits on its own
+ *   4. Otherwise → call stopServer() to shut down the service
  *
- * 防重叠：旧 watchdog 醒来后检测到时间戳已更新，自行退出。
+ * Anti-overlap: an old watchdog waking up detects the updated timestamp and exits on its own.
  */
 function spawnWatchdog() {
   const config = loadConfig();
   const skillDir = SKILL_DIR;
   const idleTimeoutMs = config.idleTimeoutMs;
 
-  // 内联 watchdog 脚本：通过 node -e 执行，避免额外文件
+  // Inline watchdog script: executed via node -e to avoid an extra file
   const watchdogScript = `
     'use strict';
     const fs = require('fs');
@@ -336,7 +336,7 @@ function spawnWatchdog() {
     const IDLE_TIMEOUT_MS = ${idleTimeoutMs};
     const START_TIME = Date.now();
 
-    // 写入自身 PID
+    // Write own PID
     fs.writeFileSync(PID_WATCHDOG_FILE, String(process.pid), 'utf-8');
 
     function readLastUsed() {
@@ -362,7 +362,7 @@ function spawnWatchdog() {
       try { process.kill(pid, IS_WIN ? undefined : 'SIGKILL'); } catch(_) {}
     }
 
-    // 跨平台同步等待：Atomics.wait 不依赖 shell（替代 POSIX 的 sleep 命令）
+    // Cross-platform synchronous wait: Atomics.wait does not depend on shell (replaces POSIX sleep command)
     function sleepMs(ms) {
       try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
       catch(_) { const t = Date.now() + ms; while (Date.now() < t) {} }
@@ -375,7 +375,7 @@ function spawnWatchdog() {
         return;
       }
       terminate(pid);
-      // 同步等待退出（最多 5s），不能用 setInterval 因为 process.exit 会立即结束事件循环
+      // Synchronous wait for exit (max 5s); cannot use setInterval because process.exit ends the event loop immediately
       let waited = 0;
       while (waited < 5000) {
         sleepMs(100);
@@ -389,11 +389,11 @@ function spawnWatchdog() {
     setTimeout(() => {
       const lastUsed = readLastUsed();
       if (lastUsed > START_TIME) {
-        // 有新调用，watchdog 自行退出
+        // New calls occurred, watchdog exits on its own
         try { fs.unlinkSync(PID_WATCHDOG_FILE); } catch(_) {}
         process.exit(0);
       }
-      // 无新调用，关闭服务
+      // No new calls, shut down the service
       stopServer();
       try { fs.unlinkSync(PID_WATCHDOG_FILE); } catch(_) {}
       process.exit(0);
@@ -414,7 +414,7 @@ function spawnWatchdog() {
   return child.pid;
 }
 
-// ─── 状态查询 ──────────────────────────────────────────────────────────────────
+// ─── Status Query ───────────────────────────────────────────────────────────────
 
 async function getStatus() {
   const config = loadConfig();
@@ -436,7 +436,7 @@ async function getStatus() {
   };
 }
 
-// ─── CLI 入口 ──────────────────────────────────────────────────────────────────
+// ─── CLI Entry Point ────────────────────────────────────────────────────────────
 
 async function main() {
   const cmd = process.argv[2];
@@ -459,7 +459,7 @@ async function main() {
     }
   } else if (cmd === 'stop') {
     const result = await stopServer();
-    // 同时停止看门狗
+    // Also stop the watchdog
     const wPid = readPidFile(PID_WATCHDOG_FILE);
     if (wPid && isPidAlive(wPid)) {
       terminateProcess(wPid);
@@ -470,12 +470,12 @@ async function main() {
     const status = await getStatus();
     console.log(JSON.stringify(status, null, 2));
   } else {
-    console.error('用法: node server_manager.js <start|stop|status>');
+    console.error('Usage: node server_manager.js <start|stop|status>');
     process.exit(1);
   }
 }
 
-// 直接执行 CLI
+// Execute CLI directly
 if (require.main === module) {
   main().catch((err) => {
     console.error(JSON.stringify({ status: 'error', message: err.message }));
@@ -483,7 +483,7 @@ if (require.main === module) {
   });
 }
 
-// 导出供 call_api.js 引用
+// Exports for use by call_api.js
 module.exports = {
   loadConfig,
   readSkillConfig,

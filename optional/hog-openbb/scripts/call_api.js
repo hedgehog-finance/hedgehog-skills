@@ -2,14 +2,14 @@
 'use strict';
 
 /**
- * hog-openbb 统一 API 调用脚本。
+ * hog-openbb unified API invocation script.
  *
- * 调用流程：loadConfig() -> ensureRunning() -> 执行 API 请求 -> touchLastUsed() -> spawnWatchdog()
+ * Call flow: loadConfig() -> ensureRunning() -> execute API request -> touchLastUsed() -> spawnWatchdog()
  *
- * 用法：
- *   node call_api.js --api <接口名> --params '<JSON字符串>'
+ * Usage:
+ *   node call_api.js --api <api-name> --params '<JSON-string>'
  *
- * 示例：
+ * Examples:
  *   node call_api.js --api getMacroIndicators --params '{"symbol":"GDP","provider":"fred"}'
  *   node call_api.js --api getOptionChains  --params '{"symbol":"AAPL","provider":"polygon"}'
  */
@@ -17,71 +17,71 @@
 const http = require('http');
 const { ensureRunning, touchLastUsed, spawnWatchdog, loadConfig, isPidAlive, readPidFile, PID_WATCHDOG_FILE } = require('./server_manager.js');
 
-// ─── API 路由映射 ──────────────────────────────────────────────────────────────
-// 每个路由对应 OpenBB Platform 的一个 REST 端点。
-// params 中未在 query 列出的字段将作为 path 参数拼入 URL。
+// ─── API Route Mapping ─────────────────────────────────────────────────────────
+// Each route corresponds to an OpenBB Platform REST endpoint.
+// Fields in params not listed in query will be appended as path parameters to the URL.
 
 const API_ROUTES = {
-  // ===== 宏观经济数据 =====
+  // ===== Macroeconomic Data =====
   getMacroIndicators: {
     method: 'GET',
     path: '/api/v1/economy/macro',
     required: [],
-    description: 'FRED 宏观经济指标（GDP、CPI、失业率、联邦基金利率等）',
+    description: 'FRED macroeconomic indicators (GDP, CPI, unemployment, federal funds rate, etc.)',
   },
   getTreasuryYields: {
     method: 'GET',
     path: '/api/v1/economy/treasury',
     required: [],
-    description: '美国国债收益率曲线（不同期限）',
+    description: 'US Treasury yield curve (various maturities)',
   },
   getEconomicCalendar: {
     method: 'GET',
     path: '/api/v1/economy/calendar',
     required: [],
-    description: '全球经济日历事件（重要数据发布时间）',
+    description: 'Global economic calendar events (major data release times)',
   },
 
-  // ===== 期权数据 =====
+  // ===== Options Data =====
   getOptionChains: {
     method: 'GET',
     path: '/api/v1/derivatives/options/chains',
     required: ['symbol'],
-    description: '期权链数据（行权价、到期日、隐含波动率、Greeks）',
+    description: 'Options chain data (strike prices, expiry, implied volatility, Greeks)',
   },
   getOptionExpiry: {
     method: 'GET',
     path: '/api/v1/derivatives/options/expirations',
     required: ['symbol'],
-    description: '期权到期日列表',
+    description: 'Options expiry date list',
   },
 
-  // ===== 全球指数 =====
+  // ===== Global Indices =====
   getGlobalIndices: {
     method: 'GET',
     path: '/api/v1/index/price',
     required: [],
-    description: '全球主要股指行情（标普500、纳斯达克、道琼斯等）',
+    description: 'Global major stock index quotes (S&P 500, Nasdaq, Dow Jones, etc.)',
   },
 
-  // ===== 外汇 =====
+  // ===== Forex =====
   getForexRates: {
     method: 'GET',
     path: '/api/v1/currency/price',
     required: [],
-    description: '外汇汇率数据',
+    description: 'Forex rate data',
   },
 
-  // ===== 大宗商品 =====
+  // ===== Commodities =====
   getCommodityPrices: {
     method: 'GET',
     path: '/api/v1/commodity/price',
     required: [],
-    description: '大宗商品价格（原油、黄金、白银等）',
+    description: 'Commodity prices (crude oil, gold, silver, etc.)',
   },
 };
 
-// ─── 参数解析 ──────────────────────────────────────────────────────────────────
+// ─── Argument Parsing ──────────────────────────────────────────────────────────
 
 function parseArgs(argv) {
   const args = {};
@@ -100,14 +100,14 @@ function parseArgs(argv) {
   return args;
 }
 
-// ─── HTTP 请求 ─────────────────────────────────────────────────────────────────
+// ─── HTTP Request ───────────────────────────────────────────────────────────────
 
 /**
- * 向 OpenBB API 发起 HTTP 请求。
- * @param {string} apiUrl  服务地址，如 http://localhost:59201
- * @param {string} method  HTTP 方法
- * @param {string} urlPath API 路径
- * @param {object} params  查询参数
+ * Send an HTTP request to the OpenBB API.
+ * @param {string} apiUrl  Service address, e.g. http://localhost:59201
+ * @param {string} method  HTTP method
+ * @param {string} urlPath API path
+ * @param {object} params  Query parameters
  * @returns {Promise<object>}
  */
 function httpRequest(apiUrl, method, urlPath, params) {
@@ -115,7 +115,7 @@ function httpRequest(apiUrl, method, urlPath, params) {
     const base = apiUrl.replace(/\/+$/, '');
     const url = new URL(`${base}${urlPath}`);
 
-    // 附加查询参数
+    // Append query parameters
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined || value === null) continue;
       if (Array.isArray(value)) {
@@ -145,7 +145,7 @@ function httpRequest(apiUrl, method, urlPath, params) {
         try {
           body = raw ? JSON.parse(raw) : null;
         } catch (err) {
-          reject(new Error(`响应 JSON 解析失败: ${err.message}\n原始响应: ${raw.slice(0, 500)}`));
+          reject(new Error(`Response JSON parse failed: ${err.message}\nRaw response: ${raw.slice(0, 500)}`));
           return;
         }
         if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -158,19 +158,19 @@ function httpRequest(apiUrl, method, urlPath, params) {
     });
 
     req.on('error', (err) => {
-      reject(new Error(`请求失败: ${err.message}\n请确认 openbb-api 服务正在运行（${apiUrl}）`));
+      reject(new Error(`Request failed: ${err.message}\nPlease ensure the openbb-api service is running (${apiUrl})`));
     });
 
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error(`请求超时（30s），API 路径: ${urlPath}`));
+      reject(new Error(`Request timeout (30s), API path: ${urlPath}`));
     });
 
     req.end();
   });
 }
 
-// ─── 字段过滤 ──────────────────────────────────────────────────────────────────
+// ─── Field Filtering ───────────────────────────────────────────────────────────
 
 function pickFields(obj, fields) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
@@ -182,8 +182,8 @@ function pickFields(obj, fields) {
 }
 
 /**
- * 按 fields 参数裁剪响应中的 items[] 字段。
- * 支持 OpenBB 标准响应结构：{ data: [...] } 或 { data: { items: [...] } }
+ * Trim response items[] fields based on the fields parameter.
+ * Supports OpenBB standard response structure: { data: [...] } or { data: { items: [...] } }
  */
 function filterFieldsInResponse(result, fields) {
   if (!fields || !Array.isArray(fields) || fields.length === 0) return result;
@@ -207,7 +207,7 @@ function filterFieldsInResponse(result, fields) {
   return result;
 }
 
-// ─── 主流程 ────────────────────────────────────────────────────────────────────
+// ─── Main Flow ─────────────────────────────────────────────────────────────────
 
 async function callApi(apiName, params = {}) {
   const route = API_ROUTES[apiName];
@@ -215,42 +215,42 @@ async function callApi(apiName, params = {}) {
     const available = Object.keys(API_ROUTES)
       .map((k) => `  ${k} — ${API_ROUTES[k].description}`)
       .join('\n');
-    throw new Error(`未知接口: ${apiName}\n可用接口:\n${available}`);
+    throw new Error(`Unknown API: ${apiName}\nAvailable APIs:\n${available}`);
   }
 
   const requestParams = { ...params };
 
-  // 提取 fields（不参与请求，仅用于响应裁剪）
+  // Extract fields (not sent in request, only used for response trimming)
   let fields = null;
   if (Object.prototype.hasOwnProperty.call(requestParams, 'fields')) {
     fields = requestParams.fields;
     delete requestParams.fields;
     if (fields && !Array.isArray(fields)) {
-      throw new Error('参数 fields 必须为字符串数组');
+      throw new Error('Parameter fields must be a string array');
     }
     if (Array.isArray(fields) && fields.some((f) => typeof f !== 'string')) {
-      throw new Error('参数 fields 必须为字符串数组');
+      throw new Error('Parameter fields must be a string array');
     }
   }
 
-  // 校验必填参数
+  // Validate required parameters
   for (const req of route.required) {
     if (!requestParams[req]) {
-      throw new Error(`接口 ${apiName} 缺少必填参数: ${req}`);
+      throw new Error(`API ${apiName} missing required parameter: ${req}`);
     }
   }
 
   const config = loadConfig();
 
-  // 确保服务就绪
+  // Ensure service is ready
   await ensureRunning(config);
 
-  // 发起 API 请求
+  // Send API request
   const result = await httpRequest(config.apiUrl, route.method, route.path, requestParams);
 
-  // 请求成功后更新时间戳 & 续看门狗（失败则不更新，避免无意义保活）
+  // Update timestamp after successful request & renew watchdog (skip on failure to avoid pointless keep-alive)
   touchLastUsed();
-  // 仅在无活跃看门狗时启动新看门狗，避免每次调用都产生新进程
+  // Only spawn a new watchdog if no active one exists, to avoid creating a new process on every call
   const wPid = readPidFile(PID_WATCHDOG_FILE);
   if (!wPid || !isPidAlive(wPid)) {
     spawnWatchdog();
@@ -266,7 +266,7 @@ async function main() {
     const available = Object.keys(API_ROUTES)
       .map((k) => `  ${k} — ${API_ROUTES[k].description}`)
       .join('\n');
-    console.error(`缺少参数: --api <接口名>\n可用接口:\n${available}`);
+    console.error(`Missing parameter: --api <api-name>\nAvailable APIs:\n${available}`);
     process.exit(1);
   }
 
@@ -275,7 +275,7 @@ async function main() {
     try {
       params = JSON.parse(args.params);
     } catch (err) {
-      throw new Error(`--params 不是合法 JSON: ${err.message}`);
+      throw new Error(`--params is not valid JSON: ${err.message}`);
     }
   }
 

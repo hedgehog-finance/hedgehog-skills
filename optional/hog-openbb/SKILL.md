@@ -10,62 +10,62 @@ description: >
 version: 1.0.1
 ---
 
-# 全球金融数据查询（OpenBB Platform）
+# Global Financial Data Query (OpenBB Platform)
 
-基于 [OpenBB Platform](https://github.com/OpenBB-finance/OpenBB) 的全球金融数据查询技能。
-覆盖宏观经济、期权链、全球指数、外汇、大宗商品等数据，**不支持中国A股市场数据**。
+A global financial data query skill based on [OpenBB Platform](https://github.com/OpenBB-finance/OpenBB).
+Covers macroeconomics, options chains, global indices, forex, commodities, and more. **Does not support China A-share market data.**
 
 ---
 
-## 1. 前置依赖
+## 1. Prerequisites
 
 ```bash
 pip install openbb[all]
 ```
 
-> 脚本自动管理 `openbb-api` 服务的启停（首次调用时自动启动，空闲 30 分钟后自动关闭），无需手动启动。
+> The script automatically manages the `openbb-api` service lifecycle (auto-starts on first call, auto-shuts down after 30 minutes of idle). No manual startup required.
 
 ---
 
-## 2. 配置说明
+## 2. Configuration
 
-配置优先级：**`~/.hogagent/skills_config.json`（WebUI / RPC 统一写入）> 环境变量 > 默认值**。
+Configuration priority: **`~/.hogagent/skills_config.json` (written by WebUI / RPC) > environment variables > defaults**.
 
 ```
 value = skills_config.json["hog-openbb"][field] ?? process.env.ENV_VAR ?? defaultValue
 ```
 
-> 推荐通过 **WebUI 技能配置界面** 设置配置项（点击技能旁的配置按钮），配置将自动保存到 `skills_config.json`。
-> 脚本同时兼容 camelCase（如 `fredApiKey`）和 kebab-case（如 `fred-api-key`，WebUI 格式）两种 key 名。
+> Recommended: Set configuration via the **WebUI skill configuration panel** (click the config button next to the skill). The configuration will be automatically saved to `skills_config.json`.
+> The script supports both camelCase (e.g. `fredApiKey`) and kebab-case (e.g. `fred-api-key`, WebUI format) key names.
 
-### 核心配置项
+### Core Configuration Fields
 
-| 配置字段 | 环境变量 | 默认值 | 说明 |
+| Field | Environment Variable | Default | Description |
 |---|---|---|---|
-| `api-url` / `apiUrl` | `OPENBB_API_URL` | `http://localhost:59201` | OpenBB API 服务地址 |
-| `idle-timeout-ms` / `idleTimeoutMs` | `OPENBB_IDLE_TIMEOUT_MS` | `1800000`（30 分钟） | 空闲自动关闭时间（毫秒） |
+| `api-url` / `apiUrl` | `OPENBB_API_URL` | `http://localhost:59201` | OpenBB API service address |
+| `idle-timeout-ms` / `idleTimeoutMs` | `OPENBB_IDLE_TIMEOUT_MS` | `1800000` (30 min) | Idle auto-shutdown time (milliseconds) |
 
-### 免费数据源 API Key
+### Free Data Source API Keys
 
-| 配置字段 | 环境变量 | 说明 | 获取地址 |
+| Field | Environment Variable | Description | Obtain From |
 |---|---|---|---|
-| `fred-api-key` / `fredApiKey` | `OPENBB_FRED_API_KEY` | FRED 宏观经济数据 | https://fred.stlouisfed.org/docs/api/api_key.html |
-| `alpha-vantage-api-key` / `alphaVantageApiKey` | `OPENBB_ALPHA_VANTAGE_API_KEY` | Alpha Vantage 股票/外汇数据 | https://www.alphavantage.co/support/#api-key |
-| `twelve-data-api-key` / `twelveDataApiKey` | `OPENBB_TWELVE_DATA_API_KEY` | Twelve Data 实时行情 | https://twelvedata.com/account |
+| `fred-api-key` / `fredApiKey` | `OPENBB_FRED_API_KEY` | FRED macroeconomic data | https://fred.stlouisfed.org/docs/api/api_key.html |
+| `alpha-vantage-api-key` / `alphaVantageApiKey` | `OPENBB_ALPHA_VANTAGE_API_KEY` | Alpha Vantage stock/forex data | https://www.alphavantage.co/support/#api-key |
+| `twelve-data-api-key` / `twelveDataApiKey` | `OPENBB_TWELVE_DATA_API_KEY` | Twelve Data real-time quotes | https://twelvedata.com/account |
 
-### 付费数据源 API Key（可选）
+### Paid Data Source API Keys (Optional)
 
-| 配置字段 | 环境变量 | 说明 | 获取地址 |
+| Field | Environment Variable | Description | Obtain From |
 |---|---|---|---|
-| `polygon-api-key` / `polygonApiKey` | `OPENBB_POLYGON_API_KEY` | Polygon 股票/期权数据 | https://polygon.io/ |
-| `intrinio-api-key` / `intrinioApiKey` | `OPENBB_INTRINIO_API_KEY` | Intrinio 基本面数据 | https://intrinio.com/ |
-| `tiingo-api-token` / `tiingoApiToken` | `OPENBB_TIINGO_API_TOKEN` | Tiingo 新闻/行情数据 | https://api.tiingo.com/ |
+| `polygon-api-key` / `polygonApiKey` | `OPENBB_POLYGON_API_KEY` | Polygon stock/options data | https://polygon.io/ |
+| `intrinio-api-key` / `intrinioApiKey` | `OPENBB_INTRINIO_API_KEY` | Intrinio fundamentals data | https://intrinio.com/ |
+| `tiingo-api-token` / `tiingoApiToken` | `OPENBB_TIINGO_API_TOKEN` | Tiingo news/quotes data | https://api.tiingo.com/ |
 
-### 配置示例
+### Configuration Examples
 
-**方式一：WebUI 技能配置（推荐）**
+**Option 1: WebUI Skill Configuration (Recommended)**
 
-在 WebUI 技能管理界面，点击本技能的配置按钮，添加以下自定义配置项：
+In the WebUI skill management panel, click the config button for this skill and add the following custom configuration fields:
 
 | Key | Value |
 |---|---|
@@ -73,9 +73,9 @@ value = skills_config.json["hog-openbb"][field] ?? process.env.ENV_VAR ?? defaul
 | `alpha-vantage-api-key` | your-av-api-key |
 | `polygon-api-key` | your-polygon-api-key |
 
-**方式二：手动编辑配置文件**
+**Option 2: Manually Edit Config File**
 
-直接编辑 `~/.hogagent/skills_config.json`，在 `hog-openbb` 节点下添加本技能约定的 key：
+Directly edit `~/.hogagent/skills_config.json` and add the skill's designated keys under the `hog-openbb` node:
 
 ```json
 {
@@ -87,7 +87,7 @@ value = skills_config.json["hog-openbb"][field] ?? process.env.ENV_VAR ?? defaul
 }
 ```
 
-**方式三：环境变量**
+**Option 3: Environment Variables**
 
 ```bash
 export OPENBB_API_URL="http://localhost:59201"
@@ -98,220 +98,220 @@ export OPENBB_POLYGON_API_KEY="your-polygon-api-key"
 
 ---
 
-## 3. 服务生命周期管理
+## 3. Service Lifecycle Management
 
-OpenBB API 服务（`openbb-api`）为 Python 进程，**由脚本自动管理**：
+The OpenBB API service (`openbb-api`) is a Python process, **automatically managed by the script**:
 
-- **自动启动**：首次调用 `call_api.js` 时，若服务未运行则自动拉起
-- **自动关闭**：最后一次调用后 30 分钟（可配置）无新请求，自动终止
-- **状态文件**（自动创建于技能根目录，`.` 开头隐藏）：
-  - `.openbb_server.pid` — 服务进程 PID
-  - `.openbb_watchdog.pid` — 看门狗进程 PID
-  - `.openbb_last_used` — 最后调用时间戳
+- **Auto-start**: On first `call_api.js` invocation, if the service is not running, it will be started automatically
+- **Auto-shutdown**: After the last call, if no new requests within 30 minutes (configurable), it terminates automatically
+- **State files** (auto-created in skill root directory, hidden with `.` prefix):
+  - `.openbb_server.pid` — Service process PID
+  - `.openbb_watchdog.pid` — Watchdog process PID
+  - `.openbb_last_used` — Last call timestamp
 
-### 手动管理命令
+### Manual Management Commands
 
 ```bash
-node scripts/server_manager.js start    # 手动启动
-node scripts/server_manager.js stop     # 手动停止
-node scripts/server_manager.js status   # 查看运行状态（JSON 输出）
+node scripts/server_manager.js start    # Manual start
+node scripts/server_manager.js stop     # Manual stop
+node scripts/server_manager.js status   # View running status (JSON output)
 ```
 
 ---
 
-## 4. Tools 字典
+## 4. Tools Dictionary
 
-**统一执行方式**：
+**Unified invocation**:
 
 ```bash
-node scripts/call_api.js --api <接口名> --params '<JSON字符串>'
+node scripts/call_api.js --api <api-name> --params '<JSON-string>'
 ```
 
-**通用参数 `fields`**：所有 Tool 均支持传入 `fields`（类型 `string[]`），用于裁剪响应字段以节约 Token。
+**Common parameter `fields`**: All Tools support a `fields` parameter (type `string[]`) to trim response fields and save tokens.
 
 ---
 
-### Tool-1: 宏观经济指标 (`getMacroIndicators`)
+### Tool-1: Macroeconomic Indicators (`getMacroIndicators`)
 
-**适用**：GDP、CPI、失业率、联邦基金利率、工业产出等 FRED 宏观指标。
+**Use case**: GDP, CPI, unemployment rate, federal funds rate, industrial production, and other FRED macro indicators.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 否 | FRED 指标代码，如 `GDP`、`CPIAUCSL`、`UNRATE`、`FEDFUNDS` |
-| `provider` | string | 否 | 数据提供商，默认 `fred` |
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | No | FRED indicator code, e.g. `GDP`, `CPIAUCSL`, `UNRATE`, `FEDFUNDS` |
+| `provider` | string | No | Data provider, defaults to `fred` |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**常用 symbol 代码**：
+**Common Symbol Codes**:
 
-| 代码 | 说明 |
+| Code | Description |
 |---|---|
-| `GDP` | 美国 GDP（季度） |
-| `CPIAUCSL` | 美国 CPI（城市消费者，季调） |
-| `UNRATE` | 美国失业率 |
-| `FEDFUNDS` | 联邦基金有效利率 |
-| `INDPRO` | 工业生产指数 |
-| `PAYEMS` | 非农就业总人数 |
-| `PCEPI` | 个人消费支出价格指数 |
+| `GDP` | US GDP (quarterly) |
+| `CPIAUCSL` | US CPI (urban consumers, seasonally adjusted) |
+| `UNRATE` | US unemployment rate |
+| `FEDFUNDS` | Federal funds effective rate |
+| `INDPRO` | Industrial production index |
+| `PAYEMS` | Total nonfarm payrolls |
+| `PCEPI` | Personal consumption expenditures price index |
 
 ---
 
-### Tool-2: 美国国债收益率 (`getTreasuryYields`)
+### Tool-2: US Treasury Yields (`getTreasuryYields`)
 
-**适用**：美国国债收益率曲线，各期限利率。
+**Use case**: US Treasury yield curve, rates across various maturities.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `provider` | string | 否 | 数据提供商，默认 `fred` |
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `provider` | string | No | Data provider, defaults to `fred` |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-3: 全球经济日历 (`getEconomicCalendar`)
+### Tool-3: Global Economic Calendar (`getEconomicCalendar`)
 
-**适用**：全球重要经济数据发布时间、预期值与实际值。
+**Use case**: Global important economic data release times, expected and actual values.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `provider` | string | 否 | 数据提供商 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `provider` | string | No | Data provider |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-4: 期权链数据 (`getOptionChains`)
+### Tool-4: Options Chain Data (`getOptionChains`)
 
-**适用**：指定期权的完整链数据——行权价、到期日、隐含波动率、Greeks（Delta/Gamma/Theta/Vega）。
-**优先使用本 Tool 查询期权数据**（优于 hog-finnhub）。
+**Use case**: Complete chain data for a specified option — strike prices, expiry dates, implied volatility, Greeks (Delta/Gamma/Theta/Vega).
+**Prefer this Tool for options data queries** (over hog-finnhub).
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码，如 `AAPL`、`TSLA` |
-| `provider` | string | 否 | 数据提供商，如 `polygon`、`intrinio` |
-| `expiration` | string | 否 | 到期日过滤，`YYYY-MM-DD` |
-| `option_type` | string | 否 | `call` 或 `put` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol, e.g. `AAPL`, `TSLA` |
+| `provider` | string | No | Data provider, e.g. `polygon`, `intrinio` |
+| `expiration` | string | No | Expiry date filter, `YYYY-MM-DD` |
+| `option_type` | string | No | `call` or `put` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-5: 期权到期日 (`getOptionExpiry`)
+### Tool-5: Options Expiry Dates (`getOptionExpiry`)
 
-**适用**：查询某股票所有可用期权到期日列表。
+**Use case**: Query all available options expiry dates for a stock.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 是 | 股票代码，如 `AAPL` |
-| `provider` | string | 否 | 数据提供商 |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | Yes | Stock symbol, e.g. `AAPL` |
+| `provider` | string | No | Data provider |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-6: 全球股指行情 (`getGlobalIndices`)
+### Tool-6: Global Stock Indices (`getGlobalIndices`)
 
-**适用**：标普 500、纳斯达克、道琼斯等主要股指实时/历史行情。
+**Use case**: Real-time/historical quotes for major stock indices such as S&P 500, Nasdaq, Dow Jones.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 否 | 指数代码，如 `^GSPC`（标普500）、`^IXIC`（纳斯达克） |
-| `provider` | string | 否 | 数据提供商 |
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | No | Index symbol, e.g. `^GSPC` (S&P 500), `^IXIC` (Nasdaq) |
+| `provider` | string | No | Data provider |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**常用指数代码**：
+**Common Index Symbols**:
 
-| 代码 | 说明 |
+| Symbol | Description |
 |---|---|
-| `^GSPC` | 标普 500 |
-| `^IXIC` | 纳斯达克综合指数 |
-| `^DJI` | 道琼斯工业平均指数 |
-| `^RUT` | 罗素 2000 小盘股指数 |
-| `^VIX` | CBOE 波动率指数（VIX） |
+| `^GSPC` | S&P 500 |
+| `^IXIC` | Nasdaq Composite |
+| `^DJI` | Dow Jones Industrial Average |
+| `^RUT` | Russell 2000 Small-Cap Index |
+| `^VIX` | CBOE Volatility Index (VIX) |
 
 ---
 
-### Tool-7: 外汇汇率 (`getForexRates`)
+### Tool-7: Forex Rates (`getForexRates`)
 
-**适用**：主要货币对汇率数据。
+**Use case**: Major currency pair exchange rate data.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 否 | 货币对代码，如 `EURUSD`、`USDJPY` |
-| `provider` | string | 否 | 数据提供商 |
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | No | Currency pair code, e.g. `EURUSD`, `USDJPY` |
+| `provider` | string | No | Data provider |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
 
-### Tool-8: 大宗商品价格 (`getCommodityPrices`)
+### Tool-8: Commodity Prices (`getCommodityPrices`)
 
-**适用**：原油、黄金、白银、天然气等大宗商品价格。
+**Use case**: Crude oil, gold, silver, natural gas, and other commodity prices.
 
-**输入参数**：
+**Input Parameters**:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | 否 | 商品代码，如 `CL`（原油）、`GC`（黄金） |
-| `provider` | string | 否 | 数据提供商 |
-| `start_date` | string | 否 | 起始日期，`YYYY-MM-DD` |
-| `end_date` | string | 否 | 结束日期，`YYYY-MM-DD` |
-| `fields` | string[] | 否 | 仅保留响应中指定字段 |
+| `symbol` | string | No | Commodity code, e.g. `CL` (crude oil), `GC` (gold) |
+| `provider` | string | No | Data provider |
+| `start_date` | string | No | Start date, `YYYY-MM-DD` |
+| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `fields` | string[] | No | Retain only specified fields in the response |
 
-**常用商品代码（FRED）**：
+**Common Commodity Codes (FRED)**:
 
-| 代码 | 说明 |
+| Code | Description |
 |---|---|
-| `DCOILWTICO` | WTI 原油现货价 |
-| `DCOILBRENTEU` | 布伦特原油现货价 |
-| `GOLDAMGBD228NLBM` | 黄金现货价（伦敦） |
-| `SILVER` | 白银现货价 |
-| `DHHNGSP` | 天然气现货价 |
+| `DCOILWTICO` | WTI crude oil spot price |
+| `DCOILBRENTEU` | Brent crude oil spot price |
+| `GOLDAMGBD228NLBM` | Gold spot price (London) |
+| `SILVER` | Silver spot price |
+| `DHHNGSP` | Natural gas spot price |
 
 ---
 
-## 5. 错误处理
+## 5. Error Handling
 
-| 错误类型 | 处理方式 |
+| Error Type | Resolution |
 |---|---|
-| openbb-api 命令不存在 | 提示安装：`pip install openbb[all]` |
-| 服务启动超时（15s） | 检查端口 59201 是否被占用，或 Python 环境是否正确 |
-| HTTP 4xx | 检查参数格式与 provider 是否配置正确 |
-| HTTP 5xx | 提示服务端错误，建议稍后重试或 `node scripts/server_manager.js stop` 后重启 |
-| 数据源 API Key 未配置 | 返回空数据或报错，需通过 WebUI 技能配置或环境变量配置对应 Key |
+| openbb-api command not found | Prompt to install: `pip install openbb[all]` |
+| Service startup timeout (15s) | Check if port 59201 is occupied, or if the Python environment is correct |
+| HTTP 4xx | Check parameter format and whether the provider is configured correctly |
+| HTTP 5xx | Server error; retry later or run `node scripts/server_manager.js stop` then restart |
+| Data source API Key not configured | Returns empty data or error; configure the corresponding Key via WebUI skill config or environment variable |
 
 ---
 
-## 6. 与其他 Skill 的边界与路由
+## 6. Boundaries & Routing with Other Skills
 
-| 数据类型 | 优先技能 | 条件 |
+| Data Type | Preferred Skill | Condition |
 |---|---|---|
-| 期权数据（链、到期日、Greeks） | **本 skill**（`hog-openbb`） | 始终优先 |
-| 宏观经济数据（全球/美国） | **本 skill**（`hog-openbb`） | 始终优先 |
-| 股票报价/基本面/财报 | `hog-finnhub` | API Key 有效时优先 |
-| 市场新闻/分析师评级 | `hog-finnhub` | API Key 有效时优先 |
-| 外汇/加密货币 | `hog-finnhub` | API Key 有效时优先 |
-| 中国 A 股数据 | `hedgehog-company-index-data` / `hedgehog-macro-industry-data` | 不使用本技能 |
+| Options data (chains, expiry, Greeks) | **This skill** (`hog-openbb`) | Always preferred |
+| Macroeconomic data (global/US) | **This skill** (`hog-openbb`) | Always preferred |
+| Stock quotes/fundamentals/financials | `hog-finnhub` | Preferred when API Key is valid |
+| Market news/analyst ratings | `hog-finnhub` | Preferred when API Key is valid |
+| Forex/crypto | `hog-finnhub` | Preferred when API Key is valid |
+| China A-share data | `hedgehog-company-index-data` / `hedgehog-macro-industry-data` | Do not use this skill |
 
-**降级策略**：若 `hog-finnhub` 的 API Key 未配置或调用返回 401/403，可降级至本技能查询（需 OpenBB 服务可用且对应 provider 已配置）。
+**Fallback strategy**: If `hog-finnhub`'s API Key is not configured or calls return 401/403, fall back to this skill for queries (requires OpenBB service available and corresponding provider configured).
 
 > Resolve `./scripts/*` to absolute paths using this SKILL.md's directory (shown in system prompt `available_skills`).
 > Output is JSON to stdout; redirect to session task dir if needed.
