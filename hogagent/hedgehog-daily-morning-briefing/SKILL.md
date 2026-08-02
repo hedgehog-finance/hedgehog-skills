@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.2.3
+version: 2.2.4
 workflow_based: true
 ---
 
@@ -97,7 +97,8 @@ workflow_based: true
 3. 检查所有 `[AI生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
 5. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
-6. 最后交付`final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件, 不要交付其他文件
+6. 最后交付`final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件, 不要交付其他文件。
+7. 最后文本回复仅发送摘要，不要发送全文
 
 ## 交付标准（输出模板）
 

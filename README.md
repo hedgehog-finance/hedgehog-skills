@@ -28,14 +28,14 @@ hedgehog-skills/
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.6.0 | Query A-share listed company data: basic info, daily quotes, fundamentals, capital flow, financial statements, Shenwan industry data, trading calendar |
-| `hedgehog-daily-morning-briefing` | 2.2.3 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
+| `hedgehog-daily-morning-briefing` | 2.2.4 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `hog-gateway-tools` | 2.0.1 | Gateway General MCP Server CLI: task result reporting, work context, notifications, watchlist, resource recommendation, workflow push |
-| `hedgehog-in-depth-analysis` | 2.2.1 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
-| `hedgehog-information-verification` | 2.2.1 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
+| `hedgehog-in-depth-analysis` | 2.2.2 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
+| `hedgehog-information-verification` | 2.2.2 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.6.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.6.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
-| `hedgehog-stock-research` | 2.2.4 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
+| `hedgehog-stock-research` | 2.2.5 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 
 ### OpenClaw Extra Utility Tools
 

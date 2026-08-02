@@ -5,7 +5,7 @@ description: >
     适用场景：单一上市公司的全方位投资价值与交易节点剖析，或单项专项分析。
     触发词：个股分析、[股票名称/代码]分析、公司深度研报、基本面分析、情绪分析、技术分析。
     阻断场景：泛行业分析、宏观大势研判、非上市公司查询。
-version: 2.2.4
+version: 2.2.5
 workflow_based: true
 ---
 
@@ -85,6 +85,7 @@ spawn 2个 Sub-agent 并行执行数据收集：
 3. 检查所有 Sub-agent 均已保存产出文件和日志。
 4. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 5. 完成 `final-output-analysis-fundamentals-{stock_code}.md`。
+6. 最后文本回复仅发送摘要，不要发送全文
 
 ---
 
@@ -125,6 +126,7 @@ spawn 2个 Sub-agent 并行执行数据收集：
 2. 检查 `[参考资料]` 引用真实、格式规范。
 3. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 4. 完成 `final-output-analysis-sentiment-{stock_code}.md`。
+5. 最后文本回复仅发送摘要，不要发送全文
 
 ---
 
@@ -154,6 +156,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 2. 检查支撑/阻力位计算过程清晰、数值准确。
 3. 如缺失，回退补全（spawn Sub-agent 补全，主 Agent 不读原始数据）。
 4. 完成 `final-output-analysis-technicals-{stock_code}.md`。
+5. 最后文本回复仅发送摘要，不要发送全文
 
 ---
 
@@ -208,6 +211,7 @@ spawn 1个 Sub-agent 收集技术面数据：
 ### Stage 4：尾部章节与完整性检查
 1. `write(append:true)` 追加 `[参考资料]`（汇总三份报告的引用）、`[图表数据]`、`[AI生成提示]`。
 2. 检查所有章节已填充，引用真实，二/三/四章节内容与源报告一致。
+3. 最后文本回复仅发送摘要，不要发送全文
 
 ---
 
@@ -234,7 +238,8 @@ spawn 1个 Sub-agent 收集技术面数据：
 ### Stage 4：强制验证
 1. 按交付模板输出 `final-output-research-{stock_code}-{YYYYMMDD}.md`。
 2. 检查所有章节已填充，引用真实。
-如果不符合，视为执行失败，补全后重新输出（用 `edit` 补全缺失章节，禁止整篇重写）。
+3. 如果不符合，视为执行失败，补全后重新输出（用 `edit` 补全缺失章节，禁止整篇重写）。
+4. 最后文本回复仅发送摘要，不要发送全文
 
 ---
 

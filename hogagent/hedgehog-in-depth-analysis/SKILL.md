@@ -6,7 +6,7 @@ description: >
     Best for: event war-gaming and impact analysis.
     Triggers: event sandbox | deep analysis | path forecast | impact assessment
     NOT for: news verification; stock fundamentals.
-version: 2.2.1
+version: 2.2.2
 workflow_based: true
 ---
 
@@ -104,6 +104,7 @@ workflow_based: true
 5. 检查 `sub-agent-list.txt` 文件，核实 Sub-agent 数量是否匹配。
 6. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
 7. 最后交付 `final-output-*.*`, `data-index.md`, `sub-agent-list.txt` 文件，不要交付其他文件。
+8. 最后文本回复仅发送摘要，不要发送全文
 
 ## 演化路径表格模板
 
