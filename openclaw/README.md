@@ -18,7 +18,7 @@ A collection of skills adapted for the OpenClaw platform, containing 20 skill mo
 | `hedgehog-macro-industry-data` | 1.6.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hog-memory` | 1.1.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
 | `hedgehog-news-reports` | 1.6.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
-| `hedgehog-stock-research` | 2.2.5 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
+| `hedgehog-stock-research` | 2.2.6 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 
 ### Extra Utility Tools
 
