@@ -47,7 +47,7 @@ hedgehog-skills/
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.1.3 | Chart generation (Vega-Lite / Mermaid / ECharts) |
 | `gen-ppt` | 2.1.2 | Generate PPTX presentations from Markdown |
-| `hog-memory` | 1.1.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
+| `hog-memory` | 1.2.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
 | `math_calc` | 1.0.0 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.0.0 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
 | `tech-indicators` | 1.0.0 | Local technical indicator calculation engine |

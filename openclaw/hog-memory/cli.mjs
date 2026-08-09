@@ -168,7 +168,7 @@ async function cmdSave(mcpUrl, args) {
   }
   const content = pos.join(" ").replace(/^"(.*)"$/, "$1");
   if (!content) {
-    console.error("Usage: hog-memory save <content> [--task-type TYPE] [--tags a,b,c] [--task-desc DESC]");
+    console.error("Usage: hog-memory save <content> [--task-type TYPE] [--tags a,b,c] [--task-desc DESC] [--work-id WORK_ID]");
     process.exit(1);
   }
   const payload = {
@@ -179,6 +179,11 @@ async function cmdSave(mcpUrl, args) {
     userId: f["user-id"] || "default",
   };
   if (f["task-desc"]) payload.task_desc = f["task-desc"];
+  // Only persist a work ID that the caller explicitly knows. Never derive or
+  // fabricate one; omitting the field keeps source_work_id empty server-side.
+  if (typeof f["work-id"] === "string" && f["work-id"].trim()) {
+    payload.source_work_id = f["work-id"].trim();
+  }
   const res = await callMcp(mcpUrl, "kb_memory_create", payload);
   console.log(extractText(res));
 }
@@ -381,10 +386,10 @@ async function main() {
   const rest = stripped.slice(1);
   if (!cmd || cmd === "-h" || cmd === "--help") {
     console.log(
-      "hog-memory v1.1.0 — Cross-session persistent memory CLI\n" +
+      "hog-memory v1.2.0 — Cross-session persistent memory CLI\n" +
       "\n" +
       "Usage:\n" +
-      "  hog-memory save <content> [--task-type TYPE] [--tags a,b] [--task-desc DESC]\n" +
+      "  hog-memory save <content> [--task-type TYPE] [--tags a,b] [--task-desc DESC] [--work-id WORK_ID]\n" +
       "  hog-memory search [query] [--task-type TYPE] [--stock-codes X,Y] [--industry Z] [--tags A,B] [--limit N] [--json]\n" +
       "  hog-memory recall <id>\n" +
       "  hog-memory update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]\n" +

@@ -1,6 +1,6 @@
 ---
 name: hog-memory
-version: 1.1.0
+version: 1.2.0
 description: >
     Cross-session persistent memory. Save market insights, research conclusions,
     portfolio changes and quant strategies; search, update, delete and recall
@@ -54,8 +54,11 @@ CLI 按以下优先级定位 Gateway KB MCP Server：
 | `--task-type TYPE` | 否 | 分类：`market_insight` / `research_record` / `portfolio` / `review` / `strategy_quant` / `other` |
 | `--tags a,b,c` | 是* | 逗号分隔标签。**必须包含**股票代码（如 `600519.SH`）、申万一级行业（如 `食品饮料`）以及关键主题 |
 | `--task-desc DESC` | 否 | 任务描述，用于未来检索 |
+| `--work-id WORK_ID` | 否 | 当前任务的 `work_id`；写入记忆表的 `source_work_id` 字段 |
 
 > `*` tags 强烈建议填写，缺失会显著降低后续搜索的召回精度。
+>
+> 保存记忆时，如果明确知道当前任务的 `work_id`，必须通过 `--work-id` 传入。如果不知道，则省略该参数、让 `source_work_id` 保持为空；不得猜测或编造 `work_id`。
 
 **输出 JSON**：
 
@@ -208,6 +211,8 @@ node <skill_path>/cli.mjs save "茅台 K 线出现双底形态，成交量显著
   --task-desc "贵州茅台技术面研判"
 ```
 
+仅当上下文中明确提供了当前任务的 `work_id` 时才在上述命令末尾添加 `--work-id "$WORK_ID"`（其中 `$WORK_ID` 必须是已知的实际值）；未知时直接省略，不能使用占位值、会话 ID 或自行生成的 ID。
+
 **3. 后续会话中：按 ID 召回具体记忆**
 
 ```bash
@@ -229,6 +234,7 @@ node <skill_path>/cli.mjs delete abc123
 ## 约束
 
 - 单次 `save` 内容长度建议不超过 2000 字符；超长内容应写入文件后再存摘要。
+- `save` 的 `--work-id` 仅接受已知的当前任务 `work_id`，并映射到记忆表的 `source_work_id`；未知时必须留空，不得编造。
 - `search` 默认 limit 为 10，上限 50；超出会被钳制到 [1,50]。
 - `list` 默认 limit 为 50，上限 100；超出会被钳制到 [1,100]。
 - MCP 请求超时 15 秒，超时返回错误而非挂起。
