@@ -5,7 +5,7 @@ description: >
   US: Treasury yields.
   NOT for: stock quotes/fundamentals/financials (→ hedgehog-company-index-data); news/announcements.
   Triggers: macro data, interest rate, CPI, PPI, PMI, M1, M2, social financing, money supply, US Treasury yield.
-version: 1.6.0
+version: 1.7.0
 ---
 
 # 宏观经济数据查询
@@ -13,20 +13,27 @@ version: 1.6.0
 ## 1. 核心调度与全局约定
 
 **接口认证**：
-所有接口需要 Bearer Token 认证。脚本自动从以下位置加载 API Key（按优先级）：
+所有接口需要 Bearer Token 认证。脚本按以下优先级加载 API Key：
 
-1. `~/.hogagent/skills_config.json` 中 `hedgehog-macro-industry-data.api-key`
-2. 同文件中 `hedgehog-ciweiai.api-key`（共享 Key）
-3. 环境变量 `CIWEIAI_API_KEY`
-4. 环境变量 `API_KEY`
+1. `~/.hogagent/skills_config.json` 中 `hedgehog-macro-industry-data.api-key`（HogAgent 专用）
+2. 同文件中 `hedgehog-ciweiai.api-key`（HogAgent 共享 Key）
+3. 环境变量 `CIWEIAI_API_KEY`（跨 Agent 兼容）
+4. 环境变量 `API_KEY`（通用兜底）
+
+HogAgent 用户优先使用原有配置：
 
 ```json
-// ~/.hogagent/skills_config.json
 {
   "hedgehog-macro-industry-data": {
     "api-key": "your-api-key-here"
   }
 }
+```
+
+其他 Agent 环境可在启动 Agent 前设置环境变量：
+
+```bash
+export CIWEIAI_API_KEY="your-api-key-here"
 ```
 
 **统一执行脚本**：

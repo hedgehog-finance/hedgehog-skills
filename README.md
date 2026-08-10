@@ -8,6 +8,7 @@ A collection of financial research skills for AI Agents, covering A-share compan
 hedgehog-skills/
 ├── hogagent/     # Skills adapted for the HogAgent platform
 ├── openclaw/     # Skills adapted for the OpenClaw platform (includes extra utility tools)
+├── hermes/       # Skills adapted for Hermes Agent (Python host + declared Node.js runtime)
 ├── optional/     # Optional extensions (global market data, excludes China A-shares)
 ├── LICENSE       # GPL-3.0
 └── README.md
@@ -18,26 +19,31 @@ hedgehog-skills/
 | Platform | Directory | Skills | Description |
 |----------|-----------|--------|-------------|
 | **HogAgent** | `hogagent/` | 9 | Core A-share investment research skills |
-| **OpenClaw** | `openclaw/` | 20 | All HogAgent skills + 11 OpenClaw-only utility skills |
+| **OpenClaw** | `openclaw/` | 20 | All HogAgent skills + 11 additional utility skills |
+| **Hermes** | `hermes/` | 20 | OpenClaw-equivalent skill set with Hermes-native secrets and Node.js prerequisites |
 | **Optional** | `optional/` | 2 | Global market data extensions (Finnhub & OpenBB) |
 
 ## Skills Overview
 
-### Core Investment Research Skills (shared by hogagent & openclaw)
+### Core Investment Research Skills (shared by HogAgent, OpenClaw & Hermes)
 
 | Skill | Version | Description |
 |-------|---------|-------------|
-| `hedgehog-company-index-data` | 1.6.0 | Query A-share listed company data: basic info, daily quotes, fundamentals, capital flow, financial statements, Shenwan industry data, trading calendar |
+| `hedgehog-company-index-data` | 1.7.0 | Query A-share listed company data: basic info, daily quotes, fundamentals, capital flow, financial statements, Shenwan industry data, trading calendar |
 | `hedgehog-daily-morning-briefing` | 2.2.4 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `hog-gateway-tools` | 2.0.1 | Gateway General MCP Server CLI: task result reporting, work context, notifications, watchlist, resource recommendation, workflow push |
 | `hedgehog-in-depth-analysis` | 2.2.2 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
 | `hedgehog-information-verification` | 2.2.2 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
-| `hedgehog-macro-industry-data` | 1.6.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
-| `hedgehog-news-reports` | 1.6.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
+| `hedgehog-macro-industry-data` | 1.7.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
+| `hedgehog-news-reports` | 1.7.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
 | `hedgehog-stock-research` | 2.2.6 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 
-### OpenClaw Extra Utility Tools
+### Cross-Agent Authentication
+
+`hedgehog-company-index-data`, `hedgehog-macro-industry-data`, and `hedgehog-news-reports` support platform-native authentication. HogAgent prefers `~/.hogagent/skills_config.json`; OpenClaw uses `skills.entries.<skill>.apiKey`; Hermes declares `CIWEIAI_API_KEY` through `required_environment_variables` and stores it in `~/.hermes/.env`. Other Agent runtimes can set `CIWEIAI_API_KEY`; `API_KEY` remains a generic fallback.
+
+### OpenClaw & Hermes Extra Utility Tools
 
 | Skill | Version | Description |
 |-------|---------|-------------|

@@ -5,7 +5,13 @@ description: >
   capital flow, financial statements (income/balance/cash flow), ratios, audit opinions, main business
   composition; Shenwan industry constituents and quotes; trading calendar and trade day utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.6.0
+version: 1.7.0
+metadata:
+  {
+    "openclaw": {
+      "primaryEnv": "CIWEIAI_API_KEY"
+    }
+  }
 ---
 
 # 上市公司数据查询
@@ -37,21 +43,31 @@ version: 1.6.0
 
 ## 接口认证
 
-所有接口需要 Bearer Token 认证。脚本自动从以下位置加载 API Key（按优先级）：
+所有接口需要 Bearer Token 认证。优先使用 OpenClaw 原生技能配置：
 
-1. `~/.hogagent/skills_config.json` 中 `hedgehog-company-index-data.api-key`
-2. 同文件中 `hedgehog-ciweiai.api-key`（共享 Key）
-3. 环境变量 `CIWEIAI_API_KEY`
-4. 环境变量 `API_KEY`
-
-```json
-// ~/.hogagent/skills_config.json
+```json5
+// ~/.openclaw/openclaw.json
 {
-  "hedgehog-company-index-data": {
-    "api-key": "your-api-key-here"
+  skills: {
+    entries: {
+      "hedgehog-company-index-data": {
+        apiKey: "your-api-key-here"
+      }
+    }
   }
 }
 ```
+
+本技能通过 `metadata.openclaw.primaryEnv` 将 `apiKey` 映射为 `CIWEIAI_API_KEY`。OpenClaw 只在进程尚未设置该变量时注入配置值；若进程中已存在 `CIWEIAI_API_KEY`，按 OpenClaw 约定保留现有值。
+
+脚本依次读取：`CIWEIAI_API_KEY`（OpenClaw 注入或进程环境）、`API_KEY`。
+
+其他 Agent 环境可在启动 Agent 前设置：
+
+```bash
+export CIWEIAI_API_KEY="your-api-key-here"
+```
+
 
 ---
 

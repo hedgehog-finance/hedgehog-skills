@@ -1,0 +1,14 @@
+{
+  "name": "company-valuation",
+  "license": "GPL-3.0",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Valuation engine: relative, absolute, strategic methods",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discounted-cash-flow": "*"
+  }
+}

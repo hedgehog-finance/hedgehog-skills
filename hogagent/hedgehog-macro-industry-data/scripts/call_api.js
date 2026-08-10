@@ -12,8 +12,8 @@ const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
  * 加载 API Key（按优先级）：
  * 1. ~/.hogagent/skills_config.json → hedgehog-macro-industry-data.api-key
  * 2. 同文件 → hedgehog-ciweiai.api-key（共享 Key）
- * 3. 环境变量 CIWEIAI_API_KEY
- * 4. 环境变量 API_KEY
+ * 3. 环境变量 CIWEIAI_API_KEY（跨 Agent 兼容）
+ * 4. 环境变量 API_KEY（通用兜底）
  */
 function loadApiKey() {
   try {

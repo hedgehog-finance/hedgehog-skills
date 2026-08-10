@@ -10,12 +10,14 @@ const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
 
 /**
  * 加载 API Key（按优先级）：
- * 1. ~/.hogagent/skills_config.json → hedgehog-news-reports.api-key
- * 2. 同文件 → hedgehog-ciweiai.api-key（共享 Key）
- * 3. 环境变量 CIWEIAI_API_KEY
- * 4. 环境变量 API_KEY
+ * 1. 环境变量 CIWEIAI_API_KEY（由 OpenClaw skills.entries.<skill>.apiKey 注入，或由进程提供）
+ * 2. 环境变量 API_KEY（通用兜底）
+ * 3. ~/.hogagent/skills_config.json → hedgehog-news-reports.api-key（兼容兜底）
+ * 4. 同文件 → hedgehog-ciweiai.api-key（兼容共享 Key）
  */
 function loadApiKey() {
+  const envKey = process.env.CIWEIAI_API_KEY || process.env.API_KEY;
+  if (envKey) return envKey;
   try {
     const configPath = path.join(require('os').homedir(), '.hogagent', 'skills_config.json');
     if (fs.existsSync(configPath)) {
@@ -26,7 +28,7 @@ function loadApiKey() {
       if (sharedKey) return sharedKey;
     }
   } catch (_) { /* ignore */ }
-  return process.env.CIWEIAI_API_KEY || process.env.API_KEY || '';
+  return '';
 }
 
 const API_KEY = loadApiKey();

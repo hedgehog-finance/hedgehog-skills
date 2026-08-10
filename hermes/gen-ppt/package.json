@@ -1,0 +1,16 @@
+{
+  "name": "gen-ppt",
+  "license": "GPL-3.0",
+  "version": "2.1.2",
+  "private": true,
+  "type": "module",
+  "description": "Generate PPTX presentations from Markdown",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "highlight.js": "*",
+    "marked": "*",
+    "pptxgenjs": "*"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "hedgehog-information-verification",
+  "license": "GPL-3.0",
+  "version": "2.2.2",
+  "private": true,
+  "type": "commonjs",
+  "description": "Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven investment decisions.",
+  "engines": {
+    "node": ">=18"
+  }
+}

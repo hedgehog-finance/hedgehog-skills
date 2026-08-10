@@ -1,0 +1,14 @@
+{
+  "name": "hog-gateway-tools",
+  "license": "GPL-3.0",
+  "version": "2.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Gateway General MCP Server CLI. Report task results, get work context, send notifications, read the watchlist, recommend resources, push workflows and list extensions via HTTP JSON-RPC.",
+  "bin": {
+    "hog-gateway-tools": "cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
