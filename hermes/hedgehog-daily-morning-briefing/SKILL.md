@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.2.4
+version: 2.2.5
 workflow_based: true
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
@@ -49,10 +49,13 @@ prerequisites:
 
 1. **提取股票代码**：遍历自选股列表，确认每只股票的 `stock_code`（标准格式如 `000001.SZ`）。**若自选股列表为空，跳过全部自选股相关数据收集，自选股雷达章节直接标注“暂无自选股数据”，不得自行搜索或挑选股票填充。**
 2. **提取行业分类**：通过 `querySwIndustryMember(stock_code=[代码])` 查询每只自选股的申万一级行业分类（`l1_name`），统计频次，取前三大行业作为重点关注行业。**不足 3 个时按实际数量取（1～2 个均可），严禁为凑满 3 个而额外搜索或编造行业。**
-3. **计算日期参数**：通过交易日历查询确定 `start_date`（前一个交易日）和 `start_date_30d`（30 日前）日期。
+3. **计算日期参数**：通过交易日历确定前一个交易日，并生成：
+    - `news_announcement_start`：`<前一个交易日> 08:00:00`（`Asia/Shanghai`），用于新闻、公告和快讯查询；不传 `end_date`/`end_time`，自然查询到当前执行时间已有的数据。
+    - `research_start_date`：前一个交易日的纯日期 `YYYY-MM-DD`，用于研报查询；不传 `end_date`。
+    - `start_date_30d`：30 日前的纯日期，用于行情和资金流向查询。
 4. **制定 Sub-agent 批次计划**：根据自选股数量，将数据收集任务编排为每批 ≤3 个 Sub-agent 的执行队列。
 
-**输出**：股票代码列表、重点行业列表、日期参数、批次计划。
+**输出**：股票代码列表、重点行业列表、`news_announcement_start`、`research_start_date`、`start_date_30d`、批次计划。
 
 ### Stage 2：数据收集（Sub-agent 执行，严格落盘）
 **目标**：并行收集全量数据，所有原始数据落盘，主 Agent 上下文仅保留摘要索引。
@@ -60,15 +63,15 @@ prerequisites:
 #### 批次 1（spawn 2 个Sub-agent并发）
 | Sub-agent | 任务 |
 |-----------|------|
-| SA-1 | 快讯 `queryFlashNewsList(start_time=[前一日])` |
-| SA-2 | 宏观新闻 `queryNewsList(start_date, importance_score=4, news_type='macro')` + 各行业（≤4）新闻 `queryNewsList(..., news_type='industry', tags=[行业])` + 各行业研报 `queryResearchList(..., report_type='industry', tags=[行业])` |
+| SA-1 | 快讯 `queryFlashNewsList(start_time=[news_announcement_start])`，省略 `end_time` |
+| SA-2 | 宏观新闻 `queryNewsList(start_date=[news_announcement_start], importance_score=4, news_type='macro')` + 各行业（≤4）新闻 `queryNewsList(start_date=[news_announcement_start], importance_score=4, news_type='industry', tags=[行业])`，均省略 `end_date`；各行业研报 `queryResearchList(start_date=[research_start_date], report_type='industry', tags=[行业])`，省略 `end_date` |
 
 #### 批次 2+（每批 ≤3 个Sub-agent并发，滚动执行）
 按批次计划继续（每个股票spawn一个Sub-agent执行以下查询）：
 - **自选股资讯**：
-    - 新闻 `queryNewsList(start_date, importance_score=3, news_type='stock', tags=[code])` 
-    - 研报 `queryResearchList(start_date, importance_score=3, report_type='stock', tags=[code])`
-    - 公告 `queryAnnouncementList(start_date, importance_score=3, stock_code=[code])`
+    - 新闻 `queryNewsList(start_date=[news_announcement_start], importance_score=3, news_type='stock', tags=[code])`，省略 `end_date`
+    - 研报 `queryResearchList(start_date=[research_start_date], importance_score=3, report_type='stock', tags=[code])`，省略 `end_date`
+    - 公告 `queryAnnouncementList(start_date=[news_announcement_start], importance_score=3, stock_code=[code])`，省略 `end_date`
 - **自选股行情**：
     - 日行情 `queryStockDaily(stock_code, start_date=[30日前的日期])`
     - 资金流向 `queryMoneyflow(stock_code, start_date=[30日前的日期])`

@@ -9,7 +9,7 @@ A collection of skills adapted for the OpenClaw platform, containing 20 skill mo
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.7.0 | Query A-share listed company data: basic info, daily quotes, fundamentals, capital flow, financial statements, Shenwan industry data, trading calendar |
-| `hedgehog-daily-morning-briefing` | 2.2.4 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
+| `hedgehog-daily-morning-briefing` | 2.2.5 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `deliver_files` | 1.0.0 | Gateway General MCP Server CLI: deliver downloadable files to the user in batch |
 | `hog-gateway-tools` | 2.0.1 | Gateway General MCP Server CLI: task result reporting, work context, notifications, watchlist, resource recommendation, workflow push |
 | `hedgehog-in-depth-analysis` | 2.2.2 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
@@ -17,7 +17,7 @@ A collection of skills adapted for the OpenClaw platform, containing 20 skill mo
 | `hog-kb-tools` | 1.1.0 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.7.0 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hog-memory` | 1.2.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
-| `hedgehog-news-reports` | 1.7.0 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
+| `hedgehog-news-reports` | 1.7.1 | Financial news & reports: breaking news, news analysis, A-share research reports, listed company announcements |
 | `hedgehog-stock-research` | 2.2.6 | Multi-dimensional individual stock analysis: fundamentals, sentiment, and technicals analysts + CIO integration for final research report |
 
 ### Authentication

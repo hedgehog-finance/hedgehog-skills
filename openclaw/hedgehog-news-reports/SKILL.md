@@ -6,7 +6,7 @@ description: >
   Best for: news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.7.0
+version: 1.7.1
 metadata:
   {
     "openclaw": {
@@ -84,6 +84,12 @@ HogAgent 配置仅作为兼容兜底：
 **检索区分**：
 `keyword` 向量匹配，须配合 `start_date` 限定时间；`tags` 用于精确匹配（行业/主题/股票名称/代码统一放入 tags）。
 
+**新闻/公告日期时间边界**：
+- `queryNewsList`、`queryAnnouncementList` 的 `start_date`/`end_date` 字段名不变，支持纯日期 `YYYY-MM-DD`/`YYYYMMDD`，也支持日期时间 `YYYY-MM-DD HH:MM[:SS]`、`YYYYMMDD HH:MM[:SS]` 及等价的 `T` 分隔格式；按 `Asia/Shanghai` 解释。
+- 纯日期 `start_date` 从当天 `00:00:00` 起（含）；纯日期 `end_date` 包含结束日全天；日期时间边界精确到传入时刻且包含该时刻。
+- `end_date` 省略时不设置上界，查询截至当前已有数据；`start_date` 不得晚于 `end_date`。
+- `queryResearchList` 的 `start_date`/`end_date` 仍按纯日期处理。
+
 **通用响应结构**：
 - 列表接口 → 直接返回 `items[]` 数组
 - 详情接口 → 直接返回单条对象
@@ -142,8 +148,8 @@ HogAgent 配置仅作为兼容兜底：
 | keyword | string | 否 | - | 语义检索关键字（一定要输入start_date限定时间） |
 | tags | string[] | 否 | - | 标签精确匹配（行业/主题/股票名称/代码） |
 | sort | enum | 否 | publish_time | 倒序字段：`publish_time`、`importance_score`、`market_sentiment_score`、`vector_distance` |
-| start_date | string | 否 | - | 起始发布日期，只能查询90天内 |
-| end_date | string | 否 | - | 结束发布日期 |
+| start_date | string(date\|datetime) | 否 | - | 起始发布时间，支持纯日期或日期时间，只能查询90天内 |
+| end_date | string(date\|datetime) | 否 | - | 结束发布时间；纯日期包含当天全天，日期时间截止到指定时刻（含）；省略则不设上界 |
 | importance_score | int | 是 | - | 重要性绝对值下限（2扩大，3重要，4特重） |
 | market_sentiment_score | int | 否 | - | 市场情绪影响绝对值下限 |
 | news_type | enum | 否 | - | 类型：`macro`(宏观)、`industry`(产业/行业)、`stock`(公司/个股) |
@@ -240,8 +246,8 @@ HogAgent 配置仅作为兼容兜底：
 | keyword | string | 否 | - | 搜索关键词 |
 | tags | string[] | 否 | - | 标签精确匹配（股票名称/代码） |
 | sort | enum | 否 | announcement_date| 倒序字段：`announcement_date`、`importance_score`、`market_sentiment_score`、`vector_distance` |
-| start_date | string | 否 | - | 起始公告分析日期，限30天内 |
-| end_date | string | 否 | - | 结束公告分析日期 |
+| start_date | string(date\|datetime) | 否 | - | 起始公告时间，支持纯日期或日期时间，限30天内 |
+| end_date | string(date\|datetime) | 否 | - | 结束公告时间；纯日期包含当天全天，日期时间截止到指定时刻（含）；省略则不设上界 |
 | importance_score | int | 否 | - | 公告重要性绝对值下限 |
 | market_sentiment_score | int | 否 | - | 市场情绪影响绝对值下限 |
 | announce_type | enum | 否 | - | 公告类型：`U1` 定期财务报告、`U2` 业绩预告及快报、`U3` 融资与资金管理、`U4` 并购重组与重大交易、`U5` 股东权益变动、`U6` 公司治理与审计、`U7` 异常与风险警示、`U8` 司法与破产重整、`U9` 其他重大事项、`U10` 交易所监管 |

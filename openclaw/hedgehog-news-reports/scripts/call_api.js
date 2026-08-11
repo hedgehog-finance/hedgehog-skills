@@ -43,6 +43,7 @@ const FLASH_NEWS_SOURCES = ['华尔街见闻', '第一财经', '财联社', '金
  * - required:    必填参数（缺失则报错）
  * - constraints: 调用前的参数校验
  *     - { field: { maxAgeDays: N } } 表示该日期/时间字段距当前不得超过 N 天
+ *     - dateTimeRange 表示起止字段可传纯日期或日期时间，并校验起止顺序
  */
 const API_ROUTES = {
   // ===== 新闻与快讯 =====
@@ -86,7 +87,10 @@ const API_ROUTES = {
       'importance_score',
       'market_sentiment_score',
     ],
-    constraints: { start_date: { maxAgeDays: 90 } },
+    constraints: {
+      start_date: { maxAgeDays: 90 },
+      dateTimeRange: { startField: 'start_date', endField: 'end_date' },
+    },
   },
 
   // ===== 公告 =====
@@ -113,7 +117,10 @@ const API_ROUTES = {
       'importance_score',
       'market_sentiment_score',
     ],
-    constraints: { start_date: { maxAgeDays: 30 } },
+    constraints: {
+      start_date: { maxAgeDays: 30 },
+      dateTimeRange: { startField: 'start_date', endField: 'end_date' },
+    },
   },
 
   // ===== 研报 =====
@@ -216,8 +223,11 @@ function parseDateStrict(value) {
 function validateMaxAgeDays(value, maxDays, fieldName, apiName) {
   if (value === undefined || value === null || value === '') return;
   let ts;
-  if (apiName === 'queryFlashNewsList' && (fieldName === 'start_time' || fieldName === 'end_time')) {
-    const parsed = parseFlashNewsStartTime(value);
+  const acceptsDateTime = apiName === 'queryFlashNewsList'
+    || apiName === 'queryNewsList'
+    || apiName === 'queryAnnouncementList';
+  if (acceptsDateTime) {
+    const parsed = parseDateTimeInput(value);
     if (!parsed) {
       throw new Error(`${apiName} 参数 ${fieldName} 格式不合法: ${value}`);
     }
@@ -238,11 +248,11 @@ function validateMaxAgeDays(value, maxDays, fieldName, apiName) {
   }
 }
 
-function parseFlashNewsStartTime(value) {
+function parseDateTimeInput(value) {
   if (typeof value !== 'string') return null;
 
   const match = value.match(
-    /^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/
+    /^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/
   );
   if (!match) return null;
 
@@ -269,6 +279,39 @@ function parseFlashNewsStartTime(value) {
   return date;
 }
 
+function isDateOnlyInput(value) {
+  return typeof value === 'string' && /^(?:\d{4}-\d{2}-\d{2}|\d{8})$/.test(value);
+}
+
+function validateDateTimeRange(params, rule, apiName) {
+  const { startField, endField } = rule;
+  const startValue = params[startField];
+  const endValue = params[endField];
+  const start = startValue === undefined || startValue === null || startValue === ''
+    ? null
+    : parseDateTimeInput(startValue);
+  const end = endValue === undefined || endValue === null || endValue === ''
+    ? null
+    : parseDateTimeInput(endValue);
+
+  if (startValue !== undefined && startValue !== null && startValue !== '' && !start) {
+    throw new Error(`${apiName} 参数 ${startField} 格式不合法: ${startValue}`);
+  }
+  if (endValue !== undefined && endValue !== null && endValue !== '' && !end) {
+    throw new Error(`${apiName} 参数 ${endField} 格式不合法: ${endValue}`);
+  }
+  if (!start || !end) return;
+
+  if (isDateOnlyInput(endValue)) {
+    const nextMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1).getTime();
+    if (start.getTime() >= nextMidnight) {
+      throw new Error(`${apiName} 参数 ${startField} 不能晚于 ${endField}`);
+    }
+  } else if (start.getTime() > end.getTime()) {
+    throw new Error(`${apiName} 参数 ${startField} 不能晚于 ${endField}`);
+  }
+}
+
 function validateFlashNewsQueryParams(apiName, params) {
   const allowedParams = new Set(['source', 'start_time', 'end_time']);
   for (const key of Object.keys(params)) {
@@ -284,7 +327,7 @@ function validateFlashNewsQueryParams(apiName, params) {
   }
 
   if (params.start_time !== undefined && params.start_time !== null && params.start_time !== '') {
-    const startTime = parseFlashNewsStartTime(params.start_time);
+    const startTime = parseDateTimeInput(params.start_time);
     if (!startTime) {
       throw new Error(
         `${apiName} 参数 start_time 格式不合法: ${params.start_time}. 支持 YYYY-MM-DD HH:MM:SS、YYYY-MM-DD HH:MM、YYYYMMDD HH:MM:SS、YYYYMMDD HH:MM、YYYY-MM-DD、YYYYMMDD`
@@ -293,7 +336,7 @@ function validateFlashNewsQueryParams(apiName, params) {
   }
 
   if (params.end_time !== undefined && params.end_time !== null && params.end_time !== '') {
-    const endTime = parseFlashNewsStartTime(params.end_time);
+    const endTime = parseDateTimeInput(params.end_time);
     if (!endTime) {
       throw new Error(
         `${apiName} 参数 end_time 格式不合法: ${params.end_time}. 支持 YYYY-MM-DD HH:MM:SS、YYYY-MM-DD HH:MM、YYYYMMDD HH:MM:SS、YYYYMMDD HH:MM、YYYY-MM-DD、YYYYMMDD`
@@ -316,9 +359,13 @@ function applyConstraints(route, apiName, params) {
   }
   if (route.constraints) {
     for (const [field, rule] of Object.entries(route.constraints)) {
+      if (field === 'dateTimeRange') continue;
       if (rule.maxAgeDays !== undefined) {
         validateMaxAgeDays(params[field], rule.maxAgeDays, field, apiName);
       }
+    }
+    if (route.constraints.dateTimeRange) {
+      validateDateTimeRange(params, route.constraints.dateTimeRange, apiName);
     }
   }
 }
