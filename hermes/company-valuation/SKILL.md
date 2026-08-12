@@ -385,7 +385,7 @@ Output includes Markdown table and Vega-Lite heatmap data.
 
 **Vega-Lite heatmap** — `sensitivity.matrix` / `.discountRates` / `.terminalMultiples` can be rendered as:
 ```json
-{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"rect","encoding":{"x":{"field":"terminalMultiple","type":"ordinal"},"y":{"field":"discountRate","type":"ordinal"},"color":{"field":"value","type":"quantitative"}}}
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"rect","encoding":{"x":{"field":"terminalMultiple","type":"ordinal"},"y":{"field":"discountRate","type":"ordinal"},"color":{"field":"value","type":"quantitative"}}}
 ```
 
 ##### fcf-series — Custom FCF Sequence

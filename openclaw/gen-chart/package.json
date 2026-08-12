@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "vega": "*",
-    "vega-lite": "*"
+    "vega": "^6.3.1",
+    "vega-lite": "^6.4.3"
   }
 }

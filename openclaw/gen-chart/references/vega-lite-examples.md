@@ -1,7 +1,7 @@
 # Vega-Lite Specification Examples
 
 > The `$schema` field is **optional**. The script auto-detects Vega-Lite by structure (`mark` + `encoding`).
-> If included, use: `"$schema": "https://vega.github.io/schema/vega-lite/v5.json"` or omit entirely.
+> If included, use: `"$schema": "https://vega.github.io/schema/vega-lite/v6.json"` or omit entirely.
 > Local schema stub: `references/vega-lite-schema.json`
 
 ## Bar Chart

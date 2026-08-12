@@ -131,6 +131,8 @@ Script auto-detects and fixes common LLM data issues (stderr warnings):
 > No `--theme` given: **`fintech` auto-applied**. Use `--theme=none` for Vega/Mermaid defaults.
 
 ## Dependencies
-Pre-installed in `<hogagent_root>/node_modules/`: `vega`, `vega-lite`, `canvas`, `@mermaid-js/mermaid-cli`, `puppeteer`
+Pre-installed in `<hogagent_root>/node_modules/`: `vega` (`^6.3.1`), `vega-lite` (`^6.4.3`), `canvas`, `@mermaid-js/mermaid-cli`, `puppeteer`.
+
+Vega-Lite specs should use the v6 schema when `$schema` is included: `https://vega.github.io/schema/vega-lite/v6.json`.
 
 ECharts is NOT a Node.js dependency — frontend loads ECharts 5.5.1 from CDN.
