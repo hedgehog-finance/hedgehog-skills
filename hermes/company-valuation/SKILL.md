@@ -5,7 +5,7 @@ description: >
     absolute (DCF/DDM/rNPV/Black-Scholes), strategic (TAM-SAM-SOM/LTV-CAC/NRR).
     Triggers: valuation, intrinsic value, PE, PB, PS, DCF, DDM, PEG, EV/EBITDA, ARR, TAM, LTV/CAC, NRR, rNPV.
     Blocks: technical analysis, candlestick patterns, non-valuation financial calculations.
-version: 2.0.0
+version: 3.0.0
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
   commands: [node, npm]
@@ -370,7 +370,12 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs wacc '{"riskFreeRate":0.025,"beta"
 node ${HERMES_SKILL_DIR}/scripts/absolute.mjs sensitivity '{"firstFreeCashFlow":50,"growthRates":[0.12,0.05],"discountRate":0.10,"terminalFcfMultiple":15,"sharesOutstanding":10,"netDebt":200}'
 ```
 
-Output includes Markdown table and Vega-Lite heatmap data.
+Output uses the Vega-Lite v6 chart contract. The command returns `method: "sensitivity"` plus the top-level `sensitivity` and `inputs` objects.
+
+- `sensitivity.chartData` — flattened `{ discountRate, terminalMultiple, value }` rows
+- `sensitivity.vegaLiteSpec` — complete Vega-Lite v6 specification with inline `data.values`; write this object to a JSON file and pass it directly to `gen-chart`
+- `sensitivity.metric` / `sensitivity.baseCase` — chart metric and base-case coordinates
+- `inputs` — normalized calculation inputs
 
 | Param | Type | Req | Default | Desc |
 |-------|------|-----|---------|------|
@@ -383,9 +388,9 @@ Output includes Markdown table and Vega-Lite heatmap data.
 | sharesOutstanding | number | opt | — | For per-share output |
 | netDebt | number | opt | 0 | Net debt |
 
-**Vega-Lite heatmap** — `sensitivity.matrix` / `.discountRates` / `.terminalMultiples` can be rendered as:
+**Vega-Lite heatmap** — `sensitivity.vegaLiteSpec` is returned in this directly renderable form:
 ```json
-{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"rect","encoding":{"x":{"field":"terminalMultiple","type":"ordinal"},"y":{"field":"discountRate","type":"ordinal"},"color":{"field":"value","type":"quantitative"}}}
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","data":{"values":[{"discountRate":"8.00%","terminalMultiple":12,"value":18.5}]},"mark":"rect","encoding":{"x":{"field":"terminalMultiple","type":"ordinal"},"y":{"field":"discountRate","type":"ordinal"},"color":{"field":"value","type":"quantitative"}}}
 ```
 
 ##### fcf-series — Custom FCF Sequence

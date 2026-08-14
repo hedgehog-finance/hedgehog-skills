@@ -12,11 +12,12 @@
  * charts, tables, images, and custom positioned elements.
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import pptxgen from "pptxgenjs";
 import { resolveTheme, toPptxTheme, THEME_NAMES } from "./themes.mjs";
+import { normalizeAndValidatePptx } from "./pptx-ooxml.mjs";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -163,10 +164,13 @@ async function generate() {
   const logoPath = resolve(__dirname, 'logo.png');
   addBranding(pres.slides[pres.slides.length - 1], theme, existsSync(logoPath) ? logoPath : null);
 
-  // 7. Write file
-  await pres.writeFile({ fileName: outputPath });
+  // 7. Serialize, normalize native chart OOXML, validate the complete package,
+  // then write only the verified result. Never silently fall back to chart images.
+  const rawPptx = await pres.write({ outputType: "nodebuffer" });
+  const { buffer: verifiedPptx, report } = await normalizeAndValidatePptx(rawPptx);
+  writeFileSync(outputPath, verifiedPptx);
   const themeInfo = theme.name ? ` (theme: ${theme.name})` : "";
-  console.log(`PPTX generated: ${outputPath}${themeInfo}`);
+  console.log(`PPTX generated and validated: ${outputPath}${themeInfo}; ${report.chartCount} native charts, ${report.relationshipCount} relationships`);
 }
 
 // ── Config Loading ───────────────────────────────────────────────────────────
@@ -838,26 +842,28 @@ function renderChart(slide, chart, pos, theme) {
     renderImage(slide, chart, pos);
     return;
   }
+  if (chart.type === "image") {
+    throw new Error("Static image chart requires 'path' or base64 'data'.");
+  }
 
-  if (!chart.type || !chart.data) {
-    console.warn("Warning [gen-ppt]: Chart missing 'type' or 'data', skipping.");
-    return;
+  if (!chart.type || !Array.isArray(chart.data) || chart.data.length === 0) {
+    throw new Error("Native chart requires a supported 'type' and a non-empty 'data' array.");
   }
 
   // Map JSON chart type to PptxGenJS ChartType
   const chartTypeMap = {
     bar: "bar", line: "line", pie: "pie", doughnut: "doughnut",
     area: "area", scatter: "scatter", radar: "radar",
-    bar3d: "bar3D", bubble: "bubble",
   };
-  const chartType = chartTypeMap[chart.type] || chart.type;
+  const chartType = chartTypeMap[chart.type];
+  if (!chartType) {
+    throw new Error(`Unsupported native chart type "${chart.type}". Supported types: ${Object.keys(chartTypeMap).join(", ")}.`);
+  }
 
-  // Build chart data in PptxGenJS format
-  const data = chart.data.map(series => ({
-    name: series.name || "",
-    labels: series.labels || [],
-    values: series.values || [],
-  }));
+  // Build chart data in PptxGenJS format. Scatter charts require a dedicated
+  // X-axis series followed by one or more Y series; treating them like a
+  // category chart produces valid-looking OOXML with no visible points.
+  const data = buildNativeChartData(chart);
 
   // Merge theme defaults with user options
   const chartOpts = {
@@ -879,6 +885,73 @@ function renderChart(slide, chart, pos, theme) {
   };
 
   slide.addChart(chartType, data, chartOpts);
+}
+
+function buildNativeChartData(chart) {
+  if (chart.type !== "scatter") {
+    for (const [index, series] of chart.data.entries()) {
+      if (!Array.isArray(series.labels) || !Array.isArray(series.values) || series.values.length === 0) {
+        throw new Error(`Chart series[${index}] requires non-empty labels and values arrays.`);
+      }
+      if (series.labels.length !== series.values.length) {
+        throw new Error(`Chart series[${index}] labels and values must have equal length.`);
+      }
+      if (!series.values.every(Number.isFinite)) {
+        throw new Error(`Chart series[${index}] values must contain only finite numbers.`);
+      }
+      if ((chart.type === "pie" || chart.type === "doughnut") && series.values.some(value => value < 0)) {
+        throw new Error(`${chart.type} charts do not support negative values.`);
+      }
+    }
+    return chart.data.map(series => ({
+      name: series.name || "",
+      labels: series.labels || [],
+      values: series.values || [],
+    }));
+  }
+
+  const xySeries = chart.data.filter(series => Array.isArray(series.xValues) || Array.isArray(series.yValues));
+  if (xySeries.length > 0) {
+    if (xySeries.length !== chart.data.length) {
+      throw new Error("Scatter chart must use xValues/yValues for every series; do not mix scatter data formats.");
+    }
+    const xValues = xySeries[0].xValues;
+    if (!Array.isArray(xValues) || xValues.length === 0) {
+      throw new Error("Scatter chart requires a non-empty xValues array.");
+    }
+    for (const [index, series] of xySeries.entries()) {
+      if (!Array.isArray(series.xValues) || !Array.isArray(series.yValues)) {
+        throw new Error(`Scatter series[${index}] requires both xValues and yValues.`);
+      }
+      if (series.xValues.length !== series.yValues.length) {
+        throw new Error(`Scatter series[${index}] xValues and yValues must have equal length.`);
+      }
+      if (![...series.xValues, ...series.yValues].every(Number.isFinite)) {
+        throw new Error(`Scatter series[${index}] xValues and yValues must contain only finite numbers.`);
+      }
+      if (series.xValues.length !== xValues.length || series.xValues.some((value, point) => value !== xValues[point])) {
+        throw new Error("PptxGenJS native scatter charts require every series to share the same xValues.");
+      }
+    }
+    return [
+      { name: "X Axis", values: xValues },
+      ...xySeries.map(series => ({ name: series.name || "", labels: series.labels || [], values: series.yValues })),
+    ];
+  }
+
+  // Also accept PptxGenJS's native form: first entry is X values, remaining
+  // entries are Y series. Require at least one Y series to prevent blank charts.
+  if (chart.data.length < 2 || !chart.data.every(series => Array.isArray(series.values))) {
+    throw new Error("Scatter chart requires [{name, xValues, yValues}, ...] or an X-axis values series followed by at least one Y values series.");
+  }
+  const pointCount = chart.data[0].values.length;
+  if (pointCount === 0 || chart.data.slice(1).some(series => series.values.length !== pointCount)) {
+    throw new Error("Scatter X and Y series must be non-empty and have equal lengths.");
+  }
+  if (!chart.data.every(series => series.values.every(Number.isFinite))) {
+    throw new Error("Scatter X and Y series must contain only finite numbers.");
+  }
+  return chart.data.map(series => ({ name: series.name || "", labels: series.labels || [], values: series.values }));
 }
 
 /** Render a table slot. */

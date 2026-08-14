@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Rich PPT"
+  short_description: "Create polished image-based PowerPoint decks"
+  default_prompt: "Use $gen-rich-ppt to turn my source material into a polished image-based PowerPoint deck."

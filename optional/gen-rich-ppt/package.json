@@ -1,0 +1,11 @@
+{
+  "name": "gen-rich-ppt",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Generate polished image-based PowerPoint decks with built-in or OpenAI-compatible image models",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ningzimu/codex-ppt-skill.git"
+  }
+}

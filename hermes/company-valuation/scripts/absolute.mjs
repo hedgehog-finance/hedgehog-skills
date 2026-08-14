@@ -300,26 +300,60 @@ function calcSensitivity(p) {
     terminalMultiples.push(round(m, 1));
   }
 
-  const matrix = [];
+  const chartData = [];
   for (const dr of discountRates) {
-    const row = [];
     for (const tm of terminalMultiples) {
       const res = DCF.calculate(fcf, growthRates, tm, dr, 2);
       let val = res.totalPresentValue;
       if (sharesOutstanding) {
         val = round((val - netDebt) / sharesOutstanding, 4);
       }
-      row.push(val);
+      chartData.push({
+        discountRate: pct(dr),
+        terminalMultiple: tm,
+        value: val,
+      });
     }
-    matrix.push(row);
   }
+
+  const metric = sharesOutstanding ? '每股内在价值' : '企业总现值';
+  const formattedDiscountRates = discountRates.map((r) => pct(r));
+  const vegaLiteSpec = {
+    $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
+    description: `DCF敏感性分析：${metric}`,
+    data: { values: chartData },
+    mark: 'rect',
+    encoding: {
+      x: {
+        field: 'terminalMultiple',
+        type: 'ordinal',
+        sort: terminalMultiples,
+        title: '终端倍数',
+      },
+      y: {
+        field: 'discountRate',
+        type: 'ordinal',
+        sort: formattedDiscountRates,
+        title: '折现率',
+      },
+      color: {
+        field: 'value',
+        type: 'quantitative',
+        title: metric,
+      },
+      tooltip: [
+        { field: 'discountRate', type: 'ordinal', title: '折现率' },
+        { field: 'terminalMultiple', type: 'ordinal', title: '终端倍数' },
+        { field: 'value', type: 'quantitative', title: metric },
+      ],
+    },
+  };
 
   return {
     sensitivity: {
-      metric: sharesOutstanding ? '每股内在价值' : '企业总现值',
-      discountRates: discountRates.map((r) => pct(r)),
-      terminalMultiples,
-      matrix,
+      metric,
+      chartData,
+      vegaLiteSpec,
       baseCase: {
         discountRate: pct(baseDiscount),
         terminalMultiple: baseTerminal,
@@ -331,18 +365,7 @@ function calcSensitivity(p) {
       sharesOutstanding: sharesOutstanding ?? null,
       netDebt,
     },
-    markdown: buildMarkdownTable(discountRates, terminalMultiples, matrix, sharesOutstanding),
   };
-}
-
-function buildMarkdownTable(discountRates, terminalMultiples, matrix, isPerShare) {
-  const header = ['折现率 / 终端倍数', ...terminalMultiples.map((m) => `${m}x`)];
-  const rows = matrix.map((row, i) => [
-    pct(discountRates[i]),
-    ...row.map((v) => (isPerShare ? v.toFixed(2) : v.toLocaleString())),
-  ]);
-  const sep = header.map(() => '---');
-  return [header.join(' | '), sep.join(' | '), ...rows.map((r) => r.join(' | '))].join('\n');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

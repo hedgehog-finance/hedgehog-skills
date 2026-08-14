@@ -1,11 +1,12 @@
 # Optional Skills
 
-Optional extension skills providing overseas market and global financial data capabilities. Does not include China A-share data. Contains 2 skill modules.
+Optional extension skills that are not part of the core platform bundles. Contains 3 skill modules.
 
 ## Skill List
 
 | Skill | Version | Description |
 |------|------|------|
+| `gen-rich-ppt` | 1.0.0 | Rich image-based PPT/PPTX generation with built-in or OpenAI-compatible image models |
 | `hog-finnhub` | 1.0.0 | Global stock data via Finnhub API (excludes China A-shares) |
 | `hog-openbb` | 1.0.1 | Global financial data via OpenBB Platform (excludes China A-shares) |
 
@@ -23,4 +24,4 @@ Standard structure for each skill module:
 
 ## License
 
-[GPL-3.0](../LICENSE)
+The optional collection uses [GPL-3.0](../LICENSE). `gen-rich-ppt` retains the upstream MIT license in its own [`LICENSE`](gen-rich-ppt/LICENSE) file.

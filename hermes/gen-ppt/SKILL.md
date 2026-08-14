@@ -5,7 +5,7 @@ description: >
     Applicable: slide decks, pitch decks, meeting presentations, web presentations.
     Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
     Blocking: Keynote/Google Slides-only exports, video.
-version: 2.1.2
+version: 2.2.0
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
   commands: [node, npm]
@@ -22,7 +22,7 @@ prerequisites:
 | **Output** | `.pptx` — editable | `.html` — self-contained, browser-only |
 | **Input** | JSON config | Markdown (`---` separates slides) |
 | **Script** | `scripts/gen-ppt.mjs` | `scripts/md-to-slides.mjs` |
-| **Deps** | `pptxgenjs` | `marked`, `highlight.js` |
+| **Deps** | `pptxgenjs@4.0.1`, `jszip@3.10.1` | `marked`, `highlight.js` |
 
 **HTML triggers:** "HTML slides", "web slides", "网页PPT", "在线播放", "interactive presentation", "browser-based", "markdown to slides". Otherwise → PPTX.
 
@@ -31,6 +31,8 @@ prerequisites:
 ```bash
 # Mode A: JSON → PPTX (default)
 node ${HERMES_SKILL_DIR}/scripts/gen-ppt.mjs <config.json> <output.pptx> [--theme=<name>]
+# Re-run structural validation and optional viewer open/render tests
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> [--libreoffice] [--keynote] [--powerpoint]
 # Mode B: Markdown → HTML (opt-in)
 node ${HERMES_SKILL_DIR}/scripts/md-to-slides.mjs <input.md> <output.html> [--theme=<name>] [--title="Title"]
 ```
@@ -58,7 +60,7 @@ Resolve `${HERMES_SKILL_DIR}/scripts/*` to absolute paths using this SKILL.md's 
 
 ## Mode A: PPTX (default)
 
-**Workflow:** Write JSON config → run `gen-ppt.mjs` → `.pptx`. Full schema: `references/json-schema.md`.
+**Workflow:** Write JSON config → run `gen-ppt.mjs` → normalize native Chart OOXML → validate every package relationship and chart part → write `.pptx`. Generation fails instead of emitting an invalid file. Full schema: `references/json-schema.md`.
 
 ### Layouts (9 types)
 
@@ -74,7 +76,19 @@ Resolve `${HERMES_SKILL_DIR}/scripts/*` to absolute paths using this SKILL.md's 
 | `closing` | title, subtitle, logo |
 | `blank` | elements only |
 
-All slides support custom `elements` array. Charts: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, or `image` (pre-rendered chart file, e.g. from gen-chart: `"chart": { "type": "image", "path": "/abs/chart.png" }`).
+All slides support custom `elements` array. Use editable native charts first for `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, and `radar`. Use `type: "image"` for an explicitly requested static chart, a chart type with no native implementation, or the fallback procedure below.
+
+For scatter charts, use series objects with matching `xValues` and `yValues` arrays. All scatter series must share the same X values. See `references/json-schema.md`; invalid or incomplete scatter input fails instead of producing an empty chart.
+
+### PPTX Integrity and Viewer QA
+
+`gen-ppt.mjs` automatically repairs known PptxGenJS 4.0.1 chart incompatibilities before writing: schema child order, required line grouping, forbidden series nodes, orphan axis references, single-level category encoding, rounded corners, and absolute chart relationship targets. It then rejects malformed XML, missing package parts, broken relationships, invalid chart ordering, and unresolved axes.
+
+After generation, run `validate-pptx.mjs` with every available target viewer. `--libreoffice` performs a headless PDF render. On macOS, `--keynote` and `--powerpoint` open the deck in the named application and export a PDF. A structural pass alone is not a substitute for a target-viewer test. See `references/ooxml-validation.md`.
+
+If a native chart is blank, invalid, or still cannot be displayed in the target viewer after regeneration and validation, use `gen-chart` to render that chart as PNG. Then replace only the affected chart with `{ "type": "image", "path": "/absolute/path/to/chart.png" }` and regenerate the PPTX. Treat this as an explicit compatibility fallback: preserve the same source data, labels, title, and visual meaning, use an absolute PNG path, inspect the rendered slide, and note that the fallback chart is no longer editable as a native PowerPoint chart.
+
+After changing chart generation, run `npm run test:native-charts -- --libreoffice` and add `--keynote` / `--powerpoint` wherever installed. The smoke test covers all seven native types plus rejection of empty scatter output and unnormalized PptxGenJS OOXML.
 
 ### Inline Text Formatting
 
@@ -98,7 +112,8 @@ All text fields (title, subtitle, bullets, body, footnote, table cells, text ele
 ### Common Mistakes to Avoid
 
 - Relative paths for `image.path` — always absolute
-- **SVG images — always use PNG/JPG.** SVG embeds render blank in most PPT viewers (WPS, older Office, macOS Preview). When generating charts with gen-chart for PPT embedding, output PNG
+- **SVG image assets — use PNG/JPG.** SVG embeds render blank in many PPT viewers. This rule applies to image assets, not supported native charts
+- Converting a supported native chart to PNG before attempting native generation and validation — use the `gen-chart` PNG fallback only when the generated native chart is blank, invalid, or unsupported by the target viewer
 - Omitting `"layout"` field (defaults to `"content"`)
 - `#` prefix inconsistency in color values (both accepted, be consistent)
 - Chart/table options at slide level — nest inside `chart.options` / `table.options`
@@ -106,7 +121,8 @@ All text fields (title, subtitle, bullets, body, footnote, table cells, text ele
 
 ### References
 - `references/json-schema.md` — Full JSON schema
-- `references/examples.md` — 5 complete examples
+- `references/examples.md` — 6 complete examples
+- `references/ooxml-validation.md` — Native chart normalization, validation, and viewer test requirements
 
 ---
 
@@ -154,4 +170,4 @@ All text fields (title, subtitle, bullets, body, footnote, table cells, text ele
 cd "${HERMES_SKILL_DIR}" && npm install
 ```
 
-- `pptxgenjs` (PPTX), `marked` + `highlight.js` (HTML)
+- `pptxgenjs@4.0.1` and `jszip@3.10.1` (PPTX generation and OOXML verification), `marked` + `highlight.js` (HTML)

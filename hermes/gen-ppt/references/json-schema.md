@@ -171,15 +171,31 @@ Images are never stretched: the intrinsic pixel size (PNG/JPEG/GIF/BMP) is read 
 }
 ```
 
-Types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, `image`
+Editable native types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`.
 
-**Pre-rendered chart image** (e.g. from the gen-chart skill) — use `type: "image"` with a `path` (PNG recommended); `data` field is not required:
+Native chart data is strict: each non-scatter series needs equal-length, non-empty `labels` and numeric `values`; pie/doughnut values cannot be negative. Unsupported native types and invalid data abort generation instead of producing an empty chart.
+
+**Static chart image** — use `type: "image"` when the user explicitly requests a static chart, the requested chart type has no native implementation (for example candlestick or heatmap), or a native chart remains blank/invalid in the target viewer after regeneration and validation. For that compatibility fallback, render the same chart data with `gen-chart` as PNG and replace only the affected chart. The `data` field is not required:
 
 ```json
 { "type": "image", "path": "/absolute/path/to/chart.png", "alt": "Chart description" }
 ```
 
 **Series:** `{ "name": string, "labels": string[], "values": number[] }`
+
+**Scatter series:** use explicit X/Y values. Every series must have equal-length arrays and share the same `xValues`:
+
+```json
+{
+  "type": "scatter",
+  "data": [
+    { "name": "Observed", "xValues": [1, 2, 3], "yValues": [2.4, 3.1, 4.8] },
+    { "name": "Forecast", "xValues": [1, 2, 3], "yValues": [2.1, 3.5, 5.2] }
+  ]
+}
+```
+
+The lower-level PptxGenJS form—one X-axis `values` series followed by one or more Y `values` series—is also accepted. A single generic `{labels, values}` series is invalid for scatter charts because it has no Y series.
 
 **Options** (all optional, passed to PptxGenJS):
 
@@ -196,6 +212,22 @@ Types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`, `image`
 | `lineSize` | number |
 | `valAxisTitle` / `catAxisTitle` | string |
 | `valAxisHidden` / `catAxisHidden` | boolean |
+
+### Native Chart Integrity
+
+`gen-ppt.mjs` keeps supported charts editable. Before writing the file it normalizes PptxGenJS chart parts, converts chart relationships to relative package paths, and validates ZIP integrity, required OOXML parts, XML nesting, relationship targets, chart child ordering, required line grouping, forbidden series nodes, and axis references. Any failure aborts generation; there is no silent image fallback.
+
+Re-run validation or target-viewer tests with:
+
+```bash
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx>
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --libreoffice
+# macOS, when installed:
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --keynote
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --powerpoint
+```
+
+See `references/ooxml-validation.md` for the enforced invariants and release checklist.
 
 ### TableSlot
 

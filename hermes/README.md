@@ -45,11 +45,11 @@ Do not put API keys in `~/.hermes/config.yaml` or skill files.
 
 | Skill | Version | Description |
 |-------|---------|-------------|
-| `company-valuation` | 2.0.0 | Valuation engine: relative, absolute, and strategic methods |
+| `company-valuation` | 3.0.0 | Valuation engine with Vega-Lite v6 sensitivity heatmap output |
 | `doc-convert` | 2.0.0 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
-| `gen-chart` | 2.1.3 | Chart generation (Vega-Lite / Mermaid / ECharts) |
-| `gen-ppt` | 2.1.2 | Generate PPTX presentations from Markdown |
+| `gen-chart` | 2.2.0 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
+| `gen-ppt` | 2.2.0 | Generate and validate editable PPTX presentations with repaired native chart OOXML, or HTML slides from Markdown |
 | `math_calc` | 1.0.0 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.0.0 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
 | `tech-indicators` | 1.0.0 | Local technical indicator calculation engine |

@@ -1,16 +1,20 @@
 {
   "name": "gen-ppt",
   "license": "GPL-3.0",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
-  "description": "Generate PPTX presentations from Markdown",
+  "description": "Generate validated editable PPTX presentations from JSON or HTML slides from Markdown",
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "test:native-charts": "node ./scripts/smoke-test-native-charts.mjs"
   },
   "dependencies": {
     "highlight.js": "*",
     "marked": "*",
-    "pptxgenjs": "*"
+    "jszip": "3.10.1",
+    "pptxgenjs": "4.0.1"
   }
 }

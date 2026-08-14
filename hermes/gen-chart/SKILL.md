@@ -1,9 +1,9 @@
 ---
 name: gen-chart
 description: >
-    Generate charts as PNG/SVG (Vega-Lite, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
+    Generate charts as PNG/SVG (Vega-Lite v6, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
     Triggers: chart, diagram, graph, flowchart, sequence diagram, mermaid, vega, echarts.
-version: 2.1.3
+version: 2.2.0
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
   commands: [node, npm]
@@ -11,14 +11,14 @@ prerequisites:
 
 # GenChart — Chart & Diagram Generator
 
-Generate charts (Vega-Lite) and diagrams (Mermaid) as PNG/SVG images, or ECharts JSON configs.
+Generate charts (Vega-Lite v6) and diagrams (Mermaid) as PNG/SVG images, or ECharts JSON configs.
 Two usage scenarios: **Standalone Generation** and **In-text Embedding**.
 
 ## Chart Generation modes (Mandatory)
 
 Target modes must be declared prior to data generation. Mixing protocols is strictly prohibited:
 
-* **Image Mode**: Uses the **Vega-Lite JSON specification** or **Mermaid syntax** (outputs PNG/SVG via `vega-chart.mjs` / `mermaid-chart.mjs`).
+* **Image Mode**: Uses the **Vega-Lite v6 JSON specification** or **Mermaid syntax** (outputs PNG/SVG via `vega-chart.mjs` / `mermaid-chart.mjs`).
 * **ECharts Mode**: Outputs **ECharts JSON configuration** via `echarts-config.mjs` (no files generated). Use only when the user explicitly requests ECharts.
 
 **Execution Rules:**
@@ -28,7 +28,7 @@ Target modes must be declared prior to data generation. Mixing protocols is stri
 
 ## Scripts
 
-### vega-chart.mjs — Data charts (line, bar, pie, scatter, etc.)
+### vega-chart.mjs — Vega-Lite v6 data charts (line, bar, pie, scatter, etc.)
 ```bash
 node ${HERMES_SKILL_DIR}/scripts/vega-chart.mjs --spec <spec.json> --output <output.png|svg> [--theme=<name>]
 ```
