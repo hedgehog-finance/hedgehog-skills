@@ -249,6 +249,7 @@ Four `image.position` arrangements — pick per content: wide charts → `top`/`
 {
   "title": "Industry Valuation Review",
   "theme": "economist",
+  "targetViewer": "universal",
   "slides": [
     {
       "layout": "image-text",
@@ -284,7 +285,7 @@ Four `image.position` arrangements — pick per content: wide charts → `top`/`
       "title": "Unsupported Native Type as Static Image",
       "subtitle": "<center>Candlestick has no native gen-ppt implementation</center>",
       "chart": { "type": "image", "path": "/abs/path/candlestick_chart.png" },
-      "footnote": "Use type:image for unsupported/static charts, or as an explicit gen-chart PNG fallback when a validated native chart remains blank or invalid in the target viewer"
+      "footnote": "Use type:image for unsupported/static charts and for every chart in Keynote or universal delivery"
     }
   ]
 }

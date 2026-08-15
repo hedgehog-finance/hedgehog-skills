@@ -1,11 +1,8 @@
 ---
 name: gen-ppt
 description: >
-    Generate presentations — defaults to editable .pptx from JSON (native PowerPoint, editable in PowerPoint/Keynote/Google Slides). Only when the user explicitly requests HTML web slides / online playback / interactive browser presentation, generate self-contained .html slides from Markdown (NOT PowerPoint-editable).
-    Applicable: slide decks, pitch decks, meeting presentations, web presentations.
-    Triggers: PowerPoint, PPTX, editable slides, generate PPT, HTML slides, web slides, markdown to slides, interactive presentation.
-    Blocking: Keynote/Google Slides-only exports, video.
-version: 2.2.0
+    Generate presentations as editable PPTX from JSON (default) or self-contained HTML slides from Markdown when explicitly requested. Keep text, shapes, and tables editable; use native charts only for PowerPoint targets and PNG charts for Keynote/universal targets. Use for slide decks, pitch decks, meeting presentations, PowerPoint/PPTX, HTML/web slides, Markdown-to-slides, and interactive browser presentations. Does not create .key files, Google Slides-only exports, or video.
+version: 2.3.0
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
   commands: [node, npm]
@@ -13,161 +10,99 @@ prerequisites:
 
 # GenPPT — Presentation Generator
 
-**Default: native .pptx** (editable in PowerPoint/Keynote/Google Slides). Switch to HTML only when the user explicitly requests online/browser/interactive HTML slides.
+## Choose the output
 
-## Output Modes
+| Mode | Use when | Input → output | Script |
+|---|---|---|---|
+| PPTX (default) | Any ordinary presentation request | JSON → editable `.pptx` | `scripts/gen-ppt.mjs` |
+| HTML (opt-in) | User explicitly asks for HTML/web/browser/interactive slides | Markdown → self-contained `.html` | `scripts/md-to-slides.mjs` |
 
-| | Mode A: PPTX (default) | Mode B: HTML Slides (opt-in) |
-|---|---|---|
-| **Output** | `.pptx` — editable | `.html` — self-contained, browser-only |
-| **Input** | JSON config | Markdown (`---` separates slides) |
-| **Script** | `scripts/gen-ppt.mjs` | `scripts/md-to-slides.mjs` |
-| **Deps** | `pptxgenjs@4.0.1`, `jszip@3.10.1` | `marked`, `highlight.js` |
+Resolve `${HERMES_SKILL_DIR}/scripts/*` relative to this SKILL.md and use absolute paths for all I/O files.
 
-**HTML triggers:** "HTML slides", "web slides", "网页PPT", "在线播放", "interactive presentation", "browser-based", "markdown to slides". Otherwise → PPTX.
+## PPTX workflow
 
-## Usage
+1. Choose the delivery target before designing charts:
+   - `powerpoint`: retain editable native `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, and `radar` charts.
+   - `keynote` or `universal`: render charts from the same source data as PNG with `gen-chart`, then use `{ "type": "image", "path": "/absolute/path/chart.png" }`. Current Keynote can import schema-valid PptxGenJS category charts as blank; the generator therefore rejects native charts for these targets. Preserve labels/title/meaning and disclose that PNG charts are not natively editable.
+2. Read `references/json-schema.md` before writing configuration. Use `references/examples.md` for complete patterns.
+3. Generate with the matching target:
 
 ```bash
-# Mode A: JSON → PPTX (default)
-node ${HERMES_SKILL_DIR}/scripts/gen-ppt.mjs <config.json> <output.pptx> [--theme=<name>]
-# Re-run structural validation and optional viewer open/render tests
-node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> [--libreoffice] [--keynote] [--powerpoint]
-# Mode B: Markdown → HTML (opt-in)
-node ${HERMES_SKILL_DIR}/scripts/md-to-slides.mjs <input.md> <output.html> [--theme=<name>] [--title="Title"]
+node ${HERMES_SKILL_DIR}/scripts/gen-ppt.mjs <config.json> <output.pptx> [--theme=<name>] [--target=powerpoint|keynote|universal]
 ```
 
-Resolve `${HERMES_SKILL_DIR}/scripts/*` to absolute paths using this SKILL.md's directory. Use absolute paths for I/O files.
+4. Validate structurally and in every available target viewer:
 
-## Themes (shared by both modes)
+```bash
+node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> [--libreoffice] [--keynote] [--powerpoint]
+```
 
-10 built-in themes via `--theme=<key>` or `"theme"` in JSON. `--theme=list` prints all. Default: `fintech`. Use `--theme=none` for PptxGenJS defaults (PPTX only).
+`--keynote` recognizes Keynote and Keynote Creator Studio and rejects PptxGenJS decks that retain native charts. Use `--powerpoint` as the release gate for PowerPoint delivery; if unavailable, report the deck as PowerPoint-unverified. LibreOffice is supplementary and cannot certify PowerPoint or Keynote behavior. Never label a structural-only run as viewer-validated.
 
-| Key | Name | BG | Best For |
-|-----|------|-----|---------|
-| `fintech` | Modern FinTech | `#F8FAFC` | SaaS, tech decks |
-| `oldmoney` | Traditional Banking | `#FFFFFF` | Wealth, PE |
-| `bloomberg` | Bloomberg/Quant | `#09090B` | Dark dashboards |
-| `economist` | Economist Style | `#F6F4F0` | Research, journalism |
-| `saas` | Silicon Valley SaaS | `#FFFFFF` | Product analytics |
-| `mist` | Morning Mist | `#F1F5F9` | Muted blues |
-| `twilight` | Twilight | `#F5F3F7` | Muted violets |
-| `parchment` | Parchment | `#F5F2EB` | Warm sepia |
-| `azure` | Azure | `#EAF2F8` | Coastal blues |
-| `gravel` | Gravel | `#F0EFEA` | Warm grays |
+5. Deliver only the exact tested artifact. Give every revision a unique basename containing GenPPT `v2.3.0` plus a task ID or timestamp; report its absolute path, byte count, and SHA-256.
 
----
+### Configuration essentials
 
-## Mode A: PPTX (default)
+- Layouts: `title`, `section`, `content`, `two-column`, `image-text`, `chart`, `table`, `closing`, `blank`; every slide also accepts `elements`.
+- `image-text` accepts `image.position`: `left`, `right`, `top`, or `bottom`; images scale proportionally.
+- Scatter series require matching `xValues`/`yValues`; all series must share X values.
+- Inline text supports `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, and the documented HTML tags. Underscore emphasis is intentionally unsupported.
+- Use absolute PNG/JPG paths for PPTX images; avoid SVG. Nest options inside `chart.options`/`table.options`; use `headers`, not `head`.
 
-**Workflow:** Write JSON config → run `gen-ppt.mjs` → normalize native Chart OOXML → validate every package relationship and chart part → write `.pptx`. Generation fails instead of emitting an invalid file. Full schema: `references/json-schema.md`.
-
-### Layouts (9 types)
-
-| Layout | Slots |
-|--------|-------|
-| `title` | title, subtitle, date, author, logo |
-| `section` | sectionNumber, title, subtitle |
-| `content` | title, bullets/body, footnote |
-| `two-column` | title, left, right, footnote |
-| `image-text` | title, image, bullets/body, footnote. `image.position`: `left`(default)/`right`/`top`/`bottom` — pick freely per content (e.g. wide charts → top/bottom; tall images → left/right). Images auto-scale proportionally (no stretching), centered in slot |
-| `chart` | title, subtitle, chart, footnote |
-| `table` | title, subtitle, table, footnote |
-| `closing` | title, subtitle, logo |
-| `blank` | elements only |
-
-All slides support custom `elements` array. Use editable native charts first for `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, and `radar`. Use `type: "image"` for an explicitly requested static chart, a chart type with no native implementation, or the fallback procedure below.
-
-For scatter charts, use series objects with matching `xValues` and `yValues` arrays. All scatter series must share the same X values. See `references/json-schema.md`; invalid or incomplete scatter input fails instead of producing an empty chart.
-
-### PPTX Integrity and Viewer QA
-
-`gen-ppt.mjs` automatically repairs known PptxGenJS 4.0.1 chart incompatibilities before writing: schema child order, required line grouping, forbidden series nodes, orphan axis references, single-level category encoding, rounded corners, and absolute chart relationship targets. It then rejects malformed XML, missing package parts, broken relationships, invalid chart ordering, and unresolved axes.
-
-After generation, run `validate-pptx.mjs` with every available target viewer. `--libreoffice` performs a headless PDF render. On macOS, `--keynote` and `--powerpoint` open the deck in the named application and export a PDF. A structural pass alone is not a substitute for a target-viewer test. See `references/ooxml-validation.md`.
-
-If a native chart is blank, invalid, or still cannot be displayed in the target viewer after regeneration and validation, use `gen-chart` to render that chart as PNG. Then replace only the affected chart with `{ "type": "image", "path": "/absolute/path/to/chart.png" }` and regenerate the PPTX. Treat this as an explicit compatibility fallback: preserve the same source data, labels, title, and visual meaning, use an absolute PNG path, inspect the rendered slide, and note that the fallback chart is no longer editable as a native PowerPoint chart.
-
-After changing chart generation, run `npm run test:native-charts -- --libreoffice` and add `--keynote` / `--powerpoint` wherever installed. The smoke test covers all seven native types plus rejection of empty scatter output and unnormalized PptxGenJS OOXML.
-
-### Inline Text Formatting
-
-All text fields (title, subtitle, bullets, body, footnote, table cells, text elements) support simple inline markup:
-
-- Markdown: `**bold**`, `*italic*`, `~~strike~~`, `` `code` `` (monospace). Underscore emphasis (`_x_`) is NOT supported (avoids snake_case false positives); unpaired markers stay literal
-- HTML tags: `<strong>`/`<b>`, `<em>`/`<i>`, `<u>`, `<s>`/`<del>`/`<strike>`, `<sub>`, `<sup>`, `<br>` (line break), `<center>` (paragraph centering)
-
-### Minimal JSON
+Minimal configuration:
 
 ```json
 {
   "theme": "fintech",
+  "targetViewer": "powerpoint",
   "slides": [
     { "layout": "title", "title": "My Presentation", "subtitle": "Created with GenPPT" },
-    { "layout": "content", "title": "Key Points", "bullets": ["First", "Second", "Third"] }
+    { "layout": "content", "title": "Key Points", "bullets": ["First", "Second"] }
   ]
 }
 ```
 
-### Common Mistakes to Avoid
+### Integrity policy
 
-- Relative paths for `image.path` — always absolute
-- **SVG image assets — use PNG/JPG.** SVG embeds render blank in many PPT viewers. This rule applies to image assets, not supported native charts
-- Converting a supported native chart to PNG before attempting native generation and validation — use the `gen-chart` PNG fallback only when the generated native chart is blank, invalid, or unsupported by the target viewer
-- Omitting `"layout"` field (defaults to `"content"`)
-- `#` prefix inconsistency in color values (both accepted, be consistent)
-- Chart/table options at slide level — nest inside `chart.options` / `table.options`
-- Table headers field is `headers`, not `head` (alias tolerated but avoid)
+Do not bypass generation or validation failures. The generator repairs known PptxGenJS package, presentation ordering, bullet, shape/text, notes-master/theme, image MIME, chart XML/category/relationship, and embedded-workbook defects, then performs namespace-aware OOXML and relationship validation. Read `references/ooxml-validation.md` when changing generation, auditing compatibility, or diagnosing a failed deck.
 
 ### References
-- `references/json-schema.md` — Full JSON schema
-- `references/examples.md` — 6 complete examples
-- `references/ooxml-validation.md` — Native chart normalization, validation, and viewer test requirements
 
----
+- `references/json-schema.md` — complete JSON fields and constraints
+- `references/examples.md` — six complete configurations, including universal PNG charts
+- `references/ooxml-validation.md` — repairs, OOXML checks, and viewer QA
 
-## Mode B: HTML Slides (opt-in)
+## HTML workflow
 
-**Workflow:** Write Markdown (`---` on own line separates slides, `# Title` for title slide) → run `md-to-slides.mjs` → self-contained `.html`.
+Write Markdown with `---` on its own line between slides, then run:
 
-### Markdown Format
-
-```markdown
-# Title
-## Subtitle
----
-## Slide 2
-- Point one
-- Point two
----
-## Data Table
-| Col A | Col B |
-|-------|-------|
-| Val 1 | Val 2 |
----
-## Live Chart
-```echarts
-{ "title": { "text": "Revenue" }, "xAxis": { "type": "category", "data": ["Q1", "Q2"] }, "yAxis": { "type": "value" }, "series": [{ "type": "bar", "data": [120, 200] }] }
-```
----
-# Thank You
+```bash
+node ${HERMES_SKILL_DIR}/scripts/md-to-slides.mjs <input.md> <output.html> [--theme=<name>] [--title="Tab Title"]
 ```
 
-### Guidelines
+- Use `#` for the title slide and `##`/`###` headings thereafter; typically create 10–20 slides with 3–6 bullets each.
+- Images from absolute local paths or URLs are embedded as base64; never leave external references. SVG is acceptable only in HTML mode.
+- Put ECharts option JSON in a fenced `echarts` block so the runtime renders it; do not paste it as plain text.
+- Output includes keyboard/touch navigation, fullscreen (`F`), overview (`O`), and Home/End support.
 
-- **10-20 slides** typical; `##`/`###` heading per slide, 3-6 bullets max
-- Fenced code blocks with language tags for syntax highlighting
-- **Images: `![alt](path)` — always embedded as base64 data URIs directly into the HTML** (local paths and URLs both supported; use absolute local paths). Never reference external image files. PNG preferred for chart images; SVG also renders fine in browsers (HTML mode only — PPTX still requires PNG)
-- **ECharts must be rendered inside the slides**: put the ECharts option JSON (or the `{chart, option}` output of gen-chart `echarts-config.mjs`) in a ` ```echarts ` fenced block. The script injects the ECharts runtime and renders the chart live when the slide is shown. Never paste ECharts JSON as plain code/text
-- **Options:** `--theme=<name>`, `--title="Tab Title"`
-- **Navigation:** Arrow/Space/PgUp/PgDn keys, on-screen/touch buttons, F=fullscreen, O=overview, Home/End
+## Themes and dependencies
 
----
-
-## Dependencies
+Themes: `fintech` (default), `oldmoney`, `bloomberg`, `economist`, `saas`, `mist`, `twilight`, `parchment`, `azure`, `gravel`. Use `--theme=list` to inspect them or `--theme=none` for PptxGenJS defaults in PPTX mode.
 
 ```bash
 cd "${HERMES_SKILL_DIR}" && npm install
 ```
 
-- `pptxgenjs@4.0.1` and `jszip@3.10.1` (PPTX generation and OOXML verification), `marked` + `highlight.js` (HTML)
+Requires Node.js 18+ and installs `pptxgenjs@4.0.1`, `jszip@3.10.1`, `saxes@6.0.0`, `marked`, and `highlight.js`.
+
+## After changing the skill
+
+Run:
+
+```bash
+npm run test:docs
+npm run test:package-integrity -- --libreoffice
+npm run test:native-charts -- --libreoffice
+```
+
+Add `--keynote` and/or `--powerpoint` wherever installed. These tests must keep documented examples, package/notes integrity, all native chart types, Keynote-safe rendering, and Keynote native-chart rejection covered.

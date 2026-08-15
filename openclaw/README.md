@@ -32,7 +32,7 @@ For `hedgehog-company-index-data`, `hedgehog-macro-industry-data`, and `hedgehog
 | `doc-convert` | 2.0.0 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.2.0 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
-| `gen-ppt` | 2.2.0 | Generate and validate editable PPTX presentations with repaired native chart OOXML, or HTML slides from Markdown |
+| `gen-ppt` | 2.3.0 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
 | `math_calc` | 1.0.0 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.0.0 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
 | `tech-indicators` | 1.0.0 | Local technical indicator calculation engine |

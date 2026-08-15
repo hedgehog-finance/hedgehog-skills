@@ -11,6 +11,8 @@ import pptxgen from "pptxgenjs";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workDir = mkdtempSync(join(tmpdir(), "gen-ppt-native-chart-smoke-"));
 const viewerFlags = process.argv.slice(2).filter((arg) => ["--libreoffice", "--keynote", "--powerpoint"].includes(arg));
+const keynoteRequested = viewerFlags.includes("--keynote");
+const positiveViewerFlags = viewerFlags.filter((flag) => flag !== "--keynote");
 
 function run(command, args, expectSuccess = true) {
   const result = spawnSync(command, args, { encoding: "utf8" });
@@ -44,8 +46,19 @@ try {
   }, null, 2));
 
   run(process.execPath, [join(scriptDir, "gen-ppt.mjs"), configPath, outputPath]);
-  const validation = run(process.execPath, [join(scriptDir, "validate-pptx.mjs"), outputPath, ...viewerFlags]);
+  const validation = run(process.execPath, [join(scriptDir, "validate-pptx.mjs"), outputPath, ...positiveViewerFlags]);
   if (!validation.includes("7 native charts")) throw new Error(`Expected seven validated native charts; got: ${validation.trim()}`);
+  if (keynoteRequested) {
+    const keynoteFailure = run(process.execPath, [join(scriptDir, "validate-pptx.mjs"), outputPath, "--keynote"], false);
+    if (!keynoteFailure.includes("PptxGenJS deck contains 7 native chart")) {
+      throw new Error(`Keynote native-chart guard failed for the wrong reason: ${keynoteFailure.trim()}`);
+    }
+  }
+
+  const targetFailure = run(process.execPath, [join(scriptDir, "gen-ppt.mjs"), configPath, join(workDir, "keynote-native-charts.pptx"), "--target=keynote"], false);
+  if (!targetFailure.includes("keynote compatibility mode rejects PptxGenJS native charts")) {
+    throw new Error(`Keynote target policy failed for the wrong reason: ${targetFailure.trim()}`);
+  }
 
   const badScatterPath = join(workDir, "bad-scatter.json");
   writeFileSync(badScatterPath, JSON.stringify({ slides: [categoryChart("scatter")] }));
@@ -61,9 +74,9 @@ try {
     throw new Error(`Unnormalized PptxGenJS output failed for the wrong reason: ${rawFailure.trim()}`);
   }
 
+  // Confirm the generated artifact remained readable after all negative tests.
   if (readFileSync(outputPath).length === 0) throw new Error("Smoke-test PPTX is empty");
-  console.log(`Native chart smoke test passed${viewerFlags.length ? ` (${viewerFlags.join(", ")})` : ""}`);
+  console.log(`Native chart smoke test passed${viewerFlags.length ? ` (${viewerFlags.join(", ")}; Keynote uses the expected PNG-only guard)` : ""}`);
 } finally {
   rmSync(workDir, { recursive: true, force: true });
 }
-

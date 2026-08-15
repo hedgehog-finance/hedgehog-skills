@@ -10,6 +10,7 @@ hedgehog-skills/
 ├── openclaw/     # Skills adapted for the OpenClaw platform (includes extra utility tools)
 ├── hermes/       # Skills adapted for Hermes Agent (Python host + declared Node.js runtime)
 ├── optional/     # Optional extensions (rich PPT and global market data)
+├── scripts/      # Cross-platform development and synchronization utilities
 ├── LICENSE       # GPL-3.0
 └── README.md
 ```
@@ -52,7 +53,7 @@ hedgehog-skills/
 | `doc-convert` | 2.0.0 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.2.0 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
-| `gen-ppt` | 2.2.0 | Generate and validate editable PPTX presentations with repaired native chart OOXML, or HTML slides from Markdown |
+| `gen-ppt` | 2.3.0 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
 | `hog-memory` | 1.2.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
 | `math_calc` | 1.0.0 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.0.0 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
@@ -66,6 +67,17 @@ hedgehog-skills/
 | `gen-rich-ppt` | 1.0.0 | Generate polished image-based PPT/PPTX decks with built-in or OpenAI-compatible image models |
 | `hog-finnhub` | 1.0.0 | Global stock data via Finnhub API: quotes, fundamentals, analyst ratings, news, forex, crypto (excludes China A-shares) |
 | `hog-openbb` | 1.0.1 | Global financial data via OpenBB Platform: macro economics, options chains, global indices, forex, commodities (excludes China A-shares) |
+
+## GenPPT Development
+
+OpenClaw is the canonical shared implementation. After changing its `gen-ppt` package, sync code, references, tests, and package metadata to Hermes and verify that no drift remains:
+
+```bash
+node scripts/sync-gen-ppt.mjs
+node scripts/sync-gen-ppt.mjs --check
+```
+
+Platform-specific `SKILL.md` runtime instructions remain separate.
 
 ## License
 

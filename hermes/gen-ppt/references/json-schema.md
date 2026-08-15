@@ -1,5 +1,7 @@
 # GenPPT JSON Configuration Specification
 
+This file is the normative configuration contract and example reference, not permission to pass arbitrary PptxGenJS values through unchecked. The generator validates documented critical fields and aborts if serialization produces incompatible OOXML.
+
 ## Top-Level Structure
 
 ```json
@@ -9,6 +11,7 @@
   "date": "2026-06-26",
   "layout": "LAYOUT_16x9",
   "theme": "fintech",
+  "targetViewer": "powerpoint",
   "customTheme": {},
   "slides": []
 }
@@ -21,6 +24,7 @@
 | `date` | string | No | — | Date (metadata) |
 | `layout` | string | No | `"LAYOUT_16x9"` | `LAYOUT_16x9`, `LAYOUT_16x10`, `LAYOUT_4x3`, `LAYOUT_WIDE` |
 | `theme` | string | No | `"fintech"` | Theme name or `"none"` |
+| `targetViewer` | string | No | `"powerpoint"` | `"powerpoint"`, `"keynote"`, or `"universal"`; the `--target` CLI option overrides this field |
 | `customTheme` | object | No | — | Color overrides (see below) |
 | `slides` | Slide[] | **Yes** | — | Slide array |
 
@@ -142,9 +146,15 @@ Plain strings also work: `"Simple bullet"` = `{ text: "Simple bullet", level: 0 
 
 Images are never stretched: the intrinsic pixel size (PNG/JPEG/GIF/BMP) is read from the file header and the image is scaled proportionally to fit its slot, centered.
 
+Absolute file path:
+
 ```json
-// File path (absolute) or base64
 { "path": "/absolute/path/to/image.png", "alt": "Description" }
+```
+
+Or a base64 data URI:
+
+```json
 { "data": "data:image/png;base64,iVBOR..." }
 ```
 
@@ -171,11 +181,11 @@ Images are never stretched: the intrinsic pixel size (PNG/JPEG/GIF/BMP) is read 
 }
 ```
 
-Editable native types: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`.
+Editable native types for `targetViewer: "powerpoint"`: `bar`, `line`, `pie`, `doughnut`, `area`, `scatter`, `radar`.
 
 Native chart data is strict: each non-scatter series needs equal-length, non-empty `labels` and numeric `values`; pie/doughnut values cannot be negative. Unsupported native types and invalid data abort generation instead of producing an empty chart.
 
-**Static chart image** — use `type: "image"` when the user explicitly requests a static chart, the requested chart type has no native implementation (for example candlestick or heatmap), or a native chart remains blank/invalid in the target viewer after regeneration and validation. For that compatibility fallback, render the same chart data with `gen-chart` as PNG and replace only the affected chart. The `data` field is not required:
+**Keynote/universal chart** — current Keynote can import a schema-valid PptxGenJS PPTX while dropping its ordinary native category charts. Therefore `targetViewer: "keynote"` and `"universal"` require charts rendered from the same source data as PNG with `gen-chart`; native charts are rejected before serialization. This also applies when the user explicitly requests a static chart or the requested type has no native implementation (for example candlestick or heatmap). The `data` field is not required:
 
 ```json
 { "type": "image", "path": "/absolute/path/to/chart.png", "alt": "Chart description" }
@@ -215,19 +225,23 @@ The lower-level PptxGenJS form—one X-axis `values` series followed by one or m
 
 ### Native Chart Integrity
 
-`gen-ppt.mjs` keeps supported charts editable. Before writing the file it normalizes PptxGenJS chart parts, converts chart relationships to relative package paths, and validates ZIP integrity, required OOXML parts, XML nesting, relationship targets, chart child ordering, required line grouping, forbidden series nodes, and axis references. Any failure aborts generation; there is no silent image fallback.
+`gen-ppt.mjs` keeps supported charts editable for PowerPoint targets. Before writing it repairs PptxGenJS content types, the `p:presentation` child sequence, bullet-size percentage lexical forms, missing shape text bodies, solid-background effect lists, notes-master theme isolation, chart parts, and chart relationship paths while retaining slide-level speaker notes, all six notes-master placeholder inheritance sources, and valid chart options. It then uses a namespace-aware parser to validate outer and embedded-workbook ZIP integrity, non-finite attributes, required OOXML parts, effective content types, presentation and bullet schema constraints, relationship reference types/targets, unique presentation/drawing/series IDs, reciprocal notes links, required part chains, complete notes masters with independent themes, preset shapes, chart child ordering, required line grouping, forbidden series nodes, and reciprocal axes. Any failure aborts generation. Keynote/universal mode separately rejects PptxGenJS native charts and requires an explicit PNG representation; it never converts charts silently.
 
 Re-run validation or target-viewer tests with:
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx>
-node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --libreoffice
+node <skill_dir>/scripts/validate-pptx.mjs <output.pptx>
+node <skill_dir>/scripts/validate-pptx.mjs <output.pptx> --libreoffice
 # macOS, when installed:
-node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --keynote
-node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> --powerpoint
+node <skill_dir>/scripts/validate-pptx.mjs <output.pptx> --keynote
+node <skill_dir>/scripts/validate-pptx.mjs <output.pptx> --powerpoint
 ```
 
 See `references/ooxml-validation.md` for the enforced invariants and release checklist.
+
+Structural success does not certify Microsoft PowerPoint compatibility. If PowerPoint is the delivery target, run the `--powerpoint` viewer test; when it is unavailable, report the result as PowerPoint-unverified.
+
+Use a unique output basename for every delivered revision, including the GenPPT version plus a task ID or timestamp. Retain the absolute path, byte count, slide count, and SHA-256 emitted by generation/validation. When Keynote is the target and either Keynote or Keynote Creator Studio is installed, generation with `--target=keynote` and validation with `--keynote` are mandatory; do not label a structural-only result as Keynote-validated.
 
 ### TableSlot
 
@@ -264,8 +278,8 @@ See `references/ooxml-validation.md` for the enforced invariants and release che
 | `type` | string | `text`, `image`, `shape`, `chart`, `table` |
 | `content` | any | Type-dependent content |
 | `x`, `y`, `w`, `h` | number | Position & size (inches) |
-| `shape` | string | For `shape` type: `rect`, `ellipse`, `roundRect`, `line`, `arrow` |
-| `options` | object | PptxGenJS options (passed through) |
+| `shape` | string | For `shape` type: any PptxGenJS `ShapeType` value, e.g. `rect`, `ellipse`, `roundRect`, `line`, `rightArrow`. Friendly aliases `rectangle`, `oval`, `roundedRectangle`, and `arrow` are normalized to valid DrawingML presets. Unknown shapes fail generation. |
+| `options` | object | Supported PptxGenJS options. Use documented finite values only; serialized OOXML is validated and generation aborts on incompatible output. |
 
 ---
 
@@ -281,3 +295,5 @@ See `references/ooxml-validation.md` for the enforced invariants and release che
 4. Table row columns must match `headers` length
 5. Image `path` must be absolute
 6. Missing slot data: slot skipped (no error), warning printed
+7. Custom shapes must resolve to a valid PptxGenJS `ShapeType`
+8. `targetViewer` must be `powerpoint`, `keynote`, or `universal`; Keynote/universal configurations must contain zero native chart slots
