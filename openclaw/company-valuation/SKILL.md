@@ -5,7 +5,7 @@ description: >
     absolute (DCF/DDM/rNPV/Black-Scholes), strategic (TAM-SAM-SOM/LTV-CAC/NRR).
     Triggers: valuation, intrinsic value, PE, PB, PS, DCF, DDM, PEG, EV/EBITDA, ARR, TAM, LTV/CAC, NRR, rNPV.
     Blocks: technical analysis, candlestick patterns, non-valuation financial calculations.
-version: 3.0.0
+version: 3.0.1
 ---
 
 # Company Valuation Engine
@@ -86,7 +86,7 @@ Adjust industry multiples based on company traits:
 - Low R&D investment vs. peers
 - Regulatory / policy risk
 
-> Defaults: low factor 0.8 (−20%), high factor 1.1 (+10%). Customizable via params.
+> Defaults: low factor 0.8 (−20%); high factor 1.1 (+10%) for pe/pe-ttm/pb/ps/ps-ttm, 1.2 (+20%) for arr/p-active-user/p-gmv/ev-fcf. Customizable via `*LowFactor` / `*HighFactor` params.
 
 ## Usage Recommendations
 
@@ -146,7 +146,7 @@ TTM rules (all based on cumulative values, subtraction removes overlap):
 | totalShare | number | — | Total shares outstanding (for price range calc) |
 | currentPrice | number | — | Current stock price (for rating) |
 | *LowFactor | number | 0.8 | Discount factor |
-| *HighFactor | number | 1.1 or 1.2 | Premium factor |
+| *HighFactor | number | 1.1 or 1.2 | Premium factor (1.2 for arr/p-active-user/p-gmv/ev-fcf) |
 
 #### 1. pe — Static P/E
 

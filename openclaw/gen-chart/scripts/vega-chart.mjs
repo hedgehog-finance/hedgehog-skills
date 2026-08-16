@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import * as vega from "vega";
 import * as vegaLite from "vega-lite";
+import { Resvg } from "@resvg/resvg-js";
 import { resolveTheme, applyVegaTheme, THEME_NAMES } from "./themes.mjs";
 
 const args = process.argv.slice(2);
@@ -605,13 +606,37 @@ if (isVegaLiteSpec(specJson)) {
 const view = new vega.View(vega.parse(vegaSpec), { renderer: "none" });
 await view.runAsync();
 
+/**
+ * Rasterize an SVG string to PNG via resvg (prebuilt native, no node-canvas needed).
+ * vega's view.toCanvas() requires the `canvas` native package, which is fragile
+ * (native build / prebuild download); the SVG-first path avoids it entirely.
+ * Renders at 2x for crisp output on high-DPI displays.
+ */
+const PNG_SCALE = 2;
+
+async function renderPng(view) {
+  const svg = await view.toSVG();
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "zoom", value: PNG_SCALE },
+    background: "#ffffff",
+  });
+  return resvg.render().asPng();
+}
+
 if (format === "svg") {
   const svg = await view.toSVG();
   writeFileSync(outputPath, svg);
 } else {
-  const canvas = await view.toCanvas();
-  const buffer = canvas.toBuffer("image/png");
-  writeFileSync(outputPath, buffer);
+  try {
+    const png = await renderPng(view);
+    writeFileSync(outputPath, Buffer.from(png));
+  } catch (err) {
+    console.error(`[vega-chart] \u274c PNG rendering failed: ${err.message}`);
+    console.error(`[vega-chart] Fallback: output SVG instead, then rasterize with a proper SVG renderer.`);
+    console.error(`[vega-chart]   node vega-chart.mjs ${specPath} ${outputPath.replace(/\.png$/i, ".svg")}`);
+    console.error(`[vega-chart]   \u26a0 Do NOT use macOS sips for SVG\u2192PNG: it ignores width/viewBox and emits a fixed-size canvas (cropped, wrong aspect ratio).`);
+    process.exit(1);
+  }
 }
 
 // ─── Post-render diagnostics ────────────────────────────────────────────────

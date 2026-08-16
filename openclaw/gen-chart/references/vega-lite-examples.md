@@ -28,10 +28,10 @@
 {
   "data": {
     "values": [
-      {"date": "2024-01", "price": 100},
-      {"date": "2024-02", "price": 115},
-      {"date": "2024-03", "price": 108},
-      {"date": "2024-04", "price": 130}
+      {"date": "2024-01-01", "price": 100},
+      {"date": "2024-02-01", "price": 115},
+      {"date": "2024-03-01", "price": 108},
+      {"date": "2024-04-01", "price": 130}
     ]
   },
   "mark": "line",
@@ -41,6 +41,8 @@
   }
 }
 ```
+
+> Temporal fields MUST use ISO 8601 (`"2024-01-01"`). Non-ISO strings like `"2024-01"` or `"2024年1月"` are auto-fixed by the script but should be avoided.
 
 ## Pie Chart
 ```json

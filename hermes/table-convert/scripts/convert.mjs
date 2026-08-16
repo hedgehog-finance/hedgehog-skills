@@ -60,11 +60,16 @@ if (sheetArg) {
   const sheetVal = sheetArg.split("=")[1];
   const idx = Number(sheetVal);
   if (!Number.isNaN(idx) && Number.isInteger(idx)) {
-    if (idx < 0 || idx >= workbook.SheetNames.length) {
+    if (idx >= 0 && idx < workbook.SheetNames.length) {
+      sheetName = workbook.SheetNames[idx];
+    } else if (workbook.Sheets[sheetVal]) {
+      // Index out of range but an exact sheet name match exists
+      // (e.g. a sheet literally named "2024") — fall back to name lookup
+      sheetName = sheetVal;
+    } else {
       console.error(`Error: sheet index ${idx} out of range (0-${workbook.SheetNames.length - 1})`);
       process.exit(1);
     }
-    sheetName = workbook.SheetNames[idx];
   } else {
     if (!workbook.Sheets[sheetVal]) {
       console.error(`Error: sheet "${sheetVal}" not found. Available: ${JSON.stringify(workbook.SheetNames)}`);

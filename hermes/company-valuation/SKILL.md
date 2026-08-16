@@ -5,10 +5,7 @@ description: >
     absolute (DCF/DDM/rNPV/Black-Scholes), strategic (TAM-SAM-SOM/LTV-CAC/NRR).
     Triggers: valuation, intrinsic value, PE, PB, PS, DCF, DDM, PEG, EV/EBITDA, ARR, TAM, LTV/CAC, NRR, rNPV.
     Blocks: technical analysis, candlestick patterns, non-valuation financial calculations.
-version: 3.0.0
-compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
-prerequisites:
-  commands: [node, npm]
+version: 3.0.1
 ---
 
 # Company Valuation Engine
@@ -28,8 +25,8 @@ prerequisites:
 ## Invocation
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/<script>.mjs <method> '<params-json>'
-node ${HERMES_SKILL_DIR}/scripts/<script>.mjs --help    # list available methods
+node scripts/<script>.mjs <method> '<params-json>'
+node scripts/<script>.mjs --help    # list available methods
 ```
 
 ## Method Classification
@@ -89,7 +86,7 @@ Adjust industry multiples based on company traits:
 - Low R&D investment vs. peers
 - Regulatory / policy risk
 
-> Defaults: low factor 0.8 (−20%), high factor 1.1 (+10%). Customizable via params.
+> Defaults: low factor 0.8 (−20%); high factor 1.1 (+10%) for pe/pe-ttm/pb/ps/ps-ttm, 1.2 (+20%) for arr/p-active-user/p-gmv/ev-fcf. Customizable via `*LowFactor` / `*HighFactor` params.
 
 ## Usage Recommendations
 
@@ -149,12 +146,12 @@ TTM rules (all based on cumulative values, subtraction removes overlap):
 | totalShare | number | — | Total shares outstanding (for price range calc) |
 | currentPrice | number | — | Current stock price (for rating) |
 | *LowFactor | number | 0.8 | Discount factor |
-| *HighFactor | number | 1.1 or 1.2 | Premium factor |
+| *HighFactor | number | 1.1 or 1.2 | Premium factor (1.2 for arr/p-active-user/p-gmv/ev-fcf) |
 
 #### 1. pe — Static P/E
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs pe '{"marketCap":300000,"netIncome":20000,"industryPE":18,"totalShare":50000}'
+node scripts/relative.mjs pe '{"marketCap":300000,"netIncome":20000,"industryPE":18,"totalShare":50000}'
 ```
 
 | Param | Type | Req | Desc |
@@ -170,9 +167,9 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs pe '{"marketCap":300000,"netIncome
 
 ```bash
 # Direct mode
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs pe-ttm '{"marketCap":300000,"ttmNetProfit":30000,"totalShare":50000,"industryPE":15}'
+node scripts/relative.mjs pe-ttm '{"marketCap":300000,"ttmNetProfit":30000,"totalShare":50000,"industryPE":15}'
 # Auto mode (reports array)
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs pe-ttm '{"marketCap":300000,"reports":[{"end_date":"20250331","n_income_attr_p":8000},{"end_date":"20241231","n_income_attr_p":25000},{"end_date":"20240331","n_income_attr_p":7000}],"totalShare":50000,"industryPE":15}'
+node scripts/relative.mjs pe-ttm '{"marketCap":300000,"reports":[{"end_date":"20250331","n_income_attr_p":8000},{"end_date":"20241231","n_income_attr_p":25000},{"end_date":"20240331","n_income_attr_p":7000}],"totalShare":50000,"industryPE":15}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -186,7 +183,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs pe-ttm '{"marketCap":300000,"repor
 #### 3. pb — Price/Book
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs pb '{"marketCap":300000,"equityToParent":200000,"totalShare":50000,"industryPB":1.5}'
+node scripts/relative.mjs pb '{"marketCap":300000,"equityToParent":200000,"totalShare":50000,"industryPB":1.5}'
 ```
 
 | Param | Type | Req | Desc |
@@ -198,7 +195,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs pb '{"marketCap":300000,"equityToP
 #### 4. ps — Static P/S
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs ps '{"marketCap":300000,"revenue":50000,"industryPS":8,"totalShare":50000}'
+node scripts/relative.mjs ps '{"marketCap":300000,"revenue":50000,"industryPS":8,"totalShare":50000}'
 ```
 
 | Param | Type | Req | Desc |
@@ -210,7 +207,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs ps '{"marketCap":300000,"revenue":
 #### 5. ps-ttm — Trailing P/S (TTM)
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs ps-ttm '{"marketCap":300000,"ttmRevenue":120000,"totalShare":50000,"peerPS":2.5}'
+node scripts/relative.mjs ps-ttm '{"marketCap":300000,"ttmRevenue":120000,"totalShare":50000,"peerPS":2.5}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -225,7 +222,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs ps-ttm '{"marketCap":300000,"ttmRe
 #### 6. ev-ebitda
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs ev-ebitda '{"marketCap":300000,"totalDebt":50000,"cash":30000,"ebitda":40000}'
+node scripts/relative.mjs ev-ebitda '{"marketCap":300000,"totalDebt":50000,"cash":30000,"ebitda":40000}'
 ```
 
 | Param | Type | Req | Desc |
@@ -238,7 +235,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs ev-ebitda '{"marketCap":300000,"to
 #### 7. ev-revenue
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs ev-revenue '{"marketCap":300000,"totalDebt":50000,"cash":30000,"revenue":100000}'
+node scripts/relative.mjs ev-revenue '{"marketCap":300000,"totalDebt":50000,"cash":30000,"revenue":100000}'
 ```
 
 Same as ev-ebitda but with `revenue` instead of `ebitda`.
@@ -246,7 +243,7 @@ Same as ev-ebitda but with `revenue` instead of `ebitda`.
 #### 8. peg — PEG Ratio
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs peg '{"pe":20,"earningsGrowthRate":0.25,"targetPEG":1.0,"netIncome":20000,"totalShare":50000}'
+node scripts/relative.mjs peg '{"pe":20,"earningsGrowthRate":0.25,"targetPEG":1.0,"netIncome":20000,"totalShare":50000}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -260,7 +257,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs peg '{"pe":20,"earningsGrowthRate"
 #### 9. arr — ARR Multiples
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs arr '{"marketCap":500000,"totalDebt":50000,"cash":30000,"arr":60000,"industryARRMultiple":12}'
+node scripts/relative.mjs arr '{"marketCap":500000,"totalDebt":50000,"cash":30000,"arr":60000,"industryARRMultiple":12}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -274,7 +271,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs arr '{"marketCap":500000,"totalDeb
 #### 10. p-active-user — Per-User Value (MAU/DAU)
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs p-active-user '{"marketCap":500000,"activeUsers":80000000,"userType":"MAU","industryValuePerUser":0.01}'
+node scripts/relative.mjs p-active-user '{"marketCap":500000,"activeUsers":80000000,"userType":"MAU","industryValuePerUser":0.01}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -287,7 +284,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs p-active-user '{"marketCap":500000
 #### 11. p-gmv
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs p-gmv '{"marketCap":800000,"gmv":2000000,"industryPGmv":0.5}'
+node scripts/relative.mjs p-gmv '{"marketCap":800000,"gmv":2000000,"industryPGmv":0.5}'
 ```
 
 | Param | Type | Req | Desc |
@@ -299,7 +296,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs p-gmv '{"marketCap":800000,"gmv":2
 #### 12. ev-fcf — EV/Free Cash Flow
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/relative.mjs ev-fcf '{"marketCap":500000,"totalDebt":50000,"cash":30000,"freeCashFlow":40000,"industryEvFcf":15}'
+node scripts/relative.mjs ev-fcf '{"marketCap":500000,"totalDebt":50000,"cash":30000,"freeCashFlow":40000,"industryEvFcf":15}'
 ```
 
 | Param | Type | Req | Desc |
@@ -319,7 +316,7 @@ node ${HERMES_SKILL_DIR}/scripts/relative.mjs ev-fcf '{"marketCap":500000,"total
 ##### dcf — Basic DCF (10-year growth-driven projection)
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs dcf '{"firstFreeCashFlow":50,"growthRates":[0.15,0.05],"terminalFcfMultiple":20,"discountRate":0.10}'
+node scripts/absolute.mjs dcf '{"firstFreeCashFlow":50,"growthRates":[0.15,0.05],"terminalFcfMultiple":20,"discountRate":0.10}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -333,7 +330,7 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs dcf '{"firstFreeCashFlow":50,"grow
 ##### dcf-per-share — Intrinsic Value Per Share
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs dcf-per-share '{"firstFreeCashFlow":50,"growthRates":[0.15,0.05],"discountRate":0.10,"sharesOutstanding":10,"netDebt":200,"currentPrice":80}'
+node scripts/absolute.mjs dcf-per-share '{"firstFreeCashFlow":50,"growthRates":[0.15,0.05],"discountRate":0.10,"sharesOutstanding":10,"netDebt":200,"currentPrice":80}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -349,7 +346,7 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs dcf-per-share '{"firstFreeCashFlow
 ##### wacc — Weighted Average Cost of Capital (CAPM)
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs wacc '{"riskFreeRate":0.025,"beta":1.2,"equityRiskPremium":0.06,"costOfDebt":0.035,"taxRate":0.15}'
+node scripts/absolute.mjs wacc '{"riskFreeRate":0.025,"beta":1.2,"equityRiskPremium":0.06,"costOfDebt":0.035,"taxRate":0.15}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -367,7 +364,7 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs wacc '{"riskFreeRate":0.025,"beta"
 ##### sensitivity — Sensitivity Analysis Matrix
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs sensitivity '{"firstFreeCashFlow":50,"growthRates":[0.12,0.05],"discountRate":0.10,"terminalFcfMultiple":15,"sharesOutstanding":10,"netDebt":200}'
+node scripts/absolute.mjs sensitivity '{"firstFreeCashFlow":50,"growthRates":[0.12,0.05],"discountRate":0.10,"terminalFcfMultiple":15,"sharesOutstanding":10,"netDebt":200}'
 ```
 
 Output uses the Vega-Lite v6 chart contract. The command returns `method: "sensitivity"` plus the top-level `sensitivity` and `inputs` objects.
@@ -396,7 +393,7 @@ Output uses the Vega-Lite v6 chart contract. The command returns `method: "sensi
 ##### fcf-series — Custom FCF Sequence
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs fcf-series '{"fcfSeries":[50,58,67,75,82,88,93,97,100,103],"discountRate":0.09,"terminalFcfMultiple":18}'
+node scripts/absolute.mjs fcf-series '{"fcfSeries":[50,58,67,75,82,88,93,97,100,103],"discountRate":0.09,"terminalFcfMultiple":18}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -411,11 +408,11 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs fcf-series '{"fcfSeries":[50,58,67
 
 ```bash
 # Single-stage (Gordon Growth)
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.05,"discountRate":0.10}'
+node scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.05,"discountRate":0.10}'
 # Two-stage
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.03,"discountRate":0.10,"highGrowthRate":0.15,"highGrowthYears":5}'
+node scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.03,"discountRate":0.10,"highGrowthRate":0.15,"highGrowthYears":5}'
 # Three-stage
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.03,"discountRate":0.10,"highGrowthRate":0.15,"highGrowthYears":5,"transitionYears":3}'
+node scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.03,"discountRate":0.10,"highGrowthRate":0.15,"highGrowthYears":5,"transitionYears":3}'
 ```
 
 | Param | Type | Req | Desc |
@@ -430,7 +427,7 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs ddm '{"dividend":2,"growthRate":0.
 #### rnpv — Risk-Adjusted NPV
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs rnpv '{"pipeline":[{"name":"DrugA","cashFlows":[500,1000,2000],"discountRate":0.10,"probability":0.6,"initialCost":200},{"name":"DrugB","cashFlows":[300,800,1500],"discountRate":0.10,"probability":0.3,"initialCost":150}]}'
+node scripts/absolute.mjs rnpv '{"pipeline":[{"name":"DrugA","cashFlows":[500,1000,2000],"discountRate":0.10,"probability":0.6,"initialCost":200},{"name":"DrugB","cashFlows":[300,800,1500],"discountRate":0.10,"probability":0.3,"initialCost":150}]}'
 ```
 
 | Param | Type | Req | Desc |
@@ -445,7 +442,7 @@ node ${HERMES_SKILL_DIR}/scripts/absolute.mjs rnpv '{"pipeline":[{"name":"DrugA"
 #### black-scholes — Option Pricing
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/absolute.mjs black-scholes '{"S":100,"K":100,"T":1,"r":0.05,"sigma":0.3}'
+node scripts/absolute.mjs black-scholes '{"S":100,"K":100,"T":1,"r":0.05,"sigma":0.3}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -466,7 +463,7 @@ Output: callPrice, putPrice, d1, d2, Greeks (delta, gamma, vega, theta, rho).
 #### tam-sam-som — Market Sizing → Valuation
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/strategic.mjs tam-sam-som '{"tam":1000,"serviceableRatio":0.3,"marketShare":0.05,"targetNetMargin":0.2,"industryPS":8}'
+node scripts/strategic.mjs tam-sam-som '{"tam":1000,"serviceableRatio":0.3,"marketShare":0.05,"targetNetMargin":0.2,"industryPS":8}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -483,7 +480,7 @@ Logic: SAM = TAM × ratio → SOM = SAM × share → SOM_revenue = SOM × margin
 #### ltv-cac — Unit Economics → DCF
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/strategic.mjs ltv-cac '{"arpu":100,"grossMargin":0.7,"churnRate":0.05,"cac":200,"currentUsers":10000,"userGrowthRate":0.3,"discountRate":0.10}'
+node scripts/strategic.mjs ltv-cac '{"arpu":100,"grossMargin":0.7,"churnRate":0.05,"cac":200,"currentUsers":10000,"userGrowthRate":0.3,"discountRate":0.10}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -504,7 +501,7 @@ Logic: LTV = ARPU × margin × (1/churnRate) → yearly FCF projection → DCF d
 #### nrr — Net Revenue Retention ★ AI SaaS
 
 ```bash
-node ${HERMES_SKILL_DIR}/scripts/strategic.mjs nrr '{"currentARR":5000000,"nrr":1.25,"userGrowthRate":0.3,"projectionYears":3,"industryPS":10}'
+node scripts/strategic.mjs nrr '{"currentARR":5000000,"nrr":1.25,"userGrowthRate":0.3,"projectionYears":3,"industryPS":10}'
 ```
 
 | Param | Type | Req | Default | Desc |
@@ -533,12 +530,6 @@ company-valuation/
 ```
 
 ## Dependencies
-
-Install in the Hermes skill directory before first use:
-
-```bash
-cd "${HERMES_SKILL_DIR}" && npm install
-```
 
 - `discounted-cash-flow` (DCF methods)
 - Node.js >= 18 (ESM)

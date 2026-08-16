@@ -4,7 +4,7 @@ description: >
     Convert spreadsheets (.xlsx, .xls, .csv) to JSON or Markdown table.
     Triggers: Excel, CSV, spreadsheet, table convert, xlsx, xls.
     Blocking: PDF/Word export, database import, chart generation from raw data.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # TableConvert — Spreadsheet to JSON / Markdown
@@ -23,7 +23,7 @@ node ./scripts/convert.mjs <input> <output> [--format=json|markdown] [--sheet=<n
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--format` | `json` | Output format: `json` or `markdown` |
-| `--sheet` | first sheet | Sheet name, 0-based index, or `list` to print all sheet names |
+| `--sheet` | first sheet | Sheet name, 0-based index, or `list` to print all sheet names. Numeric values are treated as index first; if out of range, they fall back to exact sheet-name match (e.g. a sheet named `2024`). |
 
 ## Workflow
 

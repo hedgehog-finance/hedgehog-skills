@@ -1,9 +1,9 @@
 {
-  "company-valuation": "3.0.0",
+  "company-valuation": "3.0.1",
   "deliver_files": "1.0.0",
   "doc-convert": "2.0.0",
   "fin-calc": "1.0.0",
-  "gen-chart": "2.2.0",
+  "gen-chart": "2.3.0",
   "gen-ppt": "2.3.0",
   "hedgehog-company-index-data": "1.7.0",
   "hedgehog-daily-morning-briefing": "2.2.5",
@@ -16,7 +16,7 @@
   "hog-kb-tools": "1.1.0",
   "hog-memory": "1.2.0",
   "math_calc": "1.0.0",
-  "table-convert": "1.0.0",
+  "table-convert": "1.0.1",
   "tech-indicators": "1.0.0",
   "web_fetch": "1.0.0"
 }

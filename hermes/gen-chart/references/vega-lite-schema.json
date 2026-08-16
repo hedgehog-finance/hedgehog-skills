@@ -9,9 +9,22 @@
     "mark": { "type": ["string", "object"] },
     "encoding": { "type": "object" },
     "data": { "type": "object" },
+    "transform": { "type": "array" },
+    "layer": { "type": "array" },
+    "concat": { "type": "array" },
+    "vconcat": { "type": "array" },
+    "hconcat": { "type": "array" },
+    "spec": { "type": "object" },
+    "facet": { "type": "object" },
+    "params": { "type": "array" },
+    "resolve": { "type": "object" },
     "config": { "type": "object" },
-    "width": { "type": "number" },
-    "height": { "type": "number" },
-    "title": { "type": ["string", "object"] }
+    "width": { "type": ["number", "string"] },
+    "height": { "type": ["number", "string"] },
+    "background": { "type": "string" },
+    "padding": { "type": ["number", "object"] },
+    "autosize": { "type": ["string", "object"] },
+    "title": { "type": ["string", "object"] },
+    "description": { "type": "string" }
   }
 }

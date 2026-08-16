@@ -3,7 +3,7 @@ name: gen-chart
 description: >
     Generate charts as PNG/SVG (Vega-Lite v6, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
     Triggers: chart, diagram, graph, flowchart, sequence diagram, mermaid, vega, echarts.
-version: 2.2.0
+version: 2.3.0
 ---
 
 # GenChart — Chart & Diagram Generator
@@ -49,9 +49,9 @@ Outputs `{ chart, option }` JSON to **stdout**. No files generated.
 |------|--------|------|-------------|
 | **Image** | Vega-Lite | Data charts | line, bar, area, point (scatter), arc (pie/donut), rect, rule, text + all Vega-Lite marks |
 | **Image** | Mermaid | Diagrams | flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie, gitgraph |
-| **ECharts** | ECharts | Data charts | line, area, bar, horizontal bar, histogram, pie, donut, radar, scatter, scatter plot, bubble |
+| **ECharts** | ECharts | Data charts | line, area, bar, horizontal bar, histogram, pie, donut, radar, scatter, bubble |
 
-> Vega-Lite/Mermaid support additional types beyond those listed. ECharts validates against the 11 types above.
+> Vega-Lite/Mermaid support additional types beyond those listed. ECharts validates against the 10 types above (`"scatter plot"` accepted as an alias of `scatter`).
 
 ---
 
@@ -79,13 +79,13 @@ Embed charts in longer body text. Following user requests or system prompts, emb
 
 ## ECharts Details
 
-- **Default size**: 16:9 (800×450). Actual rendering size controlled by frontend.
-- **Theme**: `--theme=<name>` (default: `fintech`). `--theme=list` to see all.
+- **Default size**: 16:9 (800×450), adjustable via `--width=<n>` / `--height=<n>`. Actual rendering size controlled by frontend.
 - See `references/echarts-examples.md` for complete examples.
 
 ## Best Practices
 
-- **Aspect ratio**: Default to **16:9** (`width: 800, height: 450`).
+- **Aspect ratio**: Prefer **16:9**. Image Mode: set `"width": 800, "height": 450` inside the Vega-Lite spec (vega-chart.mjs has no size flags). ECharts Mode: 800×450 is the default.
+- **Dates**: Use ISO 8601 (`"2024-01-01"`) for `temporal` fields. Non-ISO formats are auto-fixed but add overhead (see below).
 - **Vega-Lite numeric on ordinal axis**: Convert to string via `transform` to avoid rendering issues:
   ```json
   "transform": [{ "calculate": "toString(datum.year)", "as": "year_string" }],
@@ -102,12 +102,12 @@ Script auto-detects and fixes common LLM data issues (stderr warnings):
 | String numbers + `quantitative` | Missing marks | `"100"` → `100` |
 | Empty `data.values` | Blank chart | Warn + suggest fix |
 
-**Best practice**: Use ISO 8601 dates and numeric values to avoid auto-fix overhead.
+**Best practice**: Use ISO 8601 dates and numeric values directly so no auto-fix is needed.
 
 ## Options
 - `-o <output>` — Alt output flag
 - `--format=svg` — Force SVG (or use `.svg` extension)
-- `--theme=<name>` — Theme preset. **Default: `fintech`** (auto-applied). `none` to disable. Mermaid also: `default`, `dark`, `forest`, `neutral`. `list` to print all.
+- `--theme=<name>` — Financial theme preset, applies to all three scripts. **Default: `fintech`** (auto-applied); `none` to disable; `list` to print all. Mermaid additionally accepts `default`, `dark`, `forest`, `neutral`.
 
 **Output format choice**: Use **PNG** when the chart will be embedded into PPTX/DOCX/PDF (gen-ppt, gen-doc, etc.) — SVG embeds render blank in most office viewers. Use SVG only for web/HTML display.
 
@@ -128,10 +128,10 @@ Script auto-detects and fixes common LLM data issues (stderr warnings):
 | `azure` | Azure | `#5E7B9E #728EAF #86A0BE #9BB1CD #ADC1DA #BFD1E6` | `#EAF2F8` | Coastal blues |
 | `gravel` | Gravel | `#73716D #868480 #989691 #A9A7A2 #B9B7B2 #C9C7C2` | `#F0EFEA` | Neutral grays |
 
-> No `--theme` given: **`fintech` auto-applied**. Use `--theme=none` for Vega/Mermaid defaults.
-
 ## Dependencies
-Pre-installed in `<hogagent_root>/node_modules/`: `vega` (`^6.3.1`), `vega-lite` (`^6.4.3`), `canvas`, `@mermaid-js/mermaid-cli`, `puppeteer`.
+Vega stack installed in `skills/gen-chart/node_modules/`: `vega` (`^6.3.1`), `vega-lite` (`^6.4.3`), `@resvg/resvg-js` (`^2.6.2`). Mermaid stack in `<hogagent_root>/node_modules/`: `@mermaid-js/mermaid-cli`, `puppeteer`.
+
+PNG rendering pipeline: `vega-chart.mjs` renders SVG first (`view.toSVG()`) then rasterizes with `@resvg/resvg-js` at 2x zoom (prebuilt native binary, no compilation). It does NOT use node-canvas — vega's `view.toCanvas()` is deliberately avoided because the `canvas` native package is fragile (prebuild download failures).
 
 Vega-Lite specs should use the v6 schema when `$schema` is included: `https://vega.github.io/schema/vega-lite/v6.json`.
 
