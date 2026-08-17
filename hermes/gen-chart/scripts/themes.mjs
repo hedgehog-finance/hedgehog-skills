@@ -195,11 +195,16 @@ export function applyVegaTheme(spec, theme) {
   spec.config.legend = spec.config.legend || {};
   if (!spec.config.legend.labelColor) spec.config.legend.labelColor = textColor;
   if (!spec.config.legend.titleColor) spec.config.legend.titleColor = textColor;
+  // Breathing room so the legend stays clear of the x-axis labels/title
+  // (orient bottom) and of the chart title row (orient top).
+  if (spec.config.legend.offset == null) spec.config.legend.offset = 16;
 
   // Title
   spec.config.title = spec.config.title || {};
   if (!spec.config.title.color) spec.config.title.color = textColor;
   if (!spec.config.title.subtitleColor) spec.config.title.subtitleColor = textColor;
+  // Keep the title row clear of a top-oriented legend below it.
+  if (spec.config.title.offset == null) spec.config.title.offset = 14;
 }
 
 /**

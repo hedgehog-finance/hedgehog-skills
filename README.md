@@ -52,7 +52,7 @@ hedgehog-skills/
 | `deliver_files` | 1.0.0 | Gateway General MCP Server CLI: deliver downloadable files to the user in batch |
 | `doc-convert` | 2.0.0 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.0 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
-| `gen-chart` | 2.3.0 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
+| `gen-chart` | 2.3.1 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
 | `gen-ppt` | 2.3.0 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
 | `hog-memory` | 1.2.0 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
 | `math_calc` | 1.0.0 | Safe mathematical expression evaluator CLI |

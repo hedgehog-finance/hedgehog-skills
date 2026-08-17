@@ -3,7 +3,7 @@ name: gen-chart
 description: >
     Generate charts as PNG/SVG (Vega-Lite v6, Mermaid) or ECharts JSON configurations. You MUST select either “Image Mode” or “ECharts Mode” before generating data.
     Triggers: chart, diagram, graph, flowchart, sequence diagram, mermaid, vega, echarts.
-version: 2.3.0
+version: 2.3.1
 ---
 
 # GenChart — Chart & Diagram Generator
@@ -80,6 +80,7 @@ Embed charts in longer body text. Following user requests or system prompts, emb
 ## ECharts Details
 
 - **Default size**: 16:9 (800×450), adjustable via `--width=<n>` / `--height=<n>`. Actual rendering size controlled by frontend.
+- **Layout margins**: theme presets keep the legend clear of the x-axis labels/title and the chart title row (`legend.offset: 16`, `title.offset: 14`); the ECharts config reserves `grid.bottom: 56` whenever a bottom legend is shown so it never collides with the axis title.
 - See `references/echarts-examples.md` for complete examples.
 
 ## Best Practices
@@ -103,6 +104,10 @@ Script auto-detects and fixes common LLM data issues (stderr warnings):
 | Empty `data.values` | Blank chart | Warn + suggest fix |
 
 **Best practice**: Use ISO 8601 dates and numeric values directly so no auto-fix is needed.
+
+### Headless text measurement (CJK)
+
+`vega-chart.mjs` runs in Node without node-canvas, where Vega's built-in text-width fallback (0.8em per char) underestimates full-width CJK glyphs (~1em per char) and packs horizontal legend entries too tightly, overlapping Chinese labels. The script installs a CJK-aware width estimator into `vega.textMetrics.width` so legend/axis layout matches rendered text width. No action required from spec authors.
 
 ## Options
 - `-o <output>` — Alt output flag

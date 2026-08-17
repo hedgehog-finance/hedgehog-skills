@@ -408,11 +408,14 @@ function applyEChartsTheme(option, theme) {
   if (!isPieOrDonut && !isRadar && !option.grid) {
     const hasTitle = isPlainObject(option.title) && typeof option.title.text === "string" && option.title.text.trim().length > 0;
     const isHorizontal = chartName === "horizontal bar";
+    const hasLegend = isPlainObject(option.legend) && option.legend.show !== false;
     option.grid = {
       top: hasTitle ? 68 : 28,
       left: isHorizontal ? 78 : 24,
       right: isHorizontal ? 34 : 24,
-      bottom: 32,
+      // Reserve room for the bottom legend row so it stays clear of the
+      // x-axis labels and axis title (matches frontend gridBottom logic).
+      bottom: hasLegend ? 56 : 32,
       containLabel: true,
     };
   }

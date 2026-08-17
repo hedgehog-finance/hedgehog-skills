@@ -21,6 +21,29 @@ import * as vegaLite from "vega-lite";
 import { Resvg } from "@resvg/resvg-js";
 import { resolveTheme, applyVegaTheme, THEME_NAMES } from "./themes.mjs";
 
+// Headless Node has no canvas text measurement; vega's built-in fallback
+// (0.8em per char) underestimates full-width CJK glyphs (~1em per char),
+// packing horizontal legend entries too tightly so labels overlap.
+// Install a CJK-aware estimator so layout matches rendered text width.
+const isFullWidth = (cp) =>
+  (cp >= 0x1100 && cp <= 0x115f) || (cp >= 0x2e80 && cp <= 0xa4cf) ||
+  (cp >= 0xa840 && cp <= 0xd7ff) || (cp >= 0xf900 && cp <= 0xfaff) ||
+  (cp >= 0xfe30 && cp <= 0xfe6f) || (cp >= 0xff00 && cp <= 0xffef) ||
+  (cp >= 0x20000 && cp <= 0x3ffff);
+
+vega.textMetrics.width = (item, text) => {
+  const value = text ?? item.text;
+  const lines = Array.isArray(value) ? value : String(value ?? "").split("\n");
+  const fs = item.fontSize || 11;
+  let max = 0;
+  for (const line of lines) {
+    let w = 0;
+    for (const ch of line) w += isFullWidth(ch.codePointAt(0)) ? 1 : 0.6;
+    max = Math.max(max, w);
+  }
+  return max * fs;
+};
+
 const args = process.argv.slice(2);
 
 // Parse arguments
