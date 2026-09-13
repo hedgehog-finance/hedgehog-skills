@@ -6,7 +6,7 @@ description: >
     Best for: event war-gaming and impact analysis.
     Triggers: event sandbox | deep analysis | path forecast | impact assessment
     NOT for: news verification; stock fundamentals.
-version: 2.2.3
+version: 2.2.4
 workflow_based: true
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
@@ -41,7 +41,7 @@ prerequisites:
 ## Sub-agent-[index]:
 - {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**（主 Agent 推演与终稿只读摘要、不回读原始数据）：包含推演所需全部要素——关键数据点、~100字概述、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序）、行情/资金异动要点（如适用），800 tokens 以内
+- 每个sub-agent回读原始数据做摘要，并落盘 output_file `sub-output-<short_title>.<ext>`。**摘要必须自足**（主 Agent 推演与终稿只读摘要、不回读原始数据）：包含推演所需全部要素——关键数据点、~100字概述、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序）、行情/资金异动要点（如适用），800 tokens 以内
 - `sub-agent-list.txt` 是系统内部运行记录，不属于交付物；无需创建、读取或校验，缺失不影响验收，也不列为未交付成果。
 
 ## 核心工作流
@@ -82,7 +82,7 @@ prerequisites:
 ### Stage 3：推演分析与报告生成（主 Agent 执行）
 **目标**：仅基于 sub-agent 摘要构建概率树，生成深度推演报告。
 
-**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿文件首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。**
+**【Token 纪律】本阶段只允许读取 `sub-output-*.md` 摘要文件，禁止读取任何 `data-*.json` 原始数据文件；摘要缺失要素时宁可标注"数据不足"也不得回读原始数据。终稿使用当前 Agent 的文件写入/编辑能力逐节完成；支持 append 时可追加，修改已有内容使用编辑能力。**
 
 1. **构建演化路径表格**：
     - 一阶推演：从事件 $T$ 到 $T_1$ 和 $T_2$（对立假设，如：政策加码 vs 落空）
@@ -95,7 +95,7 @@ prerequisites:
 
 3. **影响分析**：将 Top 3 路径转化为股/债/汇/商及具体产业链的定价变化。
 
-4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 `write(append:true)` 追加。
+4. **生成报告**：在任务目录创建 `final-output-depth-analysis-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 当前 Agent 支持的追加或编辑操作 追加。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 **目标**：验证交付物完整性和引用规范。
@@ -105,7 +105,7 @@ prerequisites:
 3. 检查所有 `[AI生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
 5. 核对实际调度的 Sub-agent 返回结果，确认数量和任务覆盖范围匹配。
-6. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
+6. 如发现缺失，回退补全对应章节（补全同样只读 `sub-output-*.md` 摘要，用 `edit` 修改）。
 7. 最后交付 `final-output-*.*`, `data-index.md` 文件，不要交付其他文件。
 8. 最后文本回复仅发送摘要，不要发送全文
 
@@ -164,3 +164,9 @@ prerequisites:
 ### [AI生成提示]
 以上内容由AI生成，可能存在偏差，仅供参考。
 [其他说明，如使用模型先验知识生成的说明、关键数据源不足的说明]
+
+## 最终文件清单
+
+主 Agent 使用顶层 `selected_files` 明确列出实际生成的报告与必需伴随文件；Markdown、HTML 和 `data-index.md` 要全部列入，保留原文件名与真实路径，不靠自动命名兜底交齐。group/sub-agent 只返回完整 `output_files`，不调用原生或 MCP 交付工具。
+
+普通 Session 使用宿主给出的 SessionTaskDir；Development 使用正式项目区域。不同 Agent 的文件工具能力可能不同：仅在支持时使用 `append`/`artifact_role`；否则使用其现有文件编辑能力完成相同输出。原始材料只写新文件，派生内容单独保存。没有明确清单时宿主可能补交本轮变化的 final-output 文件，该兜底不能替代业务交付清单。

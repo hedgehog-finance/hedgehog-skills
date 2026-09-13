@@ -1,6 +1,6 @@
 ---
 name: web_fetch
-version: 1.1.2
+version: 1.1.3
 description: >
     Fetch a web page and extract its main content as Markdown.
     Uses Readability for article extraction and Turndown for HTML→Markdown conversion.
@@ -110,3 +110,9 @@ Hint: read("<filepath>", offset, limit) to view full content
 - Content is extracted via Readability algorithm; pages without article structure fall back to full body conversion
 - Response bodies are limited to 10 MiB, including streaming and non-streaming runtimes. Redirect targets remain HTTP(S) URLs without embedded credentials.
 - Saved files use exclusive creation with collision-safe names, so concurrent calls never overwrite an existing result.
+
+## 落盘来源与目录
+
+Gateway 托管运行使用明确的 SessionTaskDir；Development 的 `--dir` 使用正式项目 data 目录，`--artifact-root` 使用项目根。缺少运行目录时先报告上下文缺口，不回退到 workspace。独立 CLI 保留明确指定输出目录的用法。
+
+落盘调用增加 `--artifact-root <SessionTaskDir或项目根>`。它只决定来源注释归属，不改变 `--dir`、`--out` 的基准。脚本按实际文件内容写脱敏来源注释；不要手工编辑 `.hedgehog`。注释失败保留已下载数据并提示，不重复请求接口。旧调用省略该参数仍可落盘，但不会登记来源。

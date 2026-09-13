@@ -5,7 +5,7 @@ description: >
     Best for: high signal-to-noise pre-market briefing.
     Triggers: morning brief, financial breakfast, daily summary.
     Blocking: deep stock fundamentals, live order book data.
-version: 2.2.9
+version: 2.2.10
 workflow_based: true
 ---
 
@@ -25,7 +25,7 @@ workflow_based: true
 - {file-name}: {行数:<N>;字节:<B>}
 ```
 
-- 每个 Sub-agent 读取原始数据，按输出模板提取所负责内容，保存为 `output-sub-<short_title>.md`（800 tokens 以内）；摘要须自足，保留数据口径、日程日期/时间和真实引用 `{资讯分类:id} 标题`（如有原文 URL 一并保留）。引用编号仅供内部追溯，终稿按下方规则转换为标题链接。
+- 每个 Sub-agent 读取原始数据，按输出模板提取所负责内容，保存为 `sub-output-<short_title>.md`（800 tokens 以内）；摘要须自足，保留数据口径、日程日期/时间和真实引用 `{资讯分类:id} 标题`（如有原文 URL 一并保留）。引用编号仅供内部追溯，终稿按下方规则转换为标题链接。
 - `sub-agent-list.txt` 是系统内部运行记录，不属于交付物；无需创建、读取或校验，缺失不影响验收，也不列为未交付成果。主 Agent 无需读写 `data-index.md`。
 
 ## 工作流
@@ -60,7 +60,7 @@ workflow_based: true
 
 ### 3. 生成与交付（主 Agent）
 
-等待全部 Sub-agent 完成，仅读取 `output-sub-*.md`，按下方模板生成 `final-output-morning-briefing-<YYYYMMDD>.md`；摘要缺失要素时标注数据不足，不回读原始数据。首次 `write` 写入标题，后续用 `write(append:true)` 逐节追加，修改用 `edit`。
+等待全部 Sub-agent 完成，仅读取 `sub-output-*.md`，按下方模板生成 `final-output-morning-briefing-<YYYYMMDD>.md`；摘要缺失要素时标注数据不足，不回读原始数据。使用当前 Agent 支持的文件写入/编辑能力逐节完成终稿，支持 append 时可追加。
 
 完成 Markdown 后，读取该终稿，按下方排版要求生成同目录、同名的 `final-output-morning-briefing-<YYYYMMDD>.html`。
 
@@ -144,3 +144,9 @@ workflow_based: true
 以上内容由AI生成，可能存在偏差，仅供参考。
 [如有关键数据缺失，简要说明]
 ```
+
+## 最终文件清单
+
+主 Agent 使用顶层 `selected_files` 明确列出实际生成的报告与必需伴随文件；Markdown、HTML 和 `data-index.md` 要全部列入，保留原文件名与真实路径，不靠自动命名兜底交齐。group/sub-agent 只返回完整 `output_files`，不调用原生或 MCP 交付工具。
+
+普通 Session 使用宿主给出的 SessionTaskDir；Development 使用正式项目区域。不同 Agent 的文件工具能力可能不同：仅在支持时使用 `append`/`artifact_role`；否则使用其现有文件编辑能力完成相同输出。原始材料只写新文件，派生内容单独保存。没有明确清单时宿主可能补交本轮变化的 final-output 文件，该兜底不能替代业务交付清单。

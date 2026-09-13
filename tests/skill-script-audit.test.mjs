@@ -15,13 +15,13 @@ function collectScripts(directory) {
     if ([".git", "node_modules", "__pycache__"].includes(entry.name)) continue;
     const entryPath = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...collectScripts(entryPath));
-    else if ([".js", ".mjs", ".py"].includes(extname(entry.name))) files.push(entryPath);
+    else if ([".js", ".mjs", ".cjs", ".py"].includes(extname(entry.name))) files.push(entryPath);
   }
   return files;
 }
 
 const scripts = SKILL_ROOTS.flatMap(collectScripts);
-const nodeScripts = scripts.filter((path) => [".js", ".mjs"].includes(extname(path)));
+const nodeScripts = scripts.filter((path) => [".js", ".mjs", ".cjs"].includes(extname(path)));
 const pythonScripts = scripts.filter((path) => extname(path) === ".py");
 
 function run(command, args, options = {}) {

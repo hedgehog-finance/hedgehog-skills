@@ -5,7 +5,7 @@ description: >
   capital flow, financial statements, ratios, audit opinions, main business composition; domestic index
   profiles/daily metrics/constituent weights, global index daily quotes; Shenwan industry data and trading calendar utilities.
   NOT for: macro data (→ hedgehog-macro-industry-data); news/announcements.
-version: 1.11.2
+version: 1.11.3
 ---
 
 # 上市公司与指数数据查询
@@ -61,7 +61,7 @@ node scripts/call_api.js --api <接口名> --params-file '<sessionTaskDir>/tmp-h
 
 业务参数全部为安全顶层标量时，Agent 直接使用命名参数；出现对象、数组、`null`、多行文本或复杂引号时，才写入唯一的 `tmp-*.json` 并使用 `--params-file`。不得内联嵌套 JSON 或混用载荷入口；`--params` 仅为兼容入口。
 
-- `--dir <sessionTaskDir>` 始终必传；若系统和用户均未指定，使用当前 workspace。
+- `--dir <sessionTaskDir>` 始终必传；Gateway 缺少 SessionTaskDir 时报告上下文缺口；独立 CLI 使用明确指定的输出目录。
 - `--out <文件名>` 可选，指定相对 `--dir` 或绝对输出路径；省略时使用 `data-<datetime>-<N>.json`。
 - 行情、财务、公司详情和指数等 `saveOutput: true` 接口自动落盘，stdout 仅输出 `[DataSaved]` 文件指针、行数和字节数。
 - `getStockBasic`、`querySwIndustryMember`、`isTradeDay`、`tradeDayOffset` 直接输出到 stdout。
@@ -120,3 +120,11 @@ HogAgent 用户优先使用原有 `skills_config.json` 配置；其他 Agent 可
 ## 执行安全边界
 
 参数文件最大 10 MiB，请求 URL 最大 65,536 字符，请求体最大 10 MiB，响应最大 20 MiB，网络请求 30 秒超时。配置损坏、参数冲突、非法响应和超限数据均明确失败；落盘结果先写同目录临时文件，成功后再原子替换目标。
+
+## 落盘来源与目录
+
+Gateway 托管运行使用明确的 SessionTaskDir；Development 的 `--dir` 使用正式项目 data 目录，`--artifact-root` 使用项目根。缺少运行目录时先报告上下文缺口，不回退到 workspace。独立 CLI 保留明确指定输出目录的用法。
+
+落盘调用增加 `--artifact-root <SessionTaskDir或项目根>`。它只决定来源注释归属，不改变 `--dir`、`--out` 的基准。脚本按实际文件内容写脱敏来源注释；不要手工编辑 `.hedgehog`。注释失败保留已下载数据并提示，不重复请求接口。旧调用省略该参数仍可落盘，但不会登记来源。
+
+`--out` 指向已有文件时在请求前拒绝；请给原始数据一个新文件名。默认命名采用独占创建，支持并发落盘。

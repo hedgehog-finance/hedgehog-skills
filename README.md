@@ -34,16 +34,16 @@ All Agents use one CLI parameter protocol. Pass safe non-empty top-level scalar 
 
 | Skill | Version | Description |
 |-------|---------|-------------|
-| `hedgehog-company-index-data` | 1.11.2 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
-| `hedgehog-daily-morning-briefing` | 2.2.9 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
+| `hedgehog-company-index-data` | 1.11.3 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
+| `hedgehog-daily-morning-briefing` | 2.2.10 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `hedgehog-financial-report-analysis` | 1.3.0 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
-| `hog-gateway-tools` | 3.5.2 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus bounded failure retries and durable Task polling |
-| `hedgehog-in-depth-analysis` | 2.2.3 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
-| `hedgehog-information-verification` | 2.2.3 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
-| `hog-kb-tools` | 1.2.2 | Legacy KB MCP endpoint compatibility; Knowledge search/get are also available in `hog-gateway-tools` 3.5.2 |
-| `hedgehog-macro-industry-data` | 1.8.2 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
-| `hedgehog-news-reports` | 1.9.2 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
-| `hedgehog-stock-research` | 2.3.0 | Multi-dimensional individual stock analysis: fundamentals, sentiment, technicals, and backtest-ready quantitative research ideas + CIO integration |
+| `hog-gateway-tools` | 3.5.3 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus bounded failure retries and durable Task polling |
+| `hedgehog-in-depth-analysis` | 2.2.4 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
+| `hedgehog-information-verification` | 2.2.4 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
+| `hog-kb-tools` | 1.2.2 | Legacy KB MCP endpoint compatibility; Knowledge search/get are also available in `hog-gateway-tools` 3.5.3 |
+| `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
+| `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
+| `hedgehog-stock-research` | 2.3.1 | Multi-dimensional individual stock analysis: fundamentals, sentiment, technicals, and backtest-ready quantitative research ideas + CIO integration |
 
 Morning briefing, in-depth analysis, and information verification deliver their reports and `data-index.md`. The optional runtime registry `sub-agent-list.txt` is internal: it is neither a deliverable nor an acceptance prerequisite, and its absence is not reported as a missing output. Sub-agent coverage is checked against actual returned results.
 
@@ -56,16 +56,16 @@ Morning briefing, in-depth analysis, and information verification deliver their 
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `company-valuation` | 3.0.5 | Valuation engine with Vega-Lite v6 sensitivity heatmap output |
-| `deliver_files` | 2.1.2 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.5.2 |
+| `deliver_files` | 2.1.3 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.5.3 |
 | `doc-convert` | 2.1.2 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.4 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.4.2 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
 | `gen-ppt` | 2.4.2 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
-| `hog-memory` | 1.3.2 | Legacy KB MCP endpoint compatibility; Memory save/search/recall/update are also available in `hog-gateway-tools` 3.5.2 |
+| `hog-memory` | 1.3.2 | Legacy KB MCP endpoint compatibility; Memory save/search/recall/update are also available in `hog-gateway-tools` 3.5.3 |
 | `math_calc` | 1.1.2 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.1.2 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
 | `tech-indicators` | 1.1.2 | Local technical indicator calculation engine |
-| `web_fetch` | 1.1.2 | Web page fetching and main content extraction (output as Markdown) |
+| `web_fetch` | 1.1.3 | Web page fetching and main content extraction (output as Markdown) |
 
 ### Gateway MCP CLI Development
 
@@ -106,3 +106,7 @@ Platform-specific `SKILL.md` runtime instructions remain separate.
 ## License
 
 This project is licensed under the [GPL-3.0](LICENSE) open source license. The derived `optional/gen-rich-ppt` skill retains its upstream MIT license in `optional/gen-rich-ppt/LICENSE`.
+
+## Manifest and delivery alignment
+
+Gateway owns managed Manifests. Native tools and data Skills supply role/source facts; final delivery uses the current Prompt Run diff and explicit file list. Source-producing CLIs accept --artifact-root without changing --dir/--out. Internal groups return output_files; final outputs and companions are declared by the host. Existing delivery, Knowledge, and Memory Skills remain supported.

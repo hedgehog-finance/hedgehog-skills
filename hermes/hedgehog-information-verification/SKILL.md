@@ -6,7 +6,7 @@ description: >
     Best for: information verification and confidence assessment.
     Triggers: verify info | validate rumor | confidence score | fact check
     NOT for: deep event analysis.
-version: 2.2.3
+version: 2.2.4
 workflow_based: true
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
@@ -59,7 +59,7 @@ prerequisites:
 ## Sub-agent-[index]:
 - {file-name}: {行数:<N>;字节:<B>}
 ```
-- 每个sub-agent回读原始数据做摘要，并落盘 output_file `output-sub-<short_title>.<ext>`。**摘要必须自足**（主 Agent 评分与终稿只读摘要、不回读原始数据）：包含审计所需全部要素——信源与最早出处、发布时间线、关键数据点、相关/相反证据、逻辑矛盾点、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序），800 tokens 以内
+- 每个sub-agent回读原始数据做摘要，并落盘 output_file `sub-output-<short_title>.<ext>`。**摘要必须自足**（主 Agent 评分与终稿只读摘要、不回读原始数据）：包含审计所需全部要素——信源与最早出处、发布时间线、关键数据点、相关/相反证据、逻辑矛盾点、重要资讯列表（`{资讯分类:id} 标题`，按重要性降序），800 tokens 以内
 - `sub-agent-list.txt` 是系统内部运行记录，不属于交付物；无需创建、读取或校验，缺失不影响验收，也不列为未交付成果。
 
 ## 核心工作流
@@ -108,18 +108,18 @@ prerequisites:
 
 **目标**：仅基于 sub-agent 摘要评分并生成审计报告。
 
-**【Token 纪律】本阶段只允许读取 `output-sub-*.md` 摘要文件，禁止读取任何 `data-*` 原始数据文件；摘要缺失要素时宁可在对应维度标注"证据不足"并保守给分，也不得回读原始数据。终稿文件首次 `write` 写入标题，后续章节用 `write(append:true)` 逐节追加，禁止整篇覆盖重写；修改已写内容用 `edit`。**
+**【Token 纪律】本阶段只允许读取 `sub-output-*.md` 摘要文件，禁止读取任何 `data-*` 原始数据文件；摘要缺失要素时宁可在对应维度标注"证据不足"并保守给分，也不得回读原始数据。终稿使用当前 Agent 的文件写入/编辑能力逐节完成；支持 append 时可追加，修改已有内容使用编辑能力。**
 
-1. **摘要提炼**：基于各 `output-sub-*.md` 摘要提炼 500 字以内求证信息概述，核心关注时间、来源、事项的匹配度及数据细节的逻辑矛盾点。
+1. **摘要提炼**：基于各 `sub-output-*.md` 摘要提炼 500 字以内求证信息概述，核心关注时间、来源、事项的匹配度及数据细节的逻辑矛盾点。
 
 2. **三维评分**：
    - 信息源可靠度（X/40）：追溯最早出处，评估渠道信用权重
    - 交叉逻辑验证（X/30）：列举相关/相反证据
    - 利益催化时点（X/30）：分析是否存在动机漏出
 
-3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 `write(append:true)` 追加。
+3. **生成报告**：在任务目录创建 `final-output-verification-<event_short>.md`：首次 `write` 写入标题，再按交付标准模板逐章节用 当前 Agent 支持的追加或编辑操作 追加。
 
-4. **尾注**：汇总各摘要中的 `[资料来源]` 引用，`write(append:true)` 追加写入 `[AI 生成提示]`。
+4. **尾注**：汇总各摘要中的 `[资料来源]` 引用，当前 Agent 支持的追加或编辑操作 追加写入 `[AI 生成提示]`。
 
 ### Stage 4：完整性检查（主 Agent 执行）
 
@@ -130,7 +130,7 @@ prerequisites:
 3. 检查所有 `[AI 生成提示]` 已填写。
 4. 检查所有落盘文件存在且非空。
 5. 核对实际调度的 Sub-agent 返回结果，确认数量和任务覆盖范围匹配。
-6. 如发现缺失，回退补全对应章节（补全同样只读 `output-sub-*.md` 摘要，用 `edit` 修改）。
+6. 如发现缺失，回退补全对应章节（补全同样只读 `sub-output-*.md` 摘要，用 `edit` 修改）。
 7. 最后交付 `final-output-*.*`, `data-index.md` 文件，不要交付其他文件。
 8. 最后文本回复仅发送摘要，不要发送全文
 
@@ -166,3 +166,9 @@ prerequisites:
 ### [AI生成提示]
 以上内容由 AI 生成，可能存在偏差，仅供参考。
 [其他说明，如使用模型先验知识生成的说明、关键数据源不足的说明]
+
+## 最终文件清单
+
+主 Agent 使用顶层 `selected_files` 明确列出实际生成的报告与必需伴随文件；Markdown、HTML 和 `data-index.md` 要全部列入，保留原文件名与真实路径，不靠自动命名兜底交齐。group/sub-agent 只返回完整 `output_files`，不调用原生或 MCP 交付工具。
+
+普通 Session 使用宿主给出的 SessionTaskDir；Development 使用正式项目区域。不同 Agent 的文件工具能力可能不同：仅在支持时使用 `append`/`artifact_role`；否则使用其现有文件编辑能力完成相同输出。原始材料只写新文件，派生内容单独保存。没有明确清单时宿主可能补交本轮变化的 final-output 文件，该兜底不能替代业务交付清单。

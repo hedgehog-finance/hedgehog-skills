@@ -6,7 +6,7 @@ description: >
   Best for: cross-content financial information search, news, research reports, announcements.
   NOT for: stock quotes, fundamentals, financial statements, Shenwan industry data.
   Triggers: financial information search, financial news, stock news, breaking news, research report, company announcement, financial report.
-version: 1.9.2
+version: 1.9.3
 metadata:
   hermes:
     tags: [finance, news, research-reports]
@@ -74,7 +74,7 @@ hermes config set CIWEIAI_API_KEY "your-api-key-here"
 
 **输出策略（脚本自动决定）**：
 - 所有接口均自动保存为 `data-*.json`，stdout 仅输出文件指针
-- `--dir <sessionTaskDir>` 始终必传；若系统提示词未约定且用户未指定，则使用当前 workspace 目录
+- `--dir <sessionTaskDir>` 始终必传；Gateway 缺少 SessionTaskDir 时报告上下文缺口；独立 CLI 使用明确指定的输出目录
 - `--out <文件名>` 可选：指定落盘目标文件名（相对 `--dir`，绝对路径亦可），省略时用默认命名 `data-<datetime>-<N>.json`；`[DataSaved]` 输出附带行数（Lines）与字节数（Bytes）
 
 **数据读取约束（强制）**：
@@ -295,3 +295,11 @@ hermes config set CIWEIAI_API_KEY "your-api-key-here"
 ## 执行安全边界
 
 参数文件最大 10 MiB，请求 URL 最大 65,536 字符，请求体最大 10 MiB，响应最大 20 MiB，网络请求 30 秒超时。配置损坏、参数冲突、非法响应和超限数据均明确失败；落盘结果先写同目录临时文件，成功后再原子替换目标。
+
+## 落盘来源与目录
+
+Gateway 托管运行使用明确的 SessionTaskDir；Development 的 `--dir` 使用正式项目 data 目录，`--artifact-root` 使用项目根。缺少运行目录时先报告上下文缺口，不回退到 workspace。独立 CLI 保留明确指定输出目录的用法。
+
+落盘调用增加 `--artifact-root <SessionTaskDir或项目根>`。它只决定来源注释归属，不改变 `--dir`、`--out` 的基准。脚本按实际文件内容写脱敏来源注释；不要手工编辑 `.hedgehog`。注释失败保留已下载数据并提示，不重复请求接口。旧调用省略该参数仍可落盘，但不会登记来源。
+
+`--out` 指向已有文件时在请求前拒绝；请给原始数据一个新文件名。默认命名采用独占创建，支持并发落盘。

@@ -10,6 +10,8 @@
  *   node cli.mjs --url <url> [--max-length N] [--output save --dir <dir>]
  */
 
+import { writeFileOrigin, assertArtifactOutput } from './artifact-file-facts.cjs';
+import { resolve, relative, isAbsolute } from 'node:path';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -23,6 +25,7 @@ function parseArgs(argv) {
     ['--max-length', 'maxLength'],
     ['--output', 'output'],
     ['--dir', 'dir'],
+    ['--artifact-root', 'artifactRoot'],
   ]);
   for (let i = 2; i < argv.length; i++) {
     const argument = argv[i];
@@ -183,6 +186,11 @@ async function fetchAndExtract(url) {
 
 async function main() {
   const args = parseArgs(process.argv);
+  if (args.artifactRoot && args.dir) {
+    assertArtifactOutput(args.artifactRoot, args.dir);
+    const rel = relative(resolve(args.artifactRoot), resolve(args.dir));
+    if (isAbsolute(rel) || rel === '..' || rel.startsWith('..' + (process.platform === 'win32' ? '\\' : '/'))) throw new Error('--dir must be inside --artifact-root');
+  }
 
   if (args.help) {
     console.log('Usage: node cli.mjs --url <url> [--max-length N] [--output save --dir <dir>]');
@@ -231,6 +239,13 @@ async function main() {
         }
       }
 
+      try {
+        if (args.artifactRoot) writeFileOrigin(args.artifactRoot, filepath, {
+          type: 'web_fetch', tool: 'web_fetch', fetched_at: new Date().toISOString(), locator: args.url,
+          title: article.title, content_type: 'text/markdown',
+        });
+        else console.error('File saved without origin registration: pass --artifact-root with the business root.');
+      } catch (error) { console.error(`File saved, but origin registration failed: ${error.message}. Do not re-fetch.`); }
       const { text: preview } = truncateText(rawOutput, 800, '...');
       const summary = [
         `[WebFetch Saved] ${filepath}`,

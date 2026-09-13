@@ -1,6 +1,6 @@
 ---
 name: deliver_files
-version: 2.1.2
+version: 2.1.3
 description: >
     Deliver existing workspace files as restricted Hedgehog Gateway MCP Resource
     Links. Use when reports, charts, documents, or other generated artifacts must
@@ -112,3 +112,9 @@ An individual invalid or oversized file appears in `errors` without preventing v
 - The CLI does not create, edit, move, or delete files.
 - Each request has a 15-second timeout. Invalid JSON, missing credentials, MCP errors, and invalid endpoints exit non-zero.
 - JSON payload files and discovered configuration files are limited to 10 MiB and 1 MiB respectively; MCP responses are limited to 20 MiB. Authenticated requests reject redirects and multiline or oversized tokens.
+
+## 运行交付边界
+
+Gateway 的 agent-runtime 调用此 MCP 交付入口必须提供当前真实 Work Task；服务端核对 Session、Provider、阶段、目录和锁定策略。无 Task 普通 Chat 在最终回复声明 `delivery_decision`，不编造 task_id。内部 group/sub-agent 只返回完整 `output_files`；long_task 由宿主最终收尾交付，不提前调用交付工具。外部 MCP 客户端保留授权内 Resource Link 导出。
+
+显式非空清单的错误不会触发额外文件交付；逐项报告成功与失败，不用通配符或历史目录补齐。64 MiB 是 MCP 单文件上限；多文件继续用 `--files-json-file`。Development 文件使用已有项目/资源接口。

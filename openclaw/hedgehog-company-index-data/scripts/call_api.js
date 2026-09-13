@@ -4,6 +4,7 @@
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const { writeFileOrigin, assertArtifactOutput } = require('./artifact-file-facts.cjs');
 const path = require('path');
 
 const BASE_URL = process.env.API_BASE_URL || 'https://api.ciweiai.com/api/data';
@@ -518,7 +519,7 @@ const API_ROUTES = {
   },
 };
 
-const CONTROL_PARAMETER_NAMES = new Set(['api', 'params', 'params-file', 'dir', 'out', 'output']);
+const CONTROL_PARAMETER_NAMES = new Set(['api', 'params', 'params-file', 'dir', 'out', 'output', 'artifact-root']);
 const NUMBER_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 
 function parseScalar(raw, name) {
@@ -1478,6 +1479,13 @@ async function main() {
     throw new Error('缺少参数: --dir <输出目录>（落盘接口必须指定输出目录）');
   }
 
+  if (shouldSave && args['artifact-root']) {
+    const output = args.out ? (path.isAbsolute(args.out) ? args.out : path.join(args.dir, args.out)) : args.dir;
+    assertArtifactOutput(args['artifact-root'], output);
+    const relativeOutput = path.relative(path.resolve(args['artifact-root']), path.resolve(output));
+    if (path.isAbsolute(relativeOutput) || relativeOutput === '..' || relativeOutput.startsWith('..' + path.sep)) throw new Error('Output must be inside --artifact-root');
+  }
+  if (shouldSave && args.out && fs.existsSync(path.isAbsolute(args.out) ? args.out : path.join(args.dir, args.out))) throw new Error('Raw output already exists; choose a new --out file.');
   const result = await callApi(args.api, params);
 
   if (shouldSave) {
@@ -1485,29 +1493,29 @@ async function main() {
     const outDir = args.dir;
     fs.mkdirSync(outDir, { recursive: true });
 
-    // --out <filename>: exact target file (relative to --dir unless absolute);
-    // falls back to default naming data-<datetime>-<N>.json when omitted
+    // Exclusive creation keeps concurrent source producers from overwriting raw data.
     let filepath;
+    const jsonStr = JSON.stringify(result, null, 2);
     if (typeof args.out === 'string' && args.out) {
       filepath = path.isAbsolute(args.out) ? args.out : path.join(outDir, args.out);
       fs.mkdirSync(path.dirname(filepath), { recursive: true });
+      fs.writeFileSync(filepath, jsonStr, { encoding: 'utf-8', flag: 'wx' });
     } else {
       const ts = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-      let n = 1;
-      do {
+      for (let n = 1; ; n++) {
         filepath = path.join(outDir, `data-${ts}-${n}.json`);
-        n++;
-      } while (fs.existsSync(filepath));
+        try { fs.writeFileSync(filepath, jsonStr, { encoding: 'utf-8', flag: 'wx' }); break; }
+        catch (error) { if (error.code !== 'EEXIST') throw error; }
+      }
     }
 
-    const jsonStr = JSON.stringify(result, null, 2);
-    const tempPath = path.join(path.dirname(filepath), `.${path.basename(filepath)}.${process.pid}.${Date.now()}.tmp`);
     try {
-      fs.writeFileSync(tempPath, jsonStr, { encoding: 'utf-8', flag: 'wx' });
-      fs.renameSync(tempPath, filepath);
-    } finally {
-      try { fs.unlinkSync(tempPath); } catch (_) { /* already renamed or never created */ }
-    }
+      if (args['artifact-root']) writeFileOrigin(args['artifact-root'], filepath, {
+        type: 'api', tool: args.api, fetched_at: new Date().toISOString(), locator: BASE_URL,
+        content_type: 'application/json',
+      });
+      else console.error('File saved without origin registration: pass --artifact-root with the business root.');
+    } catch (error) { console.error(`File saved, but origin registration failed: ${error.message}. Do not re-fetch.`); }
 
     // Print summary to stdout. A null/empty result means the query succeeded
     // but matched no data — report 0 records instead of crashing on Object.keys(null).

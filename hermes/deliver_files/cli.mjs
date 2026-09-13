@@ -12,7 +12,7 @@ import {
   toolResultError,
 } from "./mcp-client.mjs";
 
-const VERSION = "2.1.2";
+const VERSION = "2.1.3";
 
 function parseFlags(argv) {
   const flags = {};

@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.5.2";
+const VERSION = "3.5.3";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
