@@ -131,6 +131,7 @@ const CASHFLOW_DETAIL_FIELDS = {
  *     maxStartAge:       { field, maxYears } 起始日期距今不超过 N 年
  *     dateQueryMode:     单日全市场，或单代码+成对日期区间；两种模式严格二选一
  *     minuteTimeQueryMode: 单日，或成对分钟时间区间；两种模式严格二选一
+ *     tradeDateQuery:     必须指定有效交易日期；order_by 如传入必须为非空字符串
  *     allowedValues:     字段允许值白名单
  *     patterns:          字段格式正则
  *   dynamicLimit:     { default, sparse, threshold } limit 参数动态值（基于 fields 字段数）
@@ -164,6 +165,18 @@ const API_ROUTES = {
       maxStartAge: { field: 'start_date', maxYears: 10 },
       dateRange: { startField: 'start_date', endField: 'end_date', maxDays: 365 * 2 },
     },
+  },
+
+  // ===== Tool-2c 股票日线行情：按交易日排序查询 =====
+  queryStockDailyByTradeDate: {
+    method: 'GET',
+    path: '/v1/stock/daily',
+    require: ['trade_date'],
+    allowedParams: ['trade_date', 'order_by', 'fields'],
+    saveOutput: true,
+    forced: { page: 1, limit: 50 },
+    localLimit: { default: 50, max: 50 },
+    constraints: { tradeDateQuery: true },
   },
 
   // ===== Tool-2b 股票分钟行情 =====
@@ -208,6 +221,18 @@ const API_ROUTES = {
     },
   },
 
+  // ===== Tool-3b 每日指标：按交易日排序查询 =====
+  queryDailyBasicByTradeDate: {
+    method: 'GET',
+    path: '/v1/daily-basic/query',
+    require: ['trade_date'],
+    allowedParams: ['trade_date', 'order_by', 'fields'],
+    saveOutput: true,
+    forced: { page: 1, page_size: 50 },
+    localLimit: { default: 50, max: 50 },
+    constraints: { tradeDateQuery: true },
+  },
+
   // ===== Tool-4 个股资金流向 =====
   queryMoneyflow: {
     method: 'GET',
@@ -220,6 +245,25 @@ const API_ROUTES = {
       maxStartAge: { field: 'start_date', maxYears: 10 },
       dynamicDateRange: { startField: 'start_date', endField: 'end_date', default: 90, sparse: 366, threshold: 3 },
     },
+    stripFields: [
+      'buy_sm_vol', 'sell_sm_vol', 'buy_md_vol', 'sell_md_vol',
+      'buy_lg_vol', 'sell_lg_vol', 'buy_elg_vol', 'sell_elg_vol', 'net_mf_vol',
+      'buy_sm_amount', 'sell_sm_amount', 'buy_md_amount', 'sell_md_amount',
+      'buy_lg_amount', 'sell_lg_amount', 'buy_elg_amount', 'sell_elg_amount',
+    ],
+    transform: 'moneyflowNet',
+  },
+
+  // ===== Tool-4b 资金流向：按交易日排序查询 =====
+  queryMoneyflowByTradeDate: {
+    method: 'GET',
+    path: '/v1/finance/moneyflow',
+    require: ['trade_date'],
+    allowedParams: ['trade_date', 'order_by', 'fields'],
+    saveOutput: true,
+    forced: { page: 1, page_size: 50 },
+    localLimit: { default: 50, max: 50 },
+    constraints: { tradeDateQuery: true },
     stripFields: [
       'buy_sm_vol', 'sell_sm_vol', 'buy_md_vol', 'sell_md_vol',
       'buy_lg_vol', 'sell_lg_vol', 'buy_elg_vol', 'sell_elg_vol', 'net_mf_vol',
@@ -385,6 +429,18 @@ const API_ROUTES = {
       maxStartAge: { field: 'start_date', maxYears: 10 },
       dynamicDateRange: { startField: 'start_date', endField: 'end_date', default: 60, sparse: 180, threshold: 6 },
     },
+  },
+
+  // ===== Tool-12b 申万一级行业指数：按交易日排序查询 =====
+  querySwIndustryDailyByTradeDate: {
+    method: 'GET',
+    path: '/v1/stock/sw-industry-daily',
+    require: ['trade_date'],
+    allowedParams: ['trade_date', 'order_by', 'fields'],
+    saveOutput: true,
+    forced: { is_l1: true, page: 1, page_size: 100 },
+    localLimit: { default: 100, max: 100 },
+    constraints: { tradeDateQuery: true },
   },
 
   // ===== Tool-13 交易日历 =====
@@ -855,6 +911,13 @@ function validateMinuteTimeQueryMode(params, rule, apiName) {
 
 function applyConstraints(route, apiName, params, userFields) {
   if (!route.constraints) return;
+  if (route.constraints.tradeDateQuery) {
+    parseDate(params.trade_date, 'trade_date', apiName);
+    if (Object.prototype.hasOwnProperty.call(params, 'order_by') &&
+        (typeof params.order_by !== 'string' || !params.order_by.trim())) {
+      throw new Error(`${apiName} 参数 order_by 必须为非空字符串`);
+    }
+  }
   validateAllowedValues(params, route.constraints.allowedValues, apiName);
   validatePatterns(params, route.constraints.patterns, apiName);
   validateDateQueryMode(params, route.constraints.dateQueryMode, apiName);
@@ -1309,7 +1372,7 @@ async function callApi(apiName, params = {}) {
     requestParams.fields = userFields && userFields.length > 0 ? userFields.join(',') : '';
   }
 
-  // index/basic 后端不支持分页参数；limit 仅在响应侧执行，避免未知参数被服务端拒绝。
+  // index/basic 的公开 limit 仅在响应侧执行；按交易日入口不公开 limit，固定截断到其返回上限。
   const localResponseLimit = takeLocalLimit(route, apiName, requestParams);
 
   // 必填项校验（基于 skill 友好的入参名，比如 stock_name）

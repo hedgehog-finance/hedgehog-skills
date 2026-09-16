@@ -15,7 +15,7 @@ const EXPECTED = {
   "fin-calc": "1.0.4",
   "gen-chart": "2.4.2",
   "gen-ppt": "2.4.2",
-  "hedgehog-company-index-data": "1.11.3",
+  "hedgehog-company-index-data": "1.12.0",
   "hedgehog-macro-industry-data": "1.8.3",
   "hedgehog-news-reports": "1.9.3",
   "hog-gateway-tools": "3.5.3",

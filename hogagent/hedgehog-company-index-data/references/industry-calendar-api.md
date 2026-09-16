@@ -1,6 +1,6 @@
 # 申万行业与交易日历接口
 
-本参考包含 Tool-11 至 Tool-15。处理申万行业归属、行业指数行情或交易日计算时先读本文件；其他任务不要加载。
+本参考包含 Tool-11 至 Tool-15（含 Tool-12b）。处理申万行业归属、行业指数行情、一级行业按交易日查询或交易日计算时先读本文件；其他任务不要加载。
 
 所有日期使用 `YYYY-MM-DD`。`fields` 为可选的逗号分隔返回字段列表。
 
@@ -32,6 +32,26 @@
 `index_code, trade_date, name, open, low, high, close, change, pct_change, vol, amount, pe, pb, float_mv, total_mv`
 
 `pct_change` 单位为百分比；`vol` 为万股；`amount`、`float_mv`、`total_mv` 为万元。
+
+## Tool-12b 申万一级行业按交易日查询 `querySwIndustryDailyByTradeDate`
+
+固定调用 `GET /v1/stock/sw-industry-daily`（路径相对 `/api/data`），查询某一交易日的申万一级行业指数。
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `trade_date` | 是 | 有效的 `YYYY-MM-DD` 交易日期；不可省略或以日期区间代替 |
+| `order_by` | 否 | 后端支持的非空排序字符串，原样传入；省略时使用服务端默认排序 |
+| `fields` | 否 | 逗号分隔返回字段，字段及单位同 Tool-12 |
+
+脚本硬编码 `is_l1=true`，只查申万一级行业；**不对外开放 `is_l1`，即使调用方传 `true` 也拒绝**。不接收 `index_code`、`start_date`、`end_date`；单个行业历史区间使用 Tool-12。
+
+不允许分页，不接收 `page`、`page_size`、`limit`、`offset` 或其他额外参数；内部固定 `page=1, page_size=100`，一次只发一个请求，响应侧也最多保留 100 条。`fields` 较少时仍不得放宽上限或翻页拼接。排序在服务端完成，返回顺序原样保留；无数据为 `null`，结果自动落盘。
+
+示例（在技能目录运行；Hermes 的脚本路径使用 `${HERMES_SKILL_DIR}/scripts/call_api.js`）：
+
+```bash
+node scripts/call_api.js --api querySwIndustryDailyByTradeDate --trade_date 2026-09-15 --fields index_code,trade_date,name,pct_change,pe,pb --dir '<sessionTaskDir>' --artifact-root '<sessionTaskDir>'
+```
 
 ## Tool-13 交易日历 `queryTradeCal`
 
