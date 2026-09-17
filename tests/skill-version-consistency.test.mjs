@@ -14,7 +14,7 @@ const EXPECTED = {
   "doc-convert": "2.1.2",
   "fin-calc": "1.0.4",
   "gen-chart": "2.4.2",
-  "gen-ppt": "2.4.2",
+  "gen-ppt": "2.4.3",
   "hedgehog-company-index-data": "1.12.0",
   "hedgehog-macro-industry-data": "1.8.3",
   "hedgehog-news-reports": "1.9.3",
@@ -41,6 +41,10 @@ function validateSkillDirectory(directory) {
   const skillPath = join(directory, "SKILL.md");
   const skillText = readFileSync(skillPath, "utf8");
   assert.match(skillText, new RegExp(`^version: ${expected.replaceAll(".", "\\.")}$`, "m"), skillPath);
+
+  if (packageJson.name === "gen-ppt") {
+    assert.ok(skillText.includes("GenPPT `v" + expected + "`"), `${skillPath}: artifact version`);
+  }
 
   const lockPath = join(directory, "package-lock.json");
   if (existsSync(lockPath)) {
@@ -94,3 +98,30 @@ test("platform manifests and embedded CLI versions match package versions", () =
   }
 });
 
+
+function sharedGenPptFiles(directory, relative = "") {
+  return readdirSync(join(directory, relative), { withFileTypes: true })
+    .filter(entry => !["node_modules", "package-lock.json", "SKILL.md", ".DS_Store"].includes(entry.name))
+    .flatMap(entry => {
+      const file = join(relative, entry.name);
+      return entry.isDirectory() ? sharedGenPptFiles(directory, file) : [file];
+    })
+    .sort();
+}
+
+test("gen-ppt shared files and published version tables stay synchronized", () => {
+  const canonical = join(REPO_ROOT, "openclaw", "gen-ppt");
+  const copies = [join(REPO_ROOT, "hermes", "gen-ppt")];
+  const bundled = resolve(REPO_ROOT, "../hedgehog/hogagent/skills/gen-ppt");
+  if (existsSync(bundled)) copies.push(bundled);
+  const files = sharedGenPptFiles(canonical);
+  for (const copy of copies) {
+    assert.deepEqual(sharedGenPptFiles(copy), files, `${copy}: shared file list`);
+    for (const file of files) {
+      assert.deepEqual(readFileSync(join(copy, file)), readFileSync(join(canonical, file)), `${copy}: ${file}`);
+    }
+  }
+  for (const readme of ["README.md", "openclaw/README.md", "hermes/README.md"]) {
+    assert.ok(readFileSync(join(REPO_ROOT, readme), "utf8").includes("| `gen-ppt` | " + EXPECTED["gen-ppt"] + " |"), readme);
+  }
+});

@@ -10,7 +10,7 @@ hedgehog-skills/
 ├── openclaw/     # Skills adapted for the OpenClaw platform (includes extra utility tools)
 ├── hermes/       # Skills adapted for Hermes Agent (Python host + declared Node.js runtime)
 ├── optional/     # Optional extensions (rich PPT and global market data)
-├── scripts/      # Cross-platform development and synchronization utilities
+├── tests/        # Cross-platform contracts and synchronization checks
 ├── LICENSE       # GPL-3.0
 └── README.md
 ```
@@ -60,7 +60,7 @@ Morning briefing, in-depth analysis, and information verification deliver their 
 | `doc-convert` | 2.1.2 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.4 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.4.2 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
-| `gen-ppt` | 2.4.2 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
+| `gen-ppt` | 2.4.3 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
 | `hog-memory` | 1.3.2 | Legacy KB MCP endpoint compatibility; Memory save/search/recall/update are also available in `hog-gateway-tools` 3.5.3 |
 | `math_calc` | 1.1.2 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.1.2 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
@@ -94,14 +94,17 @@ node --test tests/gateway-mcp-clis.test.mjs
 
 ## GenPPT Development
 
-OpenClaw is the canonical shared implementation. After changing its `gen-ppt` package, sync code, references, tests, and package metadata to Hermes and verify that no drift remains:
+OpenClaw is the canonical shared implementation. Keep its `gen-ppt` scripts, references, assets, and package metadata identical to Hermes and the copy bundled in `hedgehog/hogagent/skills/gen-ppt`. Upgrade the version in each `SKILL.md`, its artifact naming instruction, package metadata, platform `version.json`, README tables, and version-test expectations together. Platform-specific `SKILL.md` runtime instructions remain separate.
+
+Version 2.4.3 fixes HTML slide image resolution for native absolute paths, including Windows drive paths, while retaining paths relative to the Markdown input. Use forward slashes in Markdown/HTML image attributes on Windows; spaces and Chinese characters remain supported.
+
+After synchronization, verify shared-file contents and version consistency:
 
 ```bash
-node scripts/sync-gen-ppt.mjs
-node scripts/sync-gen-ppt.mjs --check
+node --test tests/skill-version-consistency.test.mjs
 ```
 
-Platform-specific `SKILL.md` runtime instructions remain separate.
+The check includes the bundled HogAgent copy when the sibling `hedgehog` checkout is available. Run the HTML absolute/relative image regression in that checkout with `npm test -- --run test/skills/skill-script-audit.test.ts -t 'local image paths'` from `hogagent/`.
 
 ## License
 

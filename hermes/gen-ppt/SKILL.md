@@ -2,7 +2,7 @@
 name: gen-ppt
 description: >
     Generate presentations as editable PPTX from JSON (default) or self-contained HTML slides from Markdown when explicitly requested. Keep text, shapes, and tables editable; use native charts only for PowerPoint targets and PNG charts for Keynote/universal targets. Use for slide decks, pitch decks, meeting presentations, PowerPoint/PPTX, HTML/web slides, Markdown-to-slides, and interactive browser presentations. Does not create .key files, Google Slides-only exports, or video.
-version: 2.4.2
+version: 2.4.3
 compatibility: Requires Node.js >=18 in the Hermes terminal runtime.
 prerequisites:
   commands: [node, npm]
@@ -35,6 +35,8 @@ On Windows, use PowerShell or a verified Git for Windows Bash; `cmd.exe` is unsu
 
 Resolve `${HERMES_SKILL_DIR}/scripts/*` relative to this SKILL.md and use absolute paths for all I/O files.
 
+HTML slide images may use native absolute paths (including Windows drive paths) or paths relative to the Markdown file. Prefer forward slashes in Markdown/HTML image attributes on Windows.
+
 ## PPTX workflow
 
 1. Choose the delivery target before designing charts:
@@ -55,7 +57,7 @@ node ${HERMES_SKILL_DIR}/scripts/validate-pptx.mjs <output.pptx> [--libreoffice]
 
 `--keynote` recognizes Keynote and Keynote Creator Studio and rejects PptxGenJS decks that retain native charts. Use `--powerpoint` as the release gate for PowerPoint delivery; if unavailable, report the deck as PowerPoint-unverified. LibreOffice is supplementary and cannot certify PowerPoint or Keynote behavior. Never label a structural-only run as viewer-validated.
 
-5. Deliver only the exact tested artifact. Give every revision a unique basename containing GenPPT `v2.4.0` plus a task ID or timestamp; report its absolute path, byte count, and SHA-256.
+5. Deliver only the exact tested artifact. Give every revision a unique basename containing GenPPT `v2.4.3` plus a task ID or timestamp; report its absolute path, byte count, and SHA-256.
 
 ### Configuration essentials
 

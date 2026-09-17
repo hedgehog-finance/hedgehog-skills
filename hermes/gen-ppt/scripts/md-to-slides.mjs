@@ -187,7 +187,7 @@ async function embedImage(src) {
       }
     }
 
-    const localPath = src.startsWith("/") ? src : join(inputDir, src);
+    const localPath = resolve(inputDir, src);
     if (!existsSync(localPath)) throw new Error(`image not found: ${localPath}`);
     const imageStat = statSync(localPath);
     if (!imageStat.isFile() || imageStat.size > MAX_IMAGE_BYTES) throw new Error("local image must be a regular file no larger than 50MB");
