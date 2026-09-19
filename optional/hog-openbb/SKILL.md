@@ -7,7 +7,7 @@ description: >
   Triggers: GDP, CPI, unemployment, federal funds rate, options chain, Greeks, treasury yield,
   economic calendar, stock index, forex, commodity, gold, crude oil.
   NOT for: China A-shares (use hedgehog-company-index-data).
-version: 1.1.2
+version: 1.1.3
 ---
 
 # Global Financial Data Query (OpenBB Platform)
@@ -35,21 +35,17 @@ Covers macroeconomics, options chains, global indices, forex, commodities, and m
 
 ## 1. Prerequisites
 
-Install the packages declared in `requirements.txt` before first use. Replace `<skill_path>` with the directory containing this `SKILL.md`.
-
-PowerShell:
-
-```powershell
-python -m pip install -r "<skill_path>/requirements.txt"
-```
-
-Bash:
+Node.js and Python dependencies are separate: installing the Skill or running `npm install` does not install OpenBB. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (preferred) or Python 3.12, then run this command in Bash or PowerShell. Replace `<skill_path>` with the directory containing this `SKILL.md`.
 
 ```bash
-python3 -m pip install -r "<skill_path>/requirements.txt"
+node "<skill_path>/scripts/server_manager.js" setup
 ```
 
-Run the command again if the Python environment is recreated, after reinstalling/updating the Skill, or when Python reports `No module named ...` / `openbb-api command not found`.
+Setup creates `<skill_path>/.venv` using Python 3.12, installs `requirements.txt`, and verifies the SDK import and API executable. With uv it can obtain Python automatically; without uv, `python3.12` must be on PATH. Rerun setup after updating the Skill or when Python dependencies are missing. Setup downloads packages; normal data calls only start the installed service.
+
+No shell activation is needed. The launcher searches `OPENBB_API_BIN`, then `<skill_path>/.venv`, then `VIRTUAL_ENV`, then PATH. For an existing venv or a read-only Skill directory, set `HOG_OPENBB_VENV` to a writable venv path for both setup and subsequent calls. An explicit `OPENBB_API_BIN` or `HOG_OPENBB_VENV` is authoritative; an invalid override fails instead of falling back to a different environment.
+
+For manual installation, use Python 3.12 to create a venv and install this requirements file with that venv's Python, then set `HOG_OPENBB_VENV` to its directory. `openbb-api` comes from the explicitly declared `openbb-platform-api` package.
 
 > The script automatically manages the `openbb-api` service lifecycle (auto-starts on first call, auto-shuts down after 30 minutes of idle). No manual startup required.
 
@@ -72,8 +68,13 @@ value = skills_config.json["hog-openbb"][field] ?? process.env.ENV_VAR ?? defaul
 |---|---|---|---|
 | `api-url` / `apiUrl` | `OPENBB_API_URL` | `http://localhost:59201` | OpenBB API service address |
 | `idle-timeout-ms` / `idleTimeoutMs` | `OPENBB_IDLE_TIMEOUT_MS` | `1800000` (30 min) | Idle auto-shutdown time (milliseconds) |
+| `startup-timeout-ms` / `startupTimeoutMs` | `OPENBB_STARTUP_TIMEOUT_MS` | `120000` (2 min) | Service readiness timeout, 1000–600000 milliseconds |
+
+Runtime environment variables: `HOG_OPENBB_VENV` selects the Python venv; `OPENBB_API_BIN` selects an exact API executable and takes precedence. `status` reports the resolved executable and startup log path.
 
 ### Free Data Source API Keys
+
+The launcher translates these `OPENBB_*` aliases to OpenBB's native credential variables (for example, `FRED_API_KEY` and `TIINGO_TOKEN`). Restart a locally managed service after changing keys.
 
 | Field | Environment Variable | Description | Obtain From |
 |---|---|---|---|
@@ -131,15 +132,18 @@ export OPENBB_POLYGON_API_KEY="your-polygon-api-key"
 The OpenBB API service (`openbb-api`) is a Python process, **automatically managed by the script**:
 
 - **Auto-start**: On first `call_api.js` invocation, if the service is not running, it will be started automatically
+- **Readiness**: Probe `/api/v1/coverage/providers`; OpenBB does not provide `/health`. Allow up to 120 seconds for startup.
 - **Auto-shutdown**: After the last call, if no new requests within 30 minutes (configurable), it terminates automatically
 - **State files** (auto-created under the user-writable `~/.hogagent/runtime/hog-openbb/` directory by default; override with `HOG_OPENBB_RUNTIME_DIR`):
   - `.openbb_server.pid` — Service process PID
   - `.openbb_watchdog.pid` — Watchdog process PID
   - `.openbb_last_used` — Last call timestamp
+  - `openbb-server.log` — Python stdout/stderr from the most recent start, including tracebacks
 
 ### Manual Management Commands
 
 ```bash
+node scripts/server_manager.js setup    # Install/repair isolated Python dependencies
 node scripts/server_manager.js start    # Manual start
 node scripts/server_manager.js stop     # Manual stop
 node scripts/server_manager.js status   # View running status (JSON output)
@@ -152,7 +156,7 @@ node scripts/server_manager.js status   # View running status (JSON output)
 **Unified invocation**:
 
 ```bash
-node scripts/call_api.js --api getMacroIndicators --provider fred
+node scripts/call_api.js --api getMacroIndicators --symbol GDP --provider fred
 node scripts/call_api.js --api <api-name> --params-file '<workspace>/tmp-hog-openbb-<id>.json'
 ```
 
@@ -170,7 +174,7 @@ Use named arguments when all business values are safe top-level scalars. For obj
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | No | FRED indicator code, e.g. `GDP`, `CPIAUCSL`, `UNRATE`, `FEDFUNDS` |
+| `symbol` | string | Yes | FRED indicator code, e.g. `GDP`, `CPIAUCSL`, `UNRATE`, `FEDFUNDS` |
 | `provider` | string | No | Data provider, defaults to `fred` |
 | `start_date` | string | No | Start date, `YYYY-MM-DD` |
 | `end_date` | string | No | End date, `YYYY-MM-DD` |
@@ -199,8 +203,7 @@ Use named arguments when all business values are safe top-level scalars. For obj
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `provider` | string | No | Data provider, defaults to `fred` |
-| `start_date` | string | No | Start date, `YYYY-MM-DD` |
-| `end_date` | string | No | End date, `YYYY-MM-DD` |
+| `date` | string | No | Yield curve date, `YYYY-MM-DD`; omitted for the provider's latest available curve |
 | `fields` | string[] | No | Retain only specified fields in the response |
 
 ---
@@ -230,7 +233,7 @@ Use named arguments when all business values are safe top-level scalars. For obj
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `symbol` | string | Yes | Stock symbol, e.g. `AAPL`, `TSLA` |
-| `provider` | string | No | Data provider, e.g. `polygon`, `intrinio` |
+| `provider` | string | No | Defaults to `yfinance`; other providers include `cboe`, `intrinio`, `tradier` |
 | `expiration` | string | No | Expiry date filter, `YYYY-MM-DD` |
 | `option_type` | string | No | `call` or `put` |
 | `fields` | string[] | No | Retain only specified fields in the response |
@@ -240,6 +243,8 @@ Use named arguments when all business values are safe top-level scalars. For obj
 ### Tool-5: Options Expiry Dates (`getOptionExpiry`)
 
 **Use case**: Query all available options expiry dates for a stock.
+
+Fetches the options chain and returns sorted unique `{ expiration }` rows in `results`; there is no standalone OpenBB `/expirations` endpoint. Providers may limit the chain's date range.
 
 **Input Parameters**:
 
@@ -253,13 +258,13 @@ Use named arguments when all business values are safe top-level scalars. For obj
 
 ### Tool-6: Global Stock Indices (`getGlobalIndices`)
 
-**Use case**: Real-time/historical quotes for major stock indices such as S&P 500, Nasdaq, Dow Jones.
+**Use case**: Historical quotes for major stock indices such as S&P 500, Nasdaq, Dow Jones. Defaults to `yfinance`.
 
 **Input Parameters**:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | No | Index symbol, e.g. `^GSPC` (S&P 500), `^IXIC` (Nasdaq) |
+| `symbol` | string | Yes | Index symbol, e.g. `^GSPC` (S&P 500), `^IXIC` (Nasdaq) |
 | `provider` | string | No | Data provider |
 | `start_date` | string | No | Start date, `YYYY-MM-DD` |
 | `end_date` | string | No | End date, `YYYY-MM-DD` |
@@ -279,13 +284,13 @@ Use named arguments when all business values are safe top-level scalars. For obj
 
 ### Tool-7: Forex Rates (`getForexRates`)
 
-**Use case**: Major currency pair exchange rate data.
+**Use case**: Historical major currency pair exchange rates. Defaults to `yfinance`.
 
 **Input Parameters**:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | No | Currency pair code, e.g. `EURUSD`, `USDJPY` |
+| `symbol` | string | Yes | Currency pair code, e.g. `EURUSD`, `USDJPY` |
 | `provider` | string | No | Data provider |
 | `start_date` | string | No | Start date, `YYYY-MM-DD` |
 | `end_date` | string | No | End date, `YYYY-MM-DD` |
@@ -295,14 +300,14 @@ Use named arguments when all business values are safe top-level scalars. For obj
 
 ### Tool-8: Commodity Prices (`getCommodityPrices`)
 
-**Use case**: Crude oil, gold, silver, natural gas, and other commodity prices.
+**Use case**: Commodity price series from FRED, using the same series endpoint as macro indicators. Availability and date coverage depend on the selected FRED series.
 
 **Input Parameters**:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `symbol` | string | No | Commodity code, e.g. `CL` (crude oil), `GC` (gold) |
-| `provider` | string | No | Data provider |
+| `symbol` | string | Yes | FRED series ID, e.g. `DCOILWTICO` (WTI), `DCOILBRENTEU` (Brent), `DHHNGSP` (natural gas) |
+| `provider` | string | No | Defaults to `fred` |
 | `start_date` | string | No | Start date, `YYYY-MM-DD` |
 | `end_date` | string | No | End date, `YYYY-MM-DD` |
 | `fields` | string[] | No | Retain only specified fields in the response |
@@ -323,8 +328,8 @@ Use named arguments when all business values are safe top-level scalars. For obj
 
 | Error Type | Resolution |
 |---|---|
-| openbb-api command not found | Install from this Skill's requirements file as shown in Prerequisites |
-| Service startup timeout (15s) | Check if port 59201 is occupied, or if the Python environment is correct |
+| openbb-api command not found / No module named openbb | Run `node scripts/server_manager.js setup`; check any explicit `OPENBB_API_BIN` or `HOG_OPENBB_VENV` override |
+| Service startup timeout / Python exits early | Read the `logFile` reported by `status`; check Python dependencies and port availability; adjust `OPENBB_STARTUP_TIMEOUT_MS` for slow hosts |
 | HTTP 4xx | Check parameter format and whether the provider is configured correctly |
 | HTTP 5xx | Server error; retry later or run `node scripts/server_manager.js stop` then restart |
 | Data source API Key not configured | Returns empty data or error; configure the corresponding Key via WebUI skill config or environment variable |

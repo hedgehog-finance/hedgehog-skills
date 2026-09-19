@@ -12,7 +12,7 @@ const SKILL_ROOTS = ["hogagent", "openclaw", "hermes", "optional"].map((name) =>
 function collectScripts(directory) {
   const files = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if ([".git", "node_modules", "__pycache__"].includes(entry.name)) continue;
+    if ([".git", "node_modules", ".venv", "__pycache__"].includes(entry.name)) continue;
     const entryPath = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...collectScripts(entryPath));
     else if ([".js", ".mjs", ".cjs", ".py"].includes(extname(entry.name))) files.push(entryPath);

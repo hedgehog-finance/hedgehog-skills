@@ -27,7 +27,7 @@ const EXPECTED = {
   web_fetch: "1.1.3",
   "gen-rich-ppt": "1.1.2",
   "hog-finnhub": "1.1.2",
-  "hog-openbb": "1.1.2",
+  "hog-openbb": "1.1.3",
 };
 
 function validateSkillDirectory(directory) {

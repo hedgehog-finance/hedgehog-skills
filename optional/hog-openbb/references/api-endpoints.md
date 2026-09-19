@@ -10,14 +10,16 @@ Service base URL: `http://localhost:59201` (configurable)
 
 | API Name | HTTP Method | API Path | Description |
 |---|---|---|---|
-| `getMacroIndicators` | GET | `/api/v1/economy/macro` | FRED macroeconomic indicators |
-| `getTreasuryYields` | GET | `/api/v1/economy/treasury` | US Treasury yields |
+| `getMacroIndicators` | GET | `/api/v1/economy/fred_series` | FRED macroeconomic indicators; requires `symbol` |
+| `getTreasuryYields` | GET | `/api/v1/fixedincome/government/yield_curve` | US Treasury yield curve; optional `date` |
 | `getEconomicCalendar` | GET | `/api/v1/economy/calendar` | Global economic calendar |
 | `getOptionChains` | GET | `/api/v1/derivatives/options/chains` | Options chain data |
-| `getOptionExpiry` | GET | `/api/v1/derivatives/options/expirations` | Options expiry date list |
-| `getGlobalIndices` | GET | `/api/v1/index/price` | Global stock index quotes |
-| `getForexRates` | GET | `/api/v1/currency/price` | Forex rates |
-| `getCommodityPrices` | GET | `/api/v1/commodity/price` | Commodity prices |
+| `getOptionExpiry` | GET | `/api/v1/derivatives/options/chains` | Extract sorted unique expiration dates from the returned chain |
+| `getGlobalIndices` | GET | `/api/v1/index/price/historical` | Historical stock index quotes; requires `symbol` |
+| `getForexRates` | GET | `/api/v1/currency/price/historical` | Historical forex rates; requires `symbol` |
+| `getCommodityPrices` | GET | `/api/v1/economy/fred_series` | Commodity prices by FRED series ID; requires `symbol` |
+
+Readiness uses `/api/v1/coverage/providers`. Responses use OpenBB's `results` envelope; `fields` filters its rows or columns while preserving metadata. Provider-specific schemas are available from the running service's `/openapi.json`.
 
 ---
 
@@ -27,7 +29,7 @@ The following parameters can be used across multiple endpoints (depending on pro
 
 | Parameter | Type | Description |
 |---|---|---|
-| `provider` | string | Data provider, e.g. `fred`, `alpha_vantage`, `polygon`, `intrinio`, `twelve_data` |
+| `provider` | string | Provider supported by the selected route (see below) |
 | `symbol` | string | Security/indicator code |
 | `start_date` | string | Start date, `YYYY-MM-DD` |
 | `end_date` | string | End date, `YYYY-MM-DD` |
@@ -71,15 +73,14 @@ node scripts/call_api.js --api getCommodityPrices --params-file '<workspace>/tmp
 
 ## Data Provider & Endpoint Compatibility
 
-| Endpoint | FRED | Alpha Vantage | Polygon | Intrinio | Twelve Data |
-|---|---|---|---|---|---|
-| `getMacroIndicators` | ✓ | — | — | — | — |
-| `getTreasuryYields` | ✓ | — | — | — | — |
-| `getEconomicCalendar` | ✓ | — | — | — | — |
-| `getOptionChains` | — | — | ✓ | ✓ | — |
-| `getOptionExpiry` | — | — | ✓ | ✓ | — |
-| `getGlobalIndices` | — | ✓ | ✓ | — | ✓ |
-| `getForexRates` | — | ✓ | ✓ | — | ✓ |
-| `getCommodityPrices` | ✓ | ✓ | — | — | — |
+| Endpoint | Default Provider | Other Providers (OpenBB 4.7.2) |
+|---|---|---|
+| `getMacroIndicators` | `fred` | `intrinio` |
+| `getTreasuryYields` | `fred` | `ecb`, `econdb`, `federal_reserve`, `fmp` |
+| `getEconomicCalendar` | `fred` | `fmp`, `nasdaq`, `tradingeconomics` |
+| `getOptionChains` / `getOptionExpiry` | `yfinance` | `cboe`, `deribit`, `intrinio`, `tmx`, `tradier` |
+| `getGlobalIndices` | `yfinance` | `cboe`, `fmp`, `intrinio` |
+| `getForexRates` | `yfinance` | `fmp`, `tiingo` |
+| `getCommodityPrices` | `fred` | `intrinio` (series support may differ) |
 
-> `—` indicates the provider does not support this endpoint.
+Providers and series may require their own API keys or subscription. A healthy local service does not imply that every provider is configured.

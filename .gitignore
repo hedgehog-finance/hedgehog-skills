@@ -44,3 +44,5 @@ logs/
 api-doc/
 test/
 node_modules/
+.venv/
+__pycache__/

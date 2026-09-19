@@ -90,7 +90,7 @@ node --test tests/gateway-mcp-clis.test.mjs
 |-------|---------|-------------|
 | `gen-rich-ppt` | 1.1.2 | Generate polished image-based PPT/PPTX decks with built-in or OpenAI-compatible image models |
 | `hog-finnhub` | 1.1.2 | Global stock data via Finnhub API: quotes, fundamentals, analyst ratings, news, forex, crypto (excludes China A-shares) |
-| `hog-openbb` | 1.1.2 | Global financial data via OpenBB Platform: macro economics, options chains, global indices, forex, commodities (excludes China A-shares) |
+| `hog-openbb` | 1.1.3 | Global financial data via OpenBB Platform: macro economics, options chains, global indices, forex, commodities (excludes China A-shares) |
 
 ## GenPPT Development
 

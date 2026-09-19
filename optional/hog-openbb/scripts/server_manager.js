@@ -21,6 +21,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { findOpenbb, setup } = require('./python_env.js');
 
 // Cross-platform note: POSIX signals and executable permissions differ on Windows.
 const IS_WIN = process.platform === 'win32';
@@ -35,6 +36,7 @@ const PID_SERVER_FILE   = path.join(RUNTIME_DIR, '.openbb_server.pid');
 const PID_WATCHDOG_FILE = path.join(RUNTIME_DIR, '.openbb_watchdog.pid');
 const LAST_USED_FILE    = path.join(RUNTIME_DIR, '.openbb_last_used');
 const START_LOCK_FILE   = path.join(RUNTIME_DIR, '.openbb_start.lock');
+const SERVER_LOG_FILE   = path.join(RUNTIME_DIR, 'openbb-server.log');
 const MAX_IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 
 function ensureRuntimeDir() {
@@ -89,6 +91,7 @@ function loadConfig() {
   const apiUrl = entry.apiUrl ?? entry['api-url'] ?? process.env.OPENBB_API_URL ?? 'http://localhost:59201';
   const rawIdleTimeout = entry.idleTimeoutMs ?? entry['idle-timeout-ms'] ?? process.env.OPENBB_IDLE_TIMEOUT_MS ?? 1800000;
   const idleTimeoutMs = Number(rawIdleTimeout);
+  const startupTimeoutMs = Number(entry.startupTimeoutMs ?? entry['startup-timeout-ms'] ?? process.env.OPENBB_STARTUP_TIMEOUT_MS ?? 120000);
   let parsed;
   try {
     if (typeof apiUrl !== 'string' || apiUrl.length > 2048 || /[\0\r\n]/.test(apiUrl)) throw new Error('invalid URL value');
@@ -108,7 +111,10 @@ function loadConfig() {
   if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs < 1000 || idleTimeoutMs > MAX_IDLE_TIMEOUT_MS) {
     throw new Error(`OpenBB idle timeout must be an integer from 1000 through ${MAX_IDLE_TIMEOUT_MS} milliseconds`);
   }
-  return { apiUrl: parsed.toString().replace(/\/$/, ''), idleTimeoutMs };
+  if (!Number.isSafeInteger(startupTimeoutMs) || startupTimeoutMs < 1000 || startupTimeoutMs > 600000) {
+    throw new Error('OpenBB startup timeout must be an integer from 1000 through 600000 milliseconds');
+  }
+  return { apiUrl: parsed.toString().replace(/\/$/, ''), idleTimeoutMs, startupTimeoutMs };
 }
 
 // ─── Port Parsing ───────────────────────────────────────────────────────────────
@@ -150,9 +156,10 @@ function writePidFile(filePath, pid) {
   writeRuntimeFile(filePath, String(pid));
 }
 
-async function acquireStartLock(apiUrl) {
+async function acquireStartLock(apiUrl, startupTimeoutMs) {
   ensureRuntimeDir();
-  for (let attempt = 0; attempt < 120; attempt++) {
+  const deadline = Date.now() + startupTimeoutMs + 5000;
+  while (Date.now() < deadline) {
     try {
       const fd = fs.openSync(START_LOCK_FILE, 'wx', 0o600);
       try {
@@ -170,8 +177,9 @@ async function acquireStartLock(apiUrl) {
       if (error?.code !== 'EEXIST') throw error;
       if (await isRunning(apiUrl)) return null;
       try {
+        const owner = readPidFile(START_LOCK_FILE);
         const lockAgeMs = Date.now() - fs.statSync(START_LOCK_FILE).mtimeMs;
-        if (lockAgeMs > 30_000) {
+        if ((owner && !isPidAlive(owner)) || (!owner && lockAgeMs > 5000)) {
           fs.unlinkSync(START_LOCK_FILE);
           continue;
         }
@@ -212,32 +220,6 @@ function isLoopbackApiUrl(apiUrl) {
 }
 
 /**
- * Cross-platform executable lookup.
- * Resolves PATH directly so executable lookup never invokes a command shell.
- * @returns {string|null} Executable path, or null if not found
- */
-function findExecutable(name) {
-  const configured = process.env.OPENBB_API_BIN;
-  const extensions = IS_WIN
-    ? ['', ...(process.env.PATHEXT || '.EXE;.COM').split(';')]
-      .map((extension) => extension.toLowerCase())
-      .filter((extension, index, values) => !['.cmd', '.bat'].includes(extension) && values.indexOf(extension) === index)
-    : [''];
-  if (configured && IS_WIN && path.extname(configured) && !['.exe', '.com'].includes(path.extname(configured).toLowerCase())) return null;
-  const candidates = configured
-    ? (path.extname(configured) || !IS_WIN ? [configured] : extensions.map((extension) => `${configured}${extension}`))
-    : (process.env.PATH || '').split(path.delimiter).filter(Boolean)
-      .flatMap((directory) => extensions.map((extension) => path.join(directory, `${name}${extension}`)));
-  for (const candidate of candidates) {
-    try {
-      fs.accessSync(candidate, IS_WIN ? fs.constants.F_OK : fs.constants.X_OK);
-      if (fs.statSync(candidate).isFile()) return path.resolve(candidate);
-    } catch (_) { /* try the next candidate */ }
-  }
-  return null;
-}
-
-/**
  * Cross-platform process termination.
  * POSIX: sends SIGTERM for graceful exit; Windows has no signal semantics, process.kill terminates directly.
  */
@@ -256,12 +238,12 @@ function forceKillProcess(pid) {
 // ─── Health Check ───────────────────────────────────────────────────────────────
 
 /**
- * HTTP GET apiUrl/health; 1s timeout considered unreachable.
+ * OpenBB exposes provider coverage (no /health endpoint); probe it without a data request.
  * @returns {Promise<boolean>}
  */
 function isRunning(apiUrl) {
   return new Promise((resolve) => {
-    const url = new URL(`${apiUrl.replace(/\/+$/, '')}/health`);
+    const url = new URL(`${apiUrl.replace(/\/+$/, '')}/api/v1/coverage/providers`);
     const transport = url.protocol === 'https:' ? https : http;
     const req = transport.get(
       url,
@@ -278,13 +260,13 @@ function isRunning(apiUrl) {
 }
 
 /**
- * Poll and wait for service readiness, up to maxWaitMs (default 15,000ms), interval 500ms.
+ * Poll for service readiness; stop polling immediately if the child exits.
  * @returns {Promise<boolean>}
  */
-async function waitForReady(apiUrl, maxWaitMs = 15000) {
+async function waitForReady(apiUrl, maxWaitMs, signal) {
   const interval = 500;
   const deadline = Date.now() + maxWaitMs;
-  while (Date.now() < deadline) {
+  while (!signal.aborted && Date.now() < deadline) {
     if (await isRunning(apiUrl)) return true;
     const remaining = deadline - Date.now();
     if (remaining > 0) await new Promise((r) => setTimeout(r, Math.min(interval, remaining)));
@@ -298,7 +280,7 @@ async function waitForReady(apiUrl, maxWaitMs = 15000) {
  * Start the openbb-api process.
  * - Detached mode, independent of parent process lifecycle
  * - PID written to .openbb_server.pid
- * - Wait for health check readiness (max 15s)
+ * - Save Python output and wait for health check readiness (default 120s)
  */
 async function startServer(config, entry) {
   config = config || loadConfig();
@@ -316,73 +298,86 @@ async function startServer(config, entry) {
     throw new Error('Locally managed openbb-api requires an http:// loopback URL');
   }
 
-  const releaseStartLock = await acquireStartLock(config.apiUrl);
+  const startupTimeoutMs = config.startupTimeoutMs ?? 120000;
+  const releaseStartLock = await acquireStartLock(config.apiUrl, startupTimeoutMs);
   if (!releaseStartLock) return { alreadyRunning: true };
   try {
     if (await isRunning(config.apiUrl)) return { alreadyRunning: true };
 
-  // Check if openbb-api command exists without invoking a shell.
-  const openbbBin = findExecutable('openbb-api');
-  if (!openbbBin) {
-    throw new Error(
-      'openbb-api command not found. Please install OpenBB Platform first: pip install openbb[all]\n' +
-      'After installation, run `openbb-api --help` once to confirm the command is available.'
-    );
-  }
-
-  // Inject data source API Keys into environment variables (OpenBB reads provider config via env vars)
-  const envExtras = {};
-  const envMap = {
-    fredApiKey:         'OPENBB_FRED_API_KEY',
-    alphaVantageApiKey: 'OPENBB_ALPHA_VANTAGE_API_KEY',
-    twelveDataApiKey:   'OPENBB_TWELVE_DATA_API_KEY',
-    polygonApiKey:      'OPENBB_POLYGON_API_KEY',
-    intrinioApiKey:     'OPENBB_INTRINIO_API_KEY',
-    tiingoApiToken:     'OPENBB_TIINGO_API_TOKEN',
-  };
-  for (const [cfgKey, envKey] of Object.entries(envMap)) {
-    const val = getConfigValue(entry, cfgKey, envKey);
-    if (val) {
-      if (typeof val !== 'string' || val.length > 8192 || /[\0\r\n]/.test(val)) {
-        throw new Error(`${cfgKey} must be a single-line string no longer than 8192 characters`);
-      }
-      envExtras[envKey] = val;
+    // Resolve the skill's isolated Python environment without shell activation.
+    const openbbBin = findOpenbb();
+    if (!openbbBin) {
+      throw new Error(
+        'openbb-api command not found. Install the isolated Python runtime with:\n' +
+        `node "${path.join(__dirname, 'server_manager.js')}" setup\n` +
+        'For an existing venv, set HOG_OPENBB_VENV to its directory or OPENBB_API_BIN to its openbb-api executable.'
+      );
     }
-  }
 
-  const child = spawn(openbbBin, ['--port', port], {
-    detached: true,
-    stdio: 'ignore',
-    shell: false,
-    env: { ...process.env, ...envExtras },
-  });
-  const childFailure = new Promise((resolve) => {
-    child.once('error', (error) => resolve({ error }));
-    child.once('exit', (code, signal) => resolve({
-      error: new Error(`openbb-api exited before becoming ready (code=${code}, signal=${signal})`),
-    }));
-  });
-  child.unref();
+    // Preserve the Skill's public aliases while passing OpenBB's native credential names.
+    const envExtras = {};
+    const envMap = {
+      fredApiKey:         ['OPENBB_FRED_API_KEY', 'FRED_API_KEY'],
+      alphaVantageApiKey: ['OPENBB_ALPHA_VANTAGE_API_KEY', 'ALPHA_VANTAGE_API_KEY'],
+      twelveDataApiKey:   ['OPENBB_TWELVE_DATA_API_KEY', 'TWELVE_DATA_API_KEY'],
+      polygonApiKey:      ['OPENBB_POLYGON_API_KEY', 'POLYGON_API_KEY'],
+      intrinioApiKey:     ['OPENBB_INTRINIO_API_KEY', 'INTRINIO_API_KEY'],
+      tiingoApiToken:     ['OPENBB_TIINGO_API_TOKEN', 'TIINGO_TOKEN'],
+    };
+    for (const [cfgKey, [envKey, pythonKey]] of Object.entries(envMap)) {
+      const val = getConfigValue(entry, cfgKey, envKey);
+      if (val) {
+        if (typeof val !== 'string' || val.length > 8192 || /[\0\r\n]/.test(val)) {
+          throw new Error(`${cfgKey} must be a single-line string no longer than 8192 characters`);
+        }
+        envExtras[envKey] = val;
+        envExtras[pythonKey] = val;
+      }
+    }
 
-  // Wait for readiness
-  const outcome = await Promise.race([
-    waitForReady(config.apiUrl, 15000).then((ready) => ({ ready })),
-    childFailure,
-  ]);
-  if (outcome.error) {
-    removePidFile(PID_SERVER_FILE);
-    throw new Error(`openbb-api failed to start: ${outcome.error.message}`);
-  }
-  if (!outcome.ready || !child.pid) {
-    // Startup timeout, clean up child process
-    if (child.pid) terminateProcess(child.pid);
-    removePidFile(PID_SERVER_FILE);
-    throw new Error(
-      `openbb-api startup timeout (not ready within 15s). Port ${port} may be occupied, or there may be a Python environment issue.`
-    );
-  }
+    const logFd = fs.openSync(SERVER_LOG_FILE, 'w', 0o600);
+    if (!IS_WIN) fs.fchmodSync(logFd, 0o600);
+    const hostname = new URL(config.apiUrl).hostname.replace(/^\[|\]$/g, '');
+    let child;
+    try {
+      child = spawn(openbbBin, ['--host', hostname, '--port', port], {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        shell: false,
+        env: { ...process.env, ...envExtras, PYTHONUNBUFFERED: '1' },
+      });
+    } finally {
+      fs.closeSync(logFd);
+    }
+    const abort = new AbortController();
+    const childFailure = new Promise((resolve) => {
+      child.once('error', (error) => resolve({ error }));
+      child.once('exit', (code, signal) => resolve({
+        error: new Error(`openbb-api exited before becoming ready (code=${code}, signal=${signal})`),
+      }));
+    });
+    child.unref();
 
-  writePidFile(PID_SERVER_FILE, child.pid);
+    // Wait for readiness
+    const outcome = await Promise.race([
+      waitForReady(config.apiUrl, startupTimeoutMs, abort.signal).then((ready) => ({ ready })),
+      childFailure,
+    ]);
+    abort.abort();
+    if (outcome.error) {
+      removePidFile(PID_SERVER_FILE);
+      throw new Error(`openbb-api failed to start: ${outcome.error.message}. Python output: ${SERVER_LOG_FILE}`);
+    }
+    if (!outcome.ready || !child.pid) {
+      // Startup timeout, clean up child process
+      if (child.pid) terminateProcess(child.pid);
+      removePidFile(PID_SERVER_FILE);
+      throw new Error(
+        `openbb-api startup timeout (not ready within ${startupTimeoutMs / 1000}s). Python output: ${SERVER_LOG_FILE}`
+      );
+    }
+
+    writePidFile(PID_SERVER_FILE, child.pid);
 
     return { alreadyRunning: false, pid: child.pid, port };
   } finally {
@@ -485,8 +480,7 @@ function spawnWatchdog() {
     'use strict';
     const fs = require('fs');
     const path = require('path');
-    const http = require('http');
-    const https = require('https');
+    const { isRunning } = require(${JSON.stringify(__filename)});
 
     const IS_WIN = process.platform === 'win32';
     const RUNTIME_DIR = ${JSON.stringify(runtimeDir)};
@@ -530,24 +524,7 @@ function spawnWatchdog() {
     }
 
     function isApiRunning(done) {
-      let settled = false;
-      function finish(value) {
-        if (settled) return;
-        settled = true;
-        done(value);
-      }
-      try {
-        const target = new URL(API_URL.replace(/\/+$/, '') + '/health');
-        const transport = target.protocol === 'https:' ? https : http;
-        const req = transport.get(target, { timeout: 500 }, (res) => {
-          res.resume();
-          finish(res.statusCode >= 200 && res.statusCode < 400);
-        });
-        req.on('error', () => finish(false));
-        req.on('timeout', () => { req.destroy(); finish(false); });
-      } catch (_) {
-        finish(false);
-      }
+      isRunning(API_URL).then(done, () => done(false));
     }
 
     // Cross-platform synchronous wait: Atomics.wait does not depend on shell (replaces POSIX sleep command)
@@ -633,6 +610,9 @@ async function getStatus() {
   return {
     apiUrl: config.apiUrl,
     idleTimeoutMs: config.idleTimeoutMs,
+    startupTimeoutMs: config.startupTimeoutMs,
+    apiBin: findOpenbb(),
+    logFile: SERVER_LOG_FILE,
     serverRunning: running,
     serverPid: serverPidAlive ? serverPid : null,
     watchdogPid: watchdogPidAlive ? watchdogPid : null,
@@ -646,11 +626,13 @@ async function getStatus() {
 async function main() {
   const cmd = process.argv[2];
   if (process.argv.length !== 3 || cmd === '-h' || cmd === '--help') {
-    console.log('Usage: node server_manager.js <start|stop|status>');
+    console.log('Usage: node server_manager.js <setup|start|stop|status>');
     return cmd === '-h' || cmd === '--help' ? 0 : 1;
   }
 
-  if (cmd === 'start') {
+  if (cmd === 'setup') {
+    console.log(JSON.stringify(await setup()));
+  } else if (cmd === 'start') {
     try {
       const config = loadConfig();
       const entry = readSkillConfig();
@@ -676,7 +658,7 @@ async function main() {
     const status = await getStatus();
     console.log(JSON.stringify(status, null, 2));
   } else {
-    console.error('Usage: node server_manager.js <start|stop|status>');
+    console.error('Usage: node server_manager.js <setup|start|stop|status>');
     return 1;
   }
   return 0;

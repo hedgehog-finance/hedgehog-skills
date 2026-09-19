@@ -10,7 +10,7 @@
  *   node call_api.js --api <api-name> [--key value ... | --params-file <tmp-*.json>]
  *
  * Examples:
- *   node call_api.js --api getMacroIndicators
+ *   node call_api.js --api getMacroIndicators --symbol GDP
  *   node call_api.js --api getOptionChains --symbol AAPL
  */
 
@@ -28,20 +28,23 @@ const API_ROUTES = {
   // ===== Macroeconomic Data =====
   getMacroIndicators: {
     method: 'GET',
-    path: '/api/v1/economy/macro',
-    required: [],
+    path: '/api/v1/economy/fred_series',
+    required: ['symbol'],
+    defaults: { provider: 'fred' },
     description: 'FRED macroeconomic indicators (GDP, CPI, unemployment, federal funds rate, etc.)',
   },
   getTreasuryYields: {
     method: 'GET',
-    path: '/api/v1/economy/treasury',
+    path: '/api/v1/fixedincome/government/yield_curve',
     required: [],
+    defaults: { provider: 'fred' },
     description: 'US Treasury yield curve (various maturities)',
   },
   getEconomicCalendar: {
     method: 'GET',
     path: '/api/v1/economy/calendar',
     required: [],
+    defaults: { provider: 'fred' },
     description: 'Global economic calendar events (major data release times)',
   },
 
@@ -50,36 +53,41 @@ const API_ROUTES = {
     method: 'GET',
     path: '/api/v1/derivatives/options/chains',
     required: ['symbol'],
+    defaults: { provider: 'yfinance' },
     description: 'Options chain data (strike prices, expiry, implied volatility, Greeks)',
   },
   getOptionExpiry: {
     method: 'GET',
-    path: '/api/v1/derivatives/options/expirations',
+    path: '/api/v1/derivatives/options/chains',
     required: ['symbol'],
+    defaults: { provider: 'yfinance' },
     description: 'Options expiry date list',
   },
 
   // ===== Global Indices =====
   getGlobalIndices: {
     method: 'GET',
-    path: '/api/v1/index/price',
-    required: [],
+    path: '/api/v1/index/price/historical',
+    required: ['symbol'],
+    defaults: { provider: 'yfinance' },
     description: 'Global major stock index quotes (S&P 500, Nasdaq, Dow Jones, etc.)',
   },
 
   // ===== Forex =====
   getForexRates: {
     method: 'GET',
-    path: '/api/v1/currency/price',
-    required: [],
+    path: '/api/v1/currency/price/historical',
+    required: ['symbol'],
+    defaults: { provider: 'yfinance' },
     description: 'Forex rate data',
   },
 
   // ===== Commodities =====
   getCommodityPrices: {
     method: 'GET',
-    path: '/api/v1/commodity/price',
-    required: [],
+    path: '/api/v1/economy/fred_series',
+    required: ['symbol'],
+    defaults: { provider: 'fred' },
     description: 'Commodity prices (crude oil, gold, silver, etc.)',
   },
 };
@@ -270,25 +278,27 @@ function pickFields(obj, fields) {
 
 /**
  * Trim response items[] fields based on the fields parameter.
- * Supports OpenBB standard response structure: { data: [...] } or { data: { items: [...] } }
+ * Supports OpenBB's { results: ... } envelope and legacy { data: ... } responses.
  */
 function filterFieldsInResponse(result, fields) {
   if (!fields || !Array.isArray(fields) || fields.length === 0) return result;
   if (!result || typeof result !== 'object') return result;
 
-  const data = result.data !== undefined ? result.data : result;
+  const key = result.results !== undefined ? 'results' : result.data !== undefined ? 'data' : null;
+  const data = key ? result[key] : result;
 
   if (Array.isArray(data)) {
     const filtered = data.map((item) => pickFields(item, fields));
-    return result.data !== undefined ? { ...result, data: filtered } : filtered;
+    return key ? { ...result, [key]: filtered } : filtered;
   }
 
   if (data && typeof data === 'object' && Array.isArray(data.items)) {
-    return { ...result, data: { ...data, items: data.items.map((item) => pickFields(item, fields)) } };
+    const filtered = { ...data, items: data.items.map((item) => pickFields(item, fields)) };
+    return key ? { ...result, [key]: filtered } : filtered;
   }
 
   if (data && typeof data === 'object') {
-    return result.data !== undefined ? { ...result, data: pickFields(data, fields) } : pickFields(data, fields);
+    return key ? { ...result, [key]: pickFields(data, fields) } : pickFields(data, fields);
   }
 
   return result;
@@ -305,7 +315,7 @@ async function callApi(apiName, params = {}) {
     throw new Error(`Unknown API: ${apiName}\nAvailable APIs:\n${available}`);
   }
 
-  const requestParams = { ...params };
+  const requestParams = { ...route.defaults, ...params };
 
   // Extract fields (not sent in request, only used for response trimming)
   let fields = null;
@@ -336,14 +346,24 @@ async function callApi(apiName, params = {}) {
   await ensureRunning(config);
 
   // Send API request
-  const result = await httpRequest(config.apiUrl, route.method, route.path, requestParams);
+  let result;
+  try {
+    result = await httpRequest(config.apiUrl, route.method, route.path, requestParams);
+  } finally {
+    // A provider error must not leave an automatically started Python process unmanaged.
+    touchLastUsed();
+    const wPid = readPidFile(PID_WATCHDOG_FILE);
+    if (!wPid || !isPidAlive(wPid)) spawnWatchdog();
+  }
 
-  // Update timestamp after successful request & renew watchdog (skip on failure to avoid pointless keep-alive)
-  touchLastUsed();
-  // Only spawn a new watchdog if no active one exists, to avoid creating a new process on every call
-  const wPid = readPidFile(PID_WATCHDOG_FILE);
-  if (!wPid || !isPidAlive(wPid)) {
-    spawnWatchdog();
+  if (apiName === 'getOptionExpiry') {
+    // OpenBB returns chains as a column-oriented object (older versions used rows).
+    const chains = result.results;
+    const dates = Array.isArray(chains)
+      ? chains.map((row) => row.expiration)
+      : chains?.expiration;
+    if (!Array.isArray(dates)) throw new Error('OpenBB options response is missing expiration dates');
+    result = { ...result, results: [...new Set(dates.filter((date) => typeof date === 'string'))].sort().map((expiration) => ({ expiration })) };
   }
 
   return filterFieldsInResponse(result, fields);

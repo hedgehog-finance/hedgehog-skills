@@ -51,7 +51,7 @@ async function findMarkdownDocuments(directory) {
   const documents = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const entryPath = join(directory, entry.name);
-    if (entry.isDirectory() && !["node_modules", ".git"].includes(entry.name)) {
+    if (entry.isDirectory() && !["node_modules", ".venv", ".git"].includes(entry.name)) {
       documents.push(...await findMarkdownDocuments(entryPath));
     }
     else if (entry.name.endsWith(".md")) documents.push(entryPath);
