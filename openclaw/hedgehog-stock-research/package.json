@@ -1,10 +1,10 @@
 {
   "name": "hedgehog-stock-research",
   "license": "GPL-3.0",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "private": true,
   "type": "commonjs",
-  "description": "个股多维度深度分析。基本面、情绪面、技术面三位分析师可独立触发，CIO整合输出最终研报。",
+  "description": "个股研究四种业务场景：基本面分析、情绪分析、技术分析、CIO 综合研报；支持已有报告整合和从头完整研究。",
   "engines": {
     "node": ">=18"
   }

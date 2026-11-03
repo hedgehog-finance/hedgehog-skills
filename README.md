@@ -40,7 +40,7 @@ All Agents use one CLI parameter protocol. Pass safe non-empty top-level scalar 
 | `hog-kb-tools` | 1.2.2 | Legacy KB MCP endpoint compatibility; Knowledge search/get are also available in `hog-gateway-tools` 3.5.3 |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
-| `hedgehog-stock-research` | 2.3.1 | Multi-dimensional individual stock analysis: fundamentals, sentiment, technicals, and backtest-ready quantitative research ideas + CIO integration |
+| `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |
 
 ### Cross-Agent Authentication
 

@@ -12,7 +12,7 @@ A collection of A-share investment research skills adapted for the HogAgent plat
 | `hog-kb-tools` | 1.2.2 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
-| `hedgehog-stock-research` | 2.3.1 | Multi-dimensional individual stock analysis: fundamentals, sentiment, technicals, and backtest-ready quantitative research ideas + CIO integration |
+| `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |
 
 ## Authentication
 
