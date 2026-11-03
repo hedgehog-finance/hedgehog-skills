@@ -1,6 +1,6 @@
 # Hermes Skills
 
-A collection of 21 skills adapted for Hermes Agent. The skill logic is synchronized from the OpenClaw distribution, with Hermes-native secret declarations and explicit Node.js runtime requirements.
+A collection of 18 skills adapted for Hermes Agent. The skill logic is synchronized from the OpenClaw distribution, with Hermes-native secret declarations and explicit Node.js runtime requirements.
 
 ## Runtime Setup
 
@@ -20,12 +20,9 @@ Skills requiring `npm install`: `company-valuation`, `doc-convert`, `fin-calc`, 
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.12.0 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
-| `hedgehog-daily-morning-briefing` | 2.2.10 | Pre-market intelligence brief — filters macro, sector and watchlist news to extract core logic |
 | `hedgehog-financial-report-analysis` | 1.3.1 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
 | `deliver_files` | 2.1.3 | Compatibility wrapper for restricted Gateway file delivery, now also available in `hog-gateway-tools` |
 | `hog-gateway-tools` | 3.5.3 | Authenticated General MCP CLI: task result reporting, restricted file delivery, Work context, Task Resource status, Knowledge, Memory, notifications, watchlist and resource recommendations |
-| `hedgehog-in-depth-analysis` | 2.2.2 | Probability-tree scenario analysis for major events (macro volatility / black swans / geopolitics / policy shifts), predicting high-probability paths and measuring market impact |
-| `hedgehog-information-verification` | 2.2.2 | Cross-validate market rumors and unconfirmed news via multi-source verification, quantifying confidence scores to prevent misinformation-driven decisions |
 | `hog-kb-tools` | 1.2.2 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hog-memory` | 1.3.2 | Cross-session persistent memory CLI: save, search and recall market insights and research conclusions |
