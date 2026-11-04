@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.5.3";
+const VERSION = "3.6.0";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
@@ -345,7 +345,7 @@ function requiredResourceId(args, command) {
 
 function memorySaveArgs(args) {
   const flags = parseFlags(args);
-  validateFlags(flags, ["task-type", "tags", "task-desc", "work-id"]);
+  validateFlags(flags, ["task-type", "tags", "task-desc", "work-id", "session-id"]);
   const content = positional(args).join(" ").trim();
   if (!content) throw new Error("Usage: hog-gateway-tools memory-save <content> [options]");
   return {
@@ -355,12 +355,13 @@ function memorySaveArgs(args) {
     tags: splitCsv(flags.tags),
     ...(flags["task-desc"] ? { task_desc: flags["task-desc"] } : {}),
     ...(flags["work-id"] ? { source_work_id: flags["work-id"] } : {}),
+    ...(flags["session-id"] ? { source_session: flags["session-id"] } : {}),
   };
 }
 
 function memorySearchArgs(args) {
   const flags = parseFlags(args);
-  validateFlags(flags, ["task-type", "stock-codes", "industry", "tags", "work-id", "mode", "limit"]);
+  validateFlags(flags, ["task-type", "stock-codes", "industry", "tags", "work-id", "mode", "limit", "source-kind", "date-from", "date-to"]);
   const query = positional(args).join(" ").trim();
   const stockCodes = splitCsv(flags["stock-codes"]);
   const tags = splitCsv(flags.tags);
@@ -373,20 +374,25 @@ function memorySearchArgs(args) {
     ...(tags.length ? { tags } : {}),
     ...(flags["work-id"] ? { work_id: flags["work-id"] } : {}),
     ...(flags.mode ? { mode: flags.mode } : {}),
+    ...(flags["source-kind"] ? { source_kind: flags["source-kind"] } : {}),
+    ...(flags["date-from"] ? { date_from: flags["date-from"] } : {}),
+    ...(flags["date-to"] ? { date_to: flags["date-to"] } : {}),
   };
 }
 
 function memoryUpdateArgs(args) {
   const flags = parseFlags(args);
   const usage = "Usage: hog-gateway-tools memory-update <id> [options]";
-  validateFlags(flags, ["content", "tags", "task-type", "task-desc"]);
+  validateFlags(flags, ["content", "tags", "task-type", "task-desc", "expected-revision"], ["content", "task-type", "task-desc", "expected-revision"]);
+  if (flags.tags === true) throw new Error('--tags requires a value; use --tags "" to clear');
   const [id] = exactPositionals(args, 1, usage);
-  const payload = { id };
+  if (flags["expected-revision"] === undefined) throw new Error("memory-update requires --expected-revision from memory-recall");
+  const payload = { id, expected_revision: boundedInteger(flags["expected-revision"], 1, 1, Number.MAX_SAFE_INTEGER, "expected-revision") };
   if (flags.content && flags.content !== true) payload.content = flags.content;
   if (flags.tags !== undefined && flags.tags !== true) payload.tags = splitCsv(flags.tags);
-  if (flags["task-type"] && flags["task-type"] !== true) payload.task_type = flags["task-type"];
-  if (flags["task-desc"] && flags["task-desc"] !== true) payload.task_desc = flags["task-desc"];
-  if (Object.keys(payload).length === 1) {
+  if (flags["task-type"] && flags["task-type"] !== true) payload.task_type = flags["task-type"] === "null" ? null : flags["task-type"];
+  if (flags["task-desc"] && flags["task-desc"] !== true) payload.task_desc = flags["task-desc"] === "null" ? null : flags["task-desc"];
+  if (Object.keys(payload).length === 2) {
     throw new Error("memory-update requires at least one field to update");
   }
   return payload;
@@ -405,10 +411,12 @@ Usage:
   hog-gateway-tools recommend-resource --source-type T --title X [options]
   hog-gateway-tools kb-search <query> [--type T] [--importance-min 0-5] [--date-from D] [--date-to D] [--limit 1-20]
   hog-gateway-tools kb-get <item_id>
-  hog-gateway-tools memory-save <content> [--task-type T] [--tags a,b] [--task-desc D] [--work-id ID]
-  hog-gateway-tools memory-search [query] [--task-type T] [--stock-codes X,Y] [--industry Z] [--tags A,B] [--work-id ID] [--mode M] [--limit 1-50]
+  hog-gateway-tools memory-save <content> [--task-type T] [--tags a,b] [--task-desc D] [--work-id ID] [--session-id ID]
+  hog-gateway-tools memory-search [query] [--task-type T] [--stock-codes X,Y] [--industry Z] [--tags A,B] [--work-id ID] [--source-kind K] [--date-from D] [--date-to D] [--mode M] [--limit 1-50]
   hog-gateway-tools memory-recall <id>
-  hog-gateway-tools memory-update <id> [--content C] [--tags a,b] [--task-type T] [--task-desc D]
+  hog-gateway-tools memory-list [--page N] [--page-size 1-100] [--source-kind K]
+  hog-gateway-tools memory-delete <id>
+  hog-gateway-tools memory-update <id> --expected-revision N [--content C] [--tags a,b] [--task-type T] [--task-desc D]
 
 Global options:
   --url <url>                MCP endpoint; defaults to HEDGEHOG_MCP_GENERAL_URL or http://127.0.0.1:59102/mcp
@@ -416,6 +424,7 @@ Global options:
   --poll-interval-ms <ms>    Task polling interval, integer from 250 through 30000 ms
   --no-wait                  Return a task creation acknowledgement without polling
 
+Memory update: use the revision from memory-recall; --task-type null / --task-desc null clear fields, --tags "" clears tags.
 Use the environment variable for tokens when possible so credentials do not appear in shell history.`;
 
 async function execute(client, command, args, options) {
@@ -435,6 +444,11 @@ async function execute(client, command, args, options) {
     case "memory-save": return callTool(client, "memory_write", memorySaveArgs(args), options);
     case "memory-search": return callTool(client, "memory_search", memorySearchArgs(args), options);
     case "memory-recall": return readResource(client, `hedgehog://memories/${requiredResourceId(args, "memory-recall")}`);
+    case "memory-list": {
+      const flags = parseFlags(args); validateFlags(flags, ["page", "page-size", "source-kind"]); exactPositionals(args, 0, "Usage: memory-list [options]");
+      return callTool(client, "memory_list", { page: boundedInteger(flags.page, 1, 1, 100000, "page"), page_size: boundedInteger(flags["page-size"], 20, 1, 100, "page-size"), ...(flags["source-kind"] ? { source_kind: flags["source-kind"] } : {}) }, options);
+    }
+    case "memory-delete": return callTool(client, "memory_delete", { id: decodeURIComponent(requiredResourceId(args, "memory-delete")) }, options);
     case "memory-update": return callTool(client, "memory_update", memoryUpdateArgs(args), options);
     default: throw new Error(`Unknown command: ${command}. Use --help for usage.`);
   }

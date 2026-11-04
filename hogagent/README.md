@@ -1,6 +1,6 @@
 # HogAgent Skills
 
-A collection of A-share investment research skills adapted for the HogAgent platform, containing 7 skill modules.
+A collection of A-share investment research skills adapted for the HogAgent platform, containing 6 skill modules.
 
 ## Skill List
 
@@ -8,8 +8,7 @@ A collection of A-share investment research skills adapted for the HogAgent plat
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.12.0 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
 | `hedgehog-financial-report-analysis` | 1.3.1 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
-| `hog-gateway-tools` | 3.5.3 | Authenticated General MCP CLI: task result reporting, restricted file delivery, Work context, Task Resource status, Knowledge, Memory, notifications, watchlist and resource recommendations |
-| `hog-kb-tools` | 1.2.2 | Gateway KB MCP Server CLI: knowledge base search and cross-session memory management |
+| `hog-gateway-tools` | 3.6.0 | Authenticated General MCP CLI: task result reporting, restricted file delivery, Work context, Task Resource status, Knowledge, Memory, notifications, watchlist and resource recommendations |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
 | `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |

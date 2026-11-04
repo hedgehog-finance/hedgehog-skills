@@ -266,7 +266,7 @@ test("hog-gateway-tools exposes the selected persistent Memory operations", asyn
         contents: [{
           uri: body.params.uri,
           mimeType: "application/json",
-          text: '{"memory":{"id":"memory-1"}}',
+          text: '{"memory":{"id":"memory-1","revision":7}}',
         }],
       });
       return;
@@ -277,10 +277,14 @@ test("hog-gateway-tools exposes the selected persistent Memory operations", asyn
     });
   }, async (url) => {
     for (const args of [
-      ["memory-save", "结论", "--task-type", "market_insight", "--tags", "600519.SH,食品饮料", "--task-desc", "技术研判", "--work-id", "work-1"],
-      ["memory-search", "茅台", "--stock-codes", "600519.SH,000001.SZ", "--industry", "食品饮料", "--tags", "双底", "--work-id", "work-1", "--mode", "hybrid", "--limit", "8"],
+      ["memory-save", "结论", "--task-type", "market_insight", "--tags", "600519.SH,食品饮料", "--task-desc", "技术研判", "--work-id", "work-1", "--session-id", "session-1"],
+      ["memory-search", "茅台", "--stock-codes", "600519.SH,000001.SZ", "--industry", "食品饮料", "--tags", "双底", "--work-id", "work-1", "--mode", "hybrid", "--limit", "8", "--source-kind", "work", "--date-from", "2026-10-01", "--date-to", "2026-11-04"],
       ["memory-recall", "memory-1"],
-      ["memory-update", "memory-1", "--content", "修订结论", "--tags", "600519.SH,修订"],
+      ["memory-update", "memory-1", "--expected-revision", "7", "--content", "修订结论", "--tags", "600519.SH,修订"],
+      ["memory-update", "memory-1", "--expected-revision", "8", "--task-type", "null", "--task-desc", "null", "--tags", ""],
+      ["memory-list"],
+      ["memory-list", "--page", "2", "--page-size", "5", "--source-kind", "work"],
+      ["memory-delete", "记忆/1%"],
     ]) {
       const result = await runCli(GATEWAY_CLI, [...args, "--url", url, "--token", TEST_TOKEN]);
       assert.equal(result.code, 0, result.stderr);
@@ -297,6 +301,7 @@ test("hog-gateway-tools exposes the selected persistent Memory operations", asyn
         tags: ["600519.SH", "食品饮料"],
         task_desc: "技术研判",
         source_work_id: "work-1",
+        source_session: "session-1",
       },
     },
     {
@@ -310,6 +315,9 @@ test("hog-gateway-tools exposes the selected persistent Memory operations", asyn
         tags: ["双底"],
         work_id: "work-1",
         mode: "hybrid",
+        source_kind: "work",
+        date_from: "2026-10-01",
+        date_to: "2026-11-04",
       },
     },
     {
@@ -320,9 +328,81 @@ test("hog-gateway-tools exposes the selected persistent Memory operations", asyn
     {
       method: "tools/call",
       name: "memory_update",
-      arguments: { id: "memory-1", content: "修订结论", tags: ["600519.SH", "修订"] },
+      arguments: { id: "memory-1", expected_revision: 7, content: "修订结论", tags: ["600519.SH", "修订"] },
+    },
+    {
+      method: "tools/call",
+      name: "memory_update",
+      arguments: { id: "memory-1", expected_revision: 8, task_type: null, task_desc: null, tags: [] },
+    },
+    {
+      method: "tools/call",
+      name: "memory_list",
+      arguments: { page: 1, page_size: 20 },
+    },
+    {
+      method: "tools/call",
+      name: "memory_list",
+      arguments: { page: 2, page_size: 5, source_kind: "work" },
+    },
+    {
+      method: "tools/call",
+      name: "memory_delete",
+      arguments: { id: "记忆/1%" },
     },
   ]);
+});
+
+test("Memory commands reject missing revisions, invalid pagination, and identity overrides before sending", async () => {
+  let requests = 0;
+  await withMockServer(async (_request, response) => {
+    requests++;
+    jsonResponse(response, { structuredContent: { ok: true } });
+  }, async (url) => {
+    const invalid = [
+      ["memory-update", "memory-1", "--content", "change"],
+      ["memory-update", "memory-1", "--expected-revision", "1"],
+      ...["0", "-1", "1.5", "9007199254740992", ""].map(revision =>
+        ["memory-update", "memory-1", "--expected-revision", revision, "--content", "change"]),
+      ["memory-update", "memory-1", "--expected-revision", "1", "--tags"],
+      ["memory-update", "memory-1", "--expected-revision", "1", "--content", ""],
+      ["memory-list", "--page", "0"],
+      ["memory-list", "--page-size", "101"],
+      ["memory-list", "--source-kind"],
+      ["memory-list", "unexpected"],
+      ["memory-delete"],
+      ["memory-delete", "one", "two"],
+      ["memory-delete", "memory-1", "--user-id", "other-user"],
+      ["memory-list", "--user-id", "other-user"],
+    ];
+    for (const args of invalid) {
+      const result = await runCli(GATEWAY_CLI, [...args, "--url", url, "--token", TEST_TOKEN]);
+      assert.equal(result.code, 1, `${JSON.stringify(args)} unexpectedly succeeded`);
+    }
+  });
+  assert.equal(requests, 0);
+});
+
+test("Memory revision conflicts surface without retrying or overwriting", async () => {
+  let requests = 0;
+  await withMockServer(async (request, response) => {
+    requests++;
+    const body = await readJsonRequest(request);
+    assert.equal(body.params.name, "memory_update");
+    assert.equal(body.params.arguments.expected_revision, 3);
+    jsonResponse(response, {
+      isError: true,
+      content: [{ type: "text", text: "Revision conflict: current revision is 4" }],
+    });
+  }, async (url) => {
+    const result = await runCli(GATEWAY_CLI, [
+      "memory-update", "memory-1", "--expected-revision", "3", "--content", "change",
+      "--url", url, "--token", TEST_TOKEN,
+    ]);
+    assert.equal(result.code, 1, result.stderr);
+    assert.match(result.stderr, /Revision conflict/);
+  });
+  assert.equal(requests, 1);
 });
 
 test("hog-gateway-tools exposes only its named command surface", async () => {
@@ -344,8 +424,6 @@ test("hog-gateway-tools exposes only its named command surface", async () => {
       ["task-cancel", "task-control"],
       ["get-task-context", "task-control"],
       ["kb-list-types"],
-      ["memory-delete", "memory-1"],
-      ["memory-list"],
     ]) {
       const result = await runCli(GATEWAY_CLI, [
         ...args, "--url", url, "--token", TEST_TOKEN,
@@ -362,7 +440,9 @@ test("hog-gateway-tools exposes only its named command surface", async () => {
   assert.match(help.stdout, /hog-gateway-tools kb-search <query>/);
   assert.match(help.stdout, /hog-gateway-tools memory-save <content>/);
   assert.doesNotMatch(help.stdout, /list-tools|mcp-task-get|mcp-task-update|mcp-task-cancel|get-task-context/);
-  assert.doesNotMatch(help.stdout, /kb-list-types|memory-delete|memory-list/);
+  assert.doesNotMatch(help.stdout, /kb-list-types/);
+  assert.match(help.stdout, /memory-delete <id>/);
+  assert.match(help.stdout, /memory-list/);
   assert.doesNotMatch(help.stdout, /push-workflow|list-extensions|hog-gateway-tools call /);
 });
 

@@ -19,14 +19,14 @@ hedgehog-skills/
 
 | Platform | Directory | Skills | Description |
 |----------|-----------|--------|-------------|
-| **HogAgent** | `hogagent/` | 7 | Core A-share investment research skills |
-| **OpenClaw** | `openclaw/` | 18 | All HogAgent skills + 11 additional utility skills |
-| **Hermes** | `hermes/` | 18 | OpenClaw-equivalent skill set with Hermes-native secrets and Node.js prerequisites |
+| **HogAgent** | `hogagent/` | 6 | Core A-share investment research skills |
+| **OpenClaw** | `openclaw/` | 16 | All HogAgent skills + 10 additional utility skills |
+| **Hermes** | `hermes/` | 16 | OpenClaw-equivalent skill set with Hermes-native secrets and Node.js prerequisites |
 | **Optional** | `optional/` | 3 | Rich PPT generation and global market data extensions |
 
 ## Windows command compatibility
 
-All Agents use one CLI parameter protocol. Pass safe non-empty top-level scalar values as named arguments; put objects, arrays, `null`, multiline text, difficult quoting, and numeric/boolean-looking strings that must remain strings in a UTF-8 JSON file named `tmp-<skill-name>-<id>.json`. Create JSON with the Agent's file tool, pass only its path through the documented file option, never mix payload sources, and delete the temporary file after use. PowerShell and Git Bash examples follow the same rule; `cmd.exe` is unsupported.
+For CLIs that accept a business parameter object, all Agents use one parameter protocol. Pass safe non-empty top-level scalar values as named arguments; put objects, arrays, `null`, multiline text, difficult quoting, and numeric/boolean-looking strings that must remain strings in a UTF-8 JSON file named `tmp-<skill-name>-<id>.json`. Create JSON with the Agent's file tool, pass only its path through the documented file option, never mix payload sources, and delete the temporary file after use. PowerShell and Git Bash examples follow the same rule; `cmd.exe` is unsupported. Named-command CLIs such as `hog-gateway-tools` use their documented arguments and file options.
 
 ## Skills Overview
 
@@ -36,8 +36,7 @@ All Agents use one CLI parameter protocol. Pass safe non-empty top-level scalar 
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.12.0 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
 | `hedgehog-financial-report-analysis` | 1.3.0 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
-| `hog-gateway-tools` | 3.5.3 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus bounded failure retries and durable Task polling |
-| `hog-kb-tools` | 1.2.2 | Legacy KB MCP endpoint compatibility; Knowledge search/get are also available in `hog-gateway-tools` 3.5.3 |
+| `hog-gateway-tools` | 3.6.0 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus bounded failure retries and durable Task polling |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
 | `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |
@@ -51,12 +50,11 @@ All Agents use one CLI parameter protocol. Pass safe non-empty top-level scalar 
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `company-valuation` | 3.0.5 | Valuation engine with Vega-Lite v6 sensitivity heatmap output |
-| `deliver_files` | 2.1.3 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.5.3 |
+| `deliver_files` | 2.1.3 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.6.0 |
 | `doc-convert` | 2.1.2 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.4 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.4.2 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
 | `gen-ppt` | 2.4.3 | Generate and validate target-aware PPTX presentations: native charts for PowerPoint, PNG charts for Keynote/universal, or HTML slides from Markdown |
-| `hog-memory` | 1.3.2 | Legacy KB MCP endpoint compatibility; Memory save/search/recall/update are also available in `hog-gateway-tools` 3.5.3 |
 | `math_calc` | 1.1.2 | Safe mathematical expression evaluator CLI |
 | `table-convert` | 1.1.2 | Spreadsheet conversion (xlsx / xls / csv → JSON / Markdown) |
 | `tech-indicators` | 1.1.2 | Local technical indicator calculation engine |
@@ -107,4 +105,4 @@ This project is licensed under the [GPL-3.0](LICENSE) open source license. The d
 
 ## Manifest and delivery alignment
 
-Gateway owns managed Manifests. Native tools and data Skills supply role/source facts; final delivery uses the current Prompt Run diff and explicit file list. Source-producing CLIs accept --artifact-root without changing --dir/--out. Internal groups return output_files; final outputs and companions are declared by the host. Existing delivery, Knowledge, and Memory Skills remain supported.
+Gateway owns managed Manifests. Native tools and data Skills supply role/source facts; final delivery uses the current Prompt Run diff and explicit file list. Source-producing CLIs accept --artifact-root without changing --dir/--out. Internal groups return output_files; final outputs and companions are declared by the host. Knowledge and Memory use `hog-gateway-tools`; `deliver_files` remains a delivery compatibility wrapper.

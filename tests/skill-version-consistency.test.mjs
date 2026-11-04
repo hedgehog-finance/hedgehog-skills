@@ -15,9 +15,7 @@ const EXPECTED = {
   "hedgehog-company-index-data": "1.12.0",
   "hedgehog-macro-industry-data": "1.8.3",
   "hedgehog-news-reports": "1.9.3",
-  "hog-gateway-tools": "3.5.3",
-  "hog-kb-tools": "1.2.2",
-  "hog-memory": "1.3.2",
+  "hog-gateway-tools": "3.6.0",
   math_calc: "1.1.2",
   "table-convert": "1.1.2",
   "tech-indicators": "1.1.2",
@@ -83,15 +81,11 @@ test("platform manifests and embedded CLI versions match package versions", () =
 
   for (const platform of ["hogagent", "openclaw", "hermes"]) {
     const gateway = readFileSync(join(REPO_ROOT, platform, "hog-gateway-tools", "cli.mjs"), "utf8");
-    const kb = readFileSync(join(REPO_ROOT, platform, "hog-kb-tools", "cli.mjs"), "utf8");
-    assert.match(gateway, /const VERSION = "3\.5\.3"/);
-    assert.match(kb, /hog-kb-tools v1\.2\.2/);
+    assert.match(gateway, /const VERSION = "3\.6\.0"/);
   }
   for (const platform of ["openclaw", "hermes"]) {
     const deliver = readFileSync(join(REPO_ROOT, platform, "deliver_files", "cli.mjs"), "utf8");
-    const memory = readFileSync(join(REPO_ROOT, platform, "hog-memory", "cli.mjs"), "utf8");
     assert.match(deliver, /const VERSION = "2\.1\.3"/);
-    assert.match(memory, /hog-memory v1\.3\.2/);
   }
 });
 

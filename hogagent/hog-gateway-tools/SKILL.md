@@ -1,155 +1,88 @@
 ---
 name: hog-gateway-tools
-version: 3.5.3
+version: 3.6.0
 description: >
-    Call authenticated Hedgehog Gateway General MCP capabilities, including
-    workflow reporting, restricted workspace file delivery, Work context and Task status, knowledge-base retrieval,
-    cross-session memory retrieval and authorized save/update operations, notifications,
-    watchlists, resource recommendations, and durable MCP task polling.
-    Use for Agent-to-Gateway orchestration, delivering existing artifacts, KB queries,
-    or persistent memory.
+  Use authenticated Gateway General MCP for Work/Task coordination, workspace file
+  delivery, knowledge-base and cross-session memory retrieval, authorized memory
+  changes, notifications, watchlists, and resource recommendations.
 ---
 
 # Gateway General MCP Tools
 
+Use Node.js >=18: `node <skill_path>/cli.mjs <command> [arguments]`. Run `--help` for syntax. The CLI handles MCP `2026-07-28` headers, authentication, Resource Links, and durable Task polling.
 
-## Portable CLI parameters
+## Connection
 
-When a documented CLI accepts a parameter object, use the same rule on every Agent and operating system; existing positional file inputs remain positional:
+Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into managed Agents. The reserved `agent-runtime` Profile covers these commands; do not create a separate Token. External clients obtain a scoped Token from Gateway settings → MCP Clients.
 
-1. When every business value is a non-empty, single-line `string | finite number | boolean`, pass it as a named argument (`--key value` or `--key=value`). Names are case-sensitive and are not normalized.
-2. When any value is an object, array, `null`, multiline text, a numeric/boolean-looking string that must remain a string, or contains difficult quoting, write the complete parameter object as UTF-8 JSON and pass the file option documented by this Skill.
-3. Agent-created parameter files must have a unique basename matching `tmp-<skill-name>-<unique-id>.json`, must not use the reserved `.hedgehog/` directory, and must be removed after the call when no longer needed. UTF-8 BOM is accepted.
-4. Do not inline nested JSON or combine flat arguments with a JSON/file payload. Create JSON with the Agent's file-writing capability, not `echo`, a shell heredoc, or PowerShell string assembly.
-
-POSIX/Git Bash form: `node '<script>' --key 'single-line value'` or `node '<script>' <file-option> '<workspace>/tmp-<skill-name>-<id>.json'`.
-
-PowerShell form: `node "<script>" --key "single-line value"` or `node "<script>" <file-option> "<workspace>\\tmp-<skill-name>-<id>.json"`.
-
-On Windows, use PowerShell or a verified Git for Windows Bash; `cmd.exe` is unsupported. Keep each command on one physical line. The process runs with the current Agent user's permissions and that Agent's native sandbox; HogAgent marks its Windows shell as `UNSANDBOXED`.
-
-Use this Skill to call the Gateway General MCP `2026-07-28` endpoint. The CLI supplies the required modern MCP headers and `_meta` envelope, preserves structured results and Resource Links, and handles the `io.modelcontextprotocol/tasks` lifecycle.
-
-## Connection and authentication
-
-When General MCP is enabled, Gateway injects both variables into managed Agent runtimes. Its reserved
-`agent-runtime` Profile includes every named command in this Skill, including
-Knowledge read, Memory read/write, and dedicated file-delivery permissions, so a managed Agent must not
-create or paste a separate MCP client Token:
-
-```bash
-export HEDGEHOG_MCP_GENERAL_URL=http://127.0.0.1:59102/mcp
-export HEDGEHOG_MCP_GENERAL_TOKEN=hgmcp_...
-```
-
-For an external client, create a suitable MCP Token/Profile in the standalone MCP Clients card in Gateway settings. Prefer the environment variable for the token; `--token` is available for one-off calls but can remain in shell history.
-
-Endpoint priority:
-
-1. `--url`
-2. `HEDGEHOG_MCP_GENERAL_URL`
-3. `gateway.mcpGeneralUrl` in `~/.hogagent/hogagent.json`
-4. `http://127.0.0.1:59102/mcp`
-
-Token priority is `--token`, then `HEDGEHOG_MCP_GENERAL_TOKEN`. The URL must use HTTP(S), must not embed credentials, and must resolve to `/mcp`.
-
-Tool visibility is Profile-scoped. Not every command below is available to every Token; a forbidden named command must not be retried with another identity.
-
-Tool discovery, generic arbitrary tool calls, `push_workflow`, `list_extensions`, KB type discovery, Memory delete/list, and direct MCP Task get/update/cancel operations are intentionally outside this Skill. The authenticated principal determines the user for Knowledge and Memory operations; `--user-id` is rejected.
+- URL priority: `--url` → `HEDGEHOG_MCP_GENERAL_URL` → `gateway.mcpGeneralUrl` in `~/.hogagent/hogagent.json` → `http://127.0.0.1:59102/mcp`. Use HTTP(S), no embedded credentials, and the `/mcp` endpoint.
+- Token priority: `--token` → `HEDGEHOG_MCP_GENERAL_TOKEN`. Prefer the environment variable to avoid shell-history exposure.
+- Identity and permissions come from the Token/Profile. `--user-id` is rejected; never switch identities to bypass denial.
+- Knowledge and Memory use this General MCP entrypoint only, without the legacy KB endpoint or native memory extension. Arbitrary tool calls, tool/type discovery, `push_workflow`, `list_extensions`, and direct MCP Task control are not exposed.
 
 ## Commands
 
-Run commands with Node.js 18 or newer:
-
-```bash
-node <skill_path>/cli.mjs <command> [arguments]
-```
-
-| Command | Gateway operation |
+| Command | Purpose |
 |---|---|
-| `report-task-result` | Call `report_task_result` |
-| `deliver-files` | Call `deliver_files` and return owner-restricted Resource Links |
-| `get-work-context` | Call `get_work_context` |
-| `get-task-status` | Read `hedgehog://tasks/{id}` for one business Task's status, result, and deliveries |
-| `send-notification` | Call `send_notification` |
+| `report-task-result <task_id>` | Report a workflow result, optionally with files |
+| `deliver-files <path...>` | Deliver existing workspace files as restricted Resource Links |
+| `get-work-context <work_id>` | Read Work context; optional `--task-id` |
+| `get-task-status <task_id>` | Read business Task status, result, and deliveries |
+| `send-notification <type> <title> <body>` | Send a notification |
 | `get-watchlist` | Read the authenticated user's watchlist |
-| `recommend-resource` | Call `recommend_resource` |
-| `kb-search` | Search Knowledge through `knowledge_search` |
-| `kb-get` | Read `hedgehog://knowledge/items/{id}` |
-| `memory-save` | Create a persistent Memory through `memory_write` |
-| `memory-search` | Search Memory through `memory_search` |
-| `memory-recall` | Read `hedgehog://memories/{id}` |
-| `memory-update` | Call `memory_update` |
+| `recommend-resource --source-type T --title X` | Recommend a resource |
+| `kb-search <query>` / `kb-get <id>` | Search Knowledge / read the full item and chunks |
+| `memory-search [query]` / `memory-recall <id>` | Search Memory / read content and revision |
+| `memory-save <content>` | Save one authorized memory |
+| `memory-update <id> --expected-revision N` | Update an authorized memory at its read revision |
+| `memory-list` / `memory-delete <id>` | List memories / delete an authorized memory |
 
-Use `--help` for the complete CLI syntax.
+## Arguments
 
-### Common calls
+Keep documented positional inputs positional; use case-sensitive `--key value` or `--key=value` for options. Text values remain strings. Prefer concise, single-line text and shell-safe quoting.
+
+For structured delivery metadata, write UTF-8 JSON (BOM accepted) with the Agent's file-writing tool, then pass `--files-json-file` or `--delivery-files-json-file`. Use a unique `tmp-hog-gateway-tools-<id>.json` outside `.hedgehog/` and remove it when no longer needed. These options carry file metadata only; there is no generic `--json-file` for other commands. Do not inline nested JSON or combine competing sources for the same payload; separate options such as `--task-id` remain valid.
+
+Use PowerShell or verified Git Bash on Windows; `cmd.exe` is unsupported. Keep shell commands on one physical line. Calls use the Agent's native permissions and sandbox; HogAgent's Windows shell is `UNSANDBOXED`.
 
 ```bash
-node <skill_path>/cli.mjs report-task-result task-123 --content "Task output" --delivery-files-json-file '<workspace>/tmp-hog-gateway-tools-<id>.json'
-
-node <skill_path>/cli.mjs deliver-files tasks/task-123/report.pdf tasks/task-123/chart.png --summary "Analysis artifacts" --task-id task-123
 node <skill_path>/cli.mjs deliver-files --files-json-file '<workspace>/tmp-hog-gateway-tools-<id>.json' --task-id task-123
-
-node <skill_path>/cli.mjs get-work-context work-123 --task-id task-123
-node <skill_path>/cli.mjs get-task-status task-123
-
-node <skill_path>/cli.mjs send-notification workflow_complete "Analysis complete" "The report is ready"
-
-node <skill_path>/cli.mjs get-watchlist
-
-node <skill_path>/cli.mjs recommend-resource --source-type skill --title "Weekly report" --content-type report --summary "Sector review" --recommend-reason "Relevant to the watchlist"
-
+node <skill_path>/cli.mjs report-task-result task-123 --content "Task output" --delivery-files-json-file '<workspace>/tmp-hog-gateway-tools-<id>.json'
 node <skill_path>/cli.mjs kb-search "白酒行业景气度" --type Research --limit 5
-node <skill_path>/cli.mjs kb-get 3f1c2b9a-uuid
-
-node <skill_path>/cli.mjs memory-search "茅台" --stock-codes "600519.SH" --limit 10
-node <skill_path>/cli.mjs memory-save "茅台双底形态已确认" --task-type market_insight --tags "600519.SH,食品饮料,双底" --work-id work-123
+node <skill_path>/cli.mjs memory-search "茅台" --stock-codes "600519.SH" --mode hybrid --limit 10
 node <skill_path>/cli.mjs memory-recall memory-123
-node <skill_path>/cli.mjs memory-update memory-123 --content "目标价调整为 1900"
+node <skill_path>/cli.mjs memory-update memory-123 --expected-revision 1 --content "用户已确认的修订结论"
 ```
 
-User identity always comes from the authenticated MCP principal. Do not pass or infer another `userId`; `--user-id` is intentionally rejected for every command.
+## File delivery
 
-## File delivery rules
+- Managed `agent-runtime` delivery requires the current real Work Task. Gateway checks Session, Provider, phase, directory, and lock policy. For ordinary Chat without a Task, declare `delivery_decision` in the final response; never invent a Task ID. Internal groups/sub-agents return complete `output_files`; the host delivers after `long_task` completion. External clients may export Resource Links within their permissions.
+- `deliver-files` accepts explicit positional paths or a non-empty JSON array via `--files-json-file`; `report-task-result` attaches files via `--delivery-files-json-file`. Legacy inline JSON options are manual-only.
+- Files must already exist inside the current Agent workspace. Missing files, directories, workspace escapes, external symlinks, and `.hedgehog/` paths are rejected. Delivery does not create or modify files.
+- The MCP limit is 64 MiB per file. Use an existing HTTP/Relay streaming path for larger files and existing project/resource interfaces for Development files.
+- Report both `delivered` and `errors`, including partial failures. A failed explicit list must not trigger extra delivery through wildcards or historical directories.
 
-- `deliver-files` accepts positional paths or `--files-json-file` pointing to a non-empty UTF-8 JSON array. Agent calls must use the file form for structured metadata; the legacy inline `--files-json` form is manual-only. `--task-id` associates the delivery with an existing workflow Task.
-- `report-task-result` accepts structured delivery metadata through UTF-8 `--delivery-files-json-file`. The legacy inline `--delivery-files-json` form is manual-only; do not combine the two forms.
-- Deliver only files that already exist inside the current Agent workspace. Gateway rejects missing files, non-files, workspace escapes, symlinks outside the workspace, and `.hedgehog/` paths. The command never creates, edits, moves, or deletes a file.
-- MCP Resource projection is limited to 64 MiB per file. Use an existing HTTP/Relay streaming path for larger artifacts.
-- The output retains both the structured `delivered`/`errors` result and a `resource_links` array. A non-empty `errors` array is a partial failure: report the failed files even when other files were delivered.
+## Knowledge
 
-## Knowledge and Memory rules
+`kb-search` accepts `--type News|Research|Announcements|Minutes|Views`, `--importance-min`, `--date-from`, `--date-to`, and `--limit`. Use these exact types without runtime discovery. Update this list and the Skill version when Gateway changes them.
 
-- The maintained KB types are `News`, `Research`, `Announcements`, `Minutes`, and `Views`. Use these exact values with `kb-search --type`; do not call a runtime type-listing operation. When Gateway changes this vocabulary, update this list and the Skill version.
-- `kb-search` also supports `--importance-min`, `--date-from`, `--date-to`, and `--limit`; `kb-get` returns the full item and chunks through a General MCP Resource.
-- `memory-search` supports `--task-type`, `--stock-codes`, `--industry`, `--tags`, `--work-id`, `--mode semantic|text|hybrid`, and `--limit`.
-- Use `memory-save` or `memory-update` only when the current request authorizes that mutation. Resolve the exact Memory ID before update.
-- Tag saved investment memories with useful stock codes, industry, and topic terms. Pass `--work-id` only when the actual Work ID is known; never invent one.
-- The CLI always emits JSON-compatible output. These named commands provide the selected KB/Memory surface without depending on the legacy KB MCP endpoint; arbitrary `call`, KB type listing, Memory delete, and Memory list are not carried over.
+## Long-term memory
 
-## Durable Tasks
+- Search proactively when a request depends on past preferences, investment decisions, research, or lessons. Ordinary Chat does not authorize persistence; save only when the user explicitly requests saving the specific content. Update/delete only as authorized, after resolving the exact ID.
+- Gateway automatically captures successful Work, notes, completed courses, formal profiles, and user-selected Chats; do not save duplicates. Only the authenticated user UI may enable Session persistence. Quick chats cannot use tools; their selected content is distilled independently by Gateway.
+- Store concise facts, preferences, decisions, conclusions, and lessons with essential dates/limits. Do not store source text, full reports, or chat transcripts. `content` directly supplies embeddings; there is no summary field. Its limit is **1800 cl100k_base tokens inclusive**. Condense before writing: the server rejects blank/oversized content without truncation or automatic summarization.
+- `memory-save` accepts `--task-type`, `--task-desc`, `--tags` (CSV), `--work-id`, and `--session-id`. Use only real, authorized Work/Session associations; Gateway owns automatic source keys. Useful task types: `market_insight`, `research_record`, `portfolio`, `review`, `strategy_quant`, `other`, `learning_record`, `investor_profile`; other strings are allowed. Tag investment memories with relevant stock codes, industry, and topic.
+- Before `memory-update`, use `memory-recall` to obtain `revision` and pass it as `--expected-revision`. On conflict, reread and reconcile; do not overwrite intervening changes. Supply at least one changed field: `--content`, `--tags`, `--task-type`, or `--task-desc`. `--task-type null` / `--task-desc null` clear those fields; `--tags ""` clears tags.
+- `memory-search` supports `--task-type`, `--stock-codes`, `--industry`, `--tags`, `--work-id`, `--source-kind`, `--date-from`, `--date-to`, `--mode semantic|text|hybrid`, and `--limit` (1–50).
+- `memory-list` supports `--page` (default 1), `--page-size` (1–100, default 20), and `--source-kind`. Delete the resolved memory with `memory-delete <id>`.
+- Embedding failure does not imply save failure. Verify uncertain writes with list/search/recall before retrying. Legacy oversized memories are read-only; ask the user to condense, migrate, and confirm them in the management UI.
 
-Named commands may return an MCP Task. By default, the CLI polls until a terminal state, using the server-provided interval clamped to 250–30000 ms. Override it with `--poll-interval-ms`; use `--no-wait` only when another authorized MCP client will manage the returned Task.
+## Results and failures
 
-When a Task reaches `input_required`, the CLI prints the Task with `inputRequests` and exits with code `42`. This Skill does not expose Task update or cancellation commands; use another authorized MCP client when follow-up control is required.
+The CLI prints JSON, preferring `structuredContent` and retaining `resource_links`. Tool/protocol errors and failed/cancelled Tasks exit non-zero. Each HTTP request times out after 15 seconds.
 
-## Output and failures
+Durable MCP Tasks are polled to a terminal state at the server interval, clamped to 250–30000 ms (`--poll-interval-ms` overrides it). `input_required` prints the Task and `inputRequests`, then exits **42**. Use another authorized MCP client for follow-up control; use `--no-wait` only if that client will manage the returned Task.
 
-The CLI prints `structuredContent` when available. MCP `resource_link` content is retained in a `resource_links` array rather than discarded.
+After two consecutive connection, timeout, HTTP 404, unknown-tool/method, or protocol failures, stop and ask the user to check/restart or upgrade Gateway. Do not probe other commands or identities. For invalid arguments or permissions, report the error without unchanged retries. After an ambiguous mutation result, including memory deletion or file delivery, verify its outcome before any authorized retry.
 
-Each HTTP request has a 15-second timeout; durable Task duration is handled through polling rather than a long request. JSON-RPC errors, MCP tool errors, failed or cancelled Tasks, invalid JSON, missing credentials, and invalid endpoints produce a non-zero exit code.
-
-If two consecutive calls fail because of connection errors, timeouts, HTTP 404, an unknown tool or method, or protocol incompatibility, stop calling this Skill. Tell the user that the Gateway service may be unavailable or the installed Gateway may be too old for these commands, and ask them to check/restart the service or upgrade Gateway. Do not repeatedly invoke the same command, probe with other commands, or switch identities to work around the failure.
-
-Treat invalid arguments and missing permissions as their reported errors rather than service availability failures, and do not retry unchanged input. After an ambiguous network failure on `memory-save`, `memory-update`, or `deliver-files`, do not blindly repeat the mutation; verify the result before any user-authorized follow-up.
-
-Use `deliver-files` for standalone delivery. `report-task-result` may instead attach validated workspace files as part of a workflow result.
-
-JSON payload files and discovered configuration files are limited to 10 MiB and 1 MiB respectively; MCP responses are limited to 20 MiB. Authenticated requests reject redirects, malformed JSON-RPC responses, multiline/oversized tokens, and ambiguous payload-source combinations.
-
-## 运行交付边界
-
-Gateway 的 agent-runtime 调用此 MCP 交付入口必须提供当前真实 Work Task；服务端核对 Session、Provider、阶段、目录和锁定策略。无 Task 普通 Chat 在最终回复声明 `delivery_decision`，不编造 task_id。内部 group/sub-agent 只返回完整 `output_files`；long_task 由宿主最终收尾交付，不提前调用交付工具。外部 MCP 客户端保留授权内 Resource Link 导出。
-
-显式非空清单的错误不会触发额外文件交付；逐项报告成功与失败，不用通配符或历史目录补齐。64 MiB 是 MCP 单文件上限；多文件继续用 `--files-json-file`。Development 文件使用已有项目/资源接口。
+Limits: JSON payload files 10 MiB, configuration files 1 MiB, MCP responses 20 MiB. Authenticated requests reject redirects, malformed JSON-RPC, and multiline/oversized Tokens.

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { createServer } from "node:http";
 import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,8 +28,6 @@ const DATA_CLIS = DATA_CLI_PATHS.map((relativePath) => ({
   relativePath,
   module: require(join(REPO_ROOT, relativePath)),
 }));
-const KB_CLIS = ["hogagent", "openclaw", "hermes"]
-  .map((platform) => join(REPO_ROOT, platform, "hog-kb-tools", "cli.mjs"));
 
 function runNode(script, args) {
   return new Promise((resolve, reject) => {
@@ -215,69 +212,6 @@ test("Skill documentation uses tmp-* parameter files and never places nested JSO
       const normalized = match[1].replaceAll("\\", "/");
       const name = normalized.slice(normalized.lastIndexOf("/") + 1).replace(/^</, "");
       assert.match(name, /^tmp-gen-ppt-/, `${document}: ${match[0]}`);
-    }
-  }
-});
-
-test("hog-kb-tools accepts flat named parameters and --json-file", async () => {
-  const tempDirectory = await mkdtemp(join(tmpdir(), "hedgehog-kb-json-"));
-  const paramsPath = join(tempDirectory, "tmp-hog-kb-tools-1.json");
-  const expected = { query: "O'Reilly 中文", path: "C:\\资料\\报告 1" };
-  await writeFile(paramsPath, `\uFEFF${JSON.stringify(expected)}`, "utf8");
-
-  const observed = [];
-  const server = createServer(async (request, response) => {
-    const chunks = [];
-    for await (const chunk of request) chunks.push(chunk);
-    observed.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      result: { content: [{ type: "text", text: '{"ok":true}' }] },
-    }));
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  try {
-    const address = server.address();
-    for (const script of KB_CLIS) {
-      const flatResult = await runNode(script, [
-        "call", "kb_search", "--query", "贵州 茅台", "--limit=5",
-        "--enabled", "true", "--code", "000001",
-        "--url", `http://127.0.0.1:${address.port}`,
-      ]);
-      assert.equal(flatResult.code, 0, flatResult.stderr);
-    }
-    const result = await runNode(KB_CLIS[1], [
-      "call", "kb_search", "--json-file", paramsPath, "--url", `http://127.0.0.1:${address.port}`,
-    ]);
-    assert.equal(result.code, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), { ok: true });
-    for (const request of observed.slice(0, 3)) {
-      assert.equal(request.params.name, "kb_search");
-      assert.deepEqual(request.params.arguments, {
-        query: "贵州 茅台", limit: 5, enabled: true, code: "000001",
-      });
-    }
-    assert.equal(observed[3].params.name, "kb_search");
-    assert.deepEqual(observed[3].params.arguments, expected);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-    await rm(tempDirectory, { recursive: true, force: true });
-  }
-});
-
-test("hog-kb-tools rejects damaged, nested, duplicate, and mixed payloads", async () => {
-  for (const script of KB_CLIS) {
-    for (const [args, pattern] of [
-      [["call", "kb_search", "--json", "{query:新能源,limit:3}"], /flat named parameters.*tmp-\*\.json.*--json-file/i],
-      [["call", "kb_search", "--filters", "{\"type\":\"news\"}"], /not a flat scalar/],
-      [["call", "kb_search", "--query", "one", "--query=two"], /Duplicate business parameter/],
-      [["call", "kb_search", "--query", "one", "--json-file", "tmp-unused.json"], /mutually exclusive/],
-    ]) {
-      const result = await runNode(script, args);
-      assert.equal(result.code, 1, script);
-      assert.match(result.stderr, pattern, script);
     }
   }
 });
