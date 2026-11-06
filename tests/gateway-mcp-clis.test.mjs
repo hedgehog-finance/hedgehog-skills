@@ -40,12 +40,14 @@ function runCli(script, args, environment = {}) {
 async function readJsonRequest(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  request.rpcRequestId = body.id;
+  return body;
 }
 
 function jsonResponse(response, result, status = 200) {
   response.writeHead(status, { "content-type": "application/json" });
-  response.end(JSON.stringify({ jsonrpc: "2.0", id: "server-response", result }));
+  response.end(JSON.stringify({ jsonrpc: "2.0", id: response.req.rpcRequestId, result }));
 }
 
 async function withMockServer(handler, callback) {
@@ -403,6 +405,82 @@ test("Memory revision conflicts surface without retrying or overwriting", async 
     assert.match(result.stderr, /Revision conflict/);
   });
   assert.equal(requests, 1);
+});
+
+test("recommendation batches keep their payload and receipt ID through submission, status, and explicit retry", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gateway-recommend-"));
+  const batchPath = join(directory, "tmp-hog-gateway-tools-batch.json");
+  const batch = {
+    batch_id: "batch/id%1", scene: "agent",
+    candidates: [{ source_type: "ciwei", content_type: "News", title: "Source news", ciwei_id: "news-1", importance: -4, relevance: 4 }],
+  };
+  await writeFile(batchPath, JSON.stringify(batch));
+  const observed = [];
+  let retried = false;
+  try {
+    await withMockServer(async (request, response) => {
+      const body = await readJsonRequest(request);
+      const { name, arguments: args } = body.params;
+      assertModernEnvelope(request, body, "tools/call", name, "hog-gateway-tools");
+      observed.push(name);
+      if (name === "recommend_resource") assert.deepEqual(args, batch);
+      else assert.deepEqual(args, { id: batch.batch_id });
+      if (name === "resource_recommend_retry") retried = true;
+      jsonResponse(response, { structuredContent: {
+        id: batch.batch_id, status: retried ? "completed" : "failed",
+      } });
+    }, async (url) => {
+      for (const args of [
+        ["recommend-resource", "--batch-file", batchPath],
+        ["recommend-resource", "--batch-file", batchPath],
+        ["recommend-status", batch.batch_id],
+        ["recommend-retry", batch.batch_id],
+        ["recommend-status", batch.batch_id],
+      ]) {
+        const result = await runCli(GATEWAY_CLI, [...args, "--url", url, "--token", TEST_TOKEN]);
+        assert.equal(result.code, 0, result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout), { id: batch.batch_id, status: retried ? "completed" : "failed" });
+      }
+    });
+    assert.deepEqual(observed, ["recommend_resource", "recommend_resource", "resource_recommend_batch", "resource_recommend_retry", "resource_recommend_batch"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pending report recommendations return immediately so the Work can finish", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gateway-report-batch-"));
+  const batchPath = join(directory, "tmp-hog-gateway-tools-report.json");
+  const batch = {
+    batch_id: "report-batch", scene: "morning_briefing", work_id: "work-1", task_id: "task-1",
+    candidates: [{ source_type: "ciwei", title: "Report source", ciwei_id: "news-1" }],
+  };
+  await writeFile(batchPath, JSON.stringify(batch));
+  const observed = [];
+  try {
+    await withMockServer(async (request, response) => {
+      const body = await readJsonRequest(request);
+      assert.equal(body.method, "tools/call");
+      observed.push(body.params.name);
+      if (body.params.name === "recommend_resource") {
+        assert.deepEqual(body.params.arguments, batch);
+        jsonResponse(response, { structuredContent: { id: batch.batch_id, status: "pending" } });
+      } else {
+        assert.equal(body.params.name, "report_task_result");
+        assert.deepEqual(body.params.arguments, { task_id: "task-1", result: { content: "Report complete" } });
+        jsonResponse(response, { structuredContent: { ok: true } });
+      }
+    }, async (url) => {
+      const submitted = await runCli(GATEWAY_CLI, ["recommend-resource", "--batch-file", batchPath, "--url", url, "--token", TEST_TOKEN]);
+      assert.equal(submitted.code, 0, submitted.stderr);
+      assert.equal(JSON.parse(submitted.stdout).status, "pending");
+      const completed = await runCli(GATEWAY_CLI, ["report-task-result", "task-1", "--content", "Report complete", "--url", url, "--token", TEST_TOKEN]);
+      assert.equal(completed.code, 0, completed.stderr);
+    });
+    assert.deepEqual(observed, ["recommend_resource", "report_task_result"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("hog-gateway-tools exposes only its named command surface", async () => {

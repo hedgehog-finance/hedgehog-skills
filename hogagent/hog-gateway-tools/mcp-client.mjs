@@ -133,6 +133,7 @@ export class GeneralMcpClient {
   }
 
   async rpc(method, params = {}, name) {
+    const requestId = randomUUID();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     try {
@@ -149,7 +150,7 @@ export class GeneralMcpClient {
         },
         body: JSON.stringify({
           jsonrpc: "2.0",
-          id: randomUUID(),
+          id: requestId,
           method,
           params: { ...params, _meta: clientMeta(this.clientInfo) },
         }),
@@ -168,7 +169,15 @@ export class GeneralMcpClient {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         throw new McpRequestError("MCP response must be a JSON object", { status: response.status });
       }
-      if (body?.error) {
+      const hasResult = Object.hasOwn(body, "result");
+      const hasError = Object.hasOwn(body, "error");
+      // Gateway authentication/protocol failures may have id:null before dispatch.
+      if (body.jsonrpc !== "2.0" || hasResult === hasError
+        || (body.id !== requestId && !(hasError && body.id === null))
+        || (hasError && (!body.error || !Number.isInteger(body.error.code) || typeof body.error.message !== "string"))) {
+        throw new McpRequestError("Invalid JSON-RPC response envelope or request ID", { status: response.status });
+      }
+      if (hasError) {
         throw new McpRequestError(
           `MCP error ${body.error.code}: ${String(body.error.message || "unknown").slice(0, 1000)}`,
           { code: body.error.code, data: body.error.data, status: response.status },
@@ -255,16 +264,30 @@ export function printableResourceResult(result) {
   }
 }
 
+function validateTask(task, expectedId) {
+  if (!task || typeof task.taskId !== "string" || !task.taskId.trim()
+    || (expectedId !== undefined && task.taskId !== expectedId)
+    || !["working", "input_required", "completed", "failed", "cancelled"].includes(task.status)
+    || (task.status === "completed" && (!task.result || typeof task.result !== "object" || Array.isArray(task.result)))) {
+    throw new McpRequestError("Invalid MCP Task response (identity, status or result)");
+  }
+}
+
 export function isTaskStart(result) {
-  return result?.resultType === "task" && typeof result.taskId === "string";
+  if (result?.resultType !== "task") return false;
+  validateTask(result);
+  return true;
 }
 
 export async function waitForTask(client, initialTask, pollIntervalOverride) {
+  validateTask(initialTask);
+  const taskId = initialTask.taskId;
   let task = initialTask;
   while (!["completed", "failed", "cancelled", "input_required"].includes(task?.status)) {
     const interval = clampPollInterval(pollIntervalOverride ?? task?.pollIntervalMs);
     await new Promise((resolve) => setTimeout(resolve, interval));
-    task = await client.getTask(task.taskId);
+    task = await client.getTask(taskId);
+    validateTask(task, taskId);
   }
   return task;
 }

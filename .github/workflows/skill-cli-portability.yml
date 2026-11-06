@@ -21,6 +21,7 @@ jobs:
           node --test
           tests/json-parameter-files.test.mjs
           tests/gateway-mcp-clis.test.mjs
+          tests/gateway-mcp-regression.test.mjs
           tests/skill-script-audit.test.mjs
           tests/skill-version-consistency.test.mjs
           tests/openbb-runtime.test.mjs

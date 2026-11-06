@@ -1,6 +1,6 @@
 ---
 name: hog-gateway-tools
-version: 3.6.0
+version: 3.7.1
 description: >
   Use authenticated Gateway General MCP for Work/Task coordination, workspace file
   delivery, knowledge-base and cross-session memory retrieval, authorized memory
@@ -9,7 +9,7 @@ description: >
 
 # Gateway General MCP Tools
 
-Use Node.js >=18: `node <skill_path>/cli.mjs <command> [arguments]`. Run `--help` for syntax. The CLI handles MCP `2026-07-28` headers, authentication, Resource Links, and durable Task polling.
+Use Node.js >=18: `node <skill_path>/cli.mjs <command> [arguments]`. Run `--help` for syntax. The CLI handles MCP `2026-07-28` authentication and Task polling.
 
 ## Connection
 
@@ -30,7 +30,9 @@ Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into
 | `get-task-status <task_id>` | Read business Task status, result, and deliveries |
 | `send-notification <type> <title> <body>` | Send a notification |
 | `get-watchlist` | Read the authenticated user's watchlist |
-| `recommend-resource --source-type T --title X` | Recommend a resource |
+| `recommend-resource --source-type T --title X` | Submit one recommendation candidate |
+| `recommend-resource --batch-file <file>` | Submit a candidate batch with a stable ID |
+| `recommend-status <batch_id>` / `recommend-retry <batch_id>` | Read a batch receipt / explicitly retry a failed batch |
 | `kb-search <query>` / `kb-get <id>` | Search Knowledge / read the full item and chunks |
 | `memory-search [query]` / `memory-recall <id>` | Search Memory / read content and revision |
 | `memory-save <content>` | Save one authorized memory |
@@ -41,7 +43,7 @@ Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into
 
 Keep documented positional inputs positional; use case-sensitive `--key value` or `--key=value` for options. Text values remain strings. Prefer concise, single-line text and shell-safe quoting.
 
-For structured delivery metadata, write UTF-8 JSON (BOM accepted) with the Agent's file-writing tool, then pass `--files-json-file` or `--delivery-files-json-file`. Use a unique `tmp-hog-gateway-tools-<id>.json` outside `.hedgehog/` and remove it when no longer needed. These options carry file metadata only; there is no generic `--json-file` for other commands. Do not inline nested JSON or combine competing sources for the same payload; separate options such as `--task-id` remain valid.
+For structured payloads, write UTF-8 JSON (BOM accepted) with the Agent's file-writing tool: use `--files-json-file` or `--delivery-files-json-file` for delivery metadata, and `--batch-file` for recommendation batches. Use a unique `tmp-hog-gateway-tools-<id>.json` outside `.hedgehog/` and remove it when no longer needed. There is no generic `--json-file`. Do not inline nested JSON or combine competing payload sources; delivery options such as `--task-id` remain valid, but `--batch-file` cannot mix with candidate flags.
 
 Use PowerShell or verified Git Bash on Windows; `cmd.exe` is unsupported. Keep shell commands on one physical line. Calls use the Agent's native permissions and sandbox; HogAgent's Windows shell is `UNSANDBOXED`.
 
@@ -64,25 +66,50 @@ node <skill_path>/cli.mjs memory-update memory-123 --expected-revision 1 --conte
 
 ## Knowledge
 
-`kb-search` accepts `--type News|Research|Announcements|Minutes|Views`, `--importance-min`, `--date-from`, `--date-to`, and `--limit`. Use these exact types without runtime discovery. Update this list and the Skill version when Gateway changes them.
+`kb-search` accepts `--type News|Research|Announcements|Minutes|Views|Document`, `--importance-min` (0–5), `--date-from`, `--date-to`, and `--limit` (1–20). Keep these categories/version aligned with Gateway; do not discover types at runtime.
+
+Inspect `match_type`, `degraded`, `fragments`, and `rank_score`. Search combines text and semantic recall; rank is not similarity, text-only `score=-1`, and there is no default similarity threshold. Archived/deleted documents are excluded by default. Knowledge writes and connector authorization/sync are outside this Skill.
+
+## Resource recommendations
+
+- Use the actual provider as `source_type`, a Knowledge category as `content_type`, and an evidenced source ID (`ciwei_id`) or URL. **Batch JSON uses `url`; single-candidate CLI uses `--resource-url`.** Put obtained original text in `full_content`, otherwise an excerpt in `summary`; include `published_at` only when known.
+- Scores must be finite: `importance` −5…5, `relevance` 1…5. Preserve importance's sign without inferring sentiment. Publication requires `abs(importance)>=4`, `relevance>=4`, and a non-empty `recommend_reason`. Relevance 4 means directly related to the current stock/watchlist/research; 5 affects a key judgment. Impact alone is not relevance. Omit unknown scores for Gateway evaluation; skip known ineligible candidates. Unscorable candidates are skipped; evaluation errors can fail the batch.
+- `--batch-file` takes an object with non-empty `batch_id`, `scene`, and 1–90 candidates, each with `source_type` and `title`. Scenes: `agent`; `stock_news` with a watched `stock_code`; `morning_briefing` / `closing_summary` with real `work_id` and `task_id`. Gateway validates ownership, sources, scoring, and quotas. Single-candidate mode supports the same content/scoring fields via named flags in `--help`.
+- Reuse the same batch ID and unchanged payload after an uncertain submission; this returns the existing receipt, **not a retry of a failed batch**. Changed payloads need a new ID. Single-candidate submissions receive fresh server IDs; use batch mode when submission retries must be idempotent.
+
+Example batch file; replace placeholders with actual evidence:
+
+```json
+{
+  "batch_id": "stable-operation-id", "scene": "morning_briefing",
+  "work_id": "actual-work-id", "task_id": "actual-task-id",
+  "candidates": [{
+    "source_type": "ciwei", "content_type": "News", "ciwei_id": "actual-news-id",
+    "title": "Actual title", "summary": "Evidence used in the report",
+    "importance": -4, "relevance": 4, "recommend_reason": "Directly affects the watched company"
+  }]
+}
+```
+
+- For morning/closing reports, submit candidates actually used, including those awaiting scores, with the matching scene/Work/Task **before reporting completion**. If none remain after excluding known ineligible candidates, submit nothing. Gateway waits for successful Work completion, then publishes at most five per user/report date/type across Agents, retries, and remakes. Never bypass this quota with `agent` scene; finish the report without waiting for its pending batch.
+- Read the returned receipt ID with `recommend-status`; when `status=failed` and a retry is appropriate, use `recommend-retry`, then query again. `completed` may publish zero items after filtering; the receipt is not a publication count. Missing receipts fail. These application batches are separate from MCP Tasks, so Task polling/`--no-wait` do not control them.
+- Receipt commands require `resource:recommend` and the Gateway companion fixes. Recommendations expire after 30 days; duplicates do not extend expiry. Users choose classification, tags, and optional comments when saving to Knowledge.
 
 ## Long-term memory
 
-- Search proactively when a request depends on past preferences, investment decisions, research, or lessons. Ordinary Chat does not authorize persistence; save only when the user explicitly requests saving the specific content. Update/delete only as authorized, after resolving the exact ID.
-- Gateway automatically captures successful Work, notes, completed courses, formal profiles, and user-selected Chats; do not save duplicates. Only the authenticated user UI may enable Session persistence. Quick chats cannot use tools; their selected content is distilled independently by Gateway.
-- Store concise facts, preferences, decisions, conclusions, and lessons with essential dates/limits. Do not store source text, full reports, or chat transcripts. `content` directly supplies embeddings; there is no summary field. Its limit is **1800 cl100k_base tokens inclusive**. Condense before writing: the server rejects blank/oversized content without truncation or automatic summarization.
-- `memory-save` accepts `--task-type`, `--task-desc`, `--tags` (CSV), `--work-id`, and `--session-id`. Use only real, authorized Work/Session associations; Gateway owns automatic source keys. Useful task types: `market_insight`, `research_record`, `portfolio`, `review`, `strategy_quant`, `other`, `learning_record`, `investor_profile`; other strings are allowed. Tag investment memories with relevant stock codes, industry, and topic.
-- Before `memory-update`, use `memory-recall` to obtain `revision` and pass it as `--expected-revision`. On conflict, reread and reconcile; do not overwrite intervening changes. Supply at least one changed field: `--content`, `--tags`, `--task-type`, or `--task-desc`. `--task-type null` / `--task-desc null` clear those fields; `--tags ""` clears tags.
-- `memory-search` supports `--task-type`, `--stock-codes`, `--industry`, `--tags`, `--work-id`, `--source-kind`, `--date-from`, `--date-to`, `--mode semantic|text|hybrid`, and `--limit` (1–50).
-- `memory-list` supports `--page` (default 1), `--page-size` (1–100, default 20), and `--source-kind`. Delete the resolved memory with `memory-delete <id>`.
-- Embedding failure does not imply save failure. Verify uncertain writes with list/search/recall before retrying. Legacy oversized memories are read-only; ask the user to condense, migrate, and confirm them in the management UI.
+- Search when the request depends on past preferences, decisions, research, or lessons. Ordinary Chat saves require an explicit request for that content; update/delete require authorization and an exact ID. Do not duplicate Gateway's automatic capture of successful Work, notes, completed courses, profiles, or user-selected Chats. Only the user UI enables Session persistence; Quick chats cannot use tools.
+- Store concise facts, preferences, decisions, conclusions, or lessons with key dates/limits, never source text, reports, or transcripts. `content` directly supplies embeddings; there is no summary field. The server rejects blank content or more than **1800 cl100k_base tokens**, without truncation or summarization; condense first.
+- Write “time + action + specifics”, using evidenced activity times at their known precision. Month-or-longer summaries may use supported periods. Omit unknown times; never substitute publication/report/save dates or note periods. Keep activity times, objects, and completion states distinct: plans are not completed actions, generated reports need not have been read, and generated courses need not have been learned. Ground preferences/profiles in expression, confirmation, or assessment.
+- Save options are in `--help`. Use real, authorized Work/Session associations; Gateway owns automatic source keys. Tag investment memories with stock codes, industry, and topic. Suggested task types: `market_insight`, `research_record`, `portfolio`, `review`, `strategy_quant`, `other`, `learning_record`, `investor_profile`; other strings are allowed.
+- Before updating, recall the memory and pass its `revision` as `--expected-revision`. On conflict, reread and reconcile. Change at least one of content/tags/task-type/task-desc; `--task-type null` / `--task-desc null` clear fields, `--tags ""` clears tags. Search filters and list pagination are in `--help`.
+- Embedding failure does not prove save failure; verify uncertain writes with list/search/recall before retrying. Legacy oversized memories are read-only; ask the user to condense and confirm migration in the management UI.
 
 ## Results and failures
 
-The CLI prints JSON, preferring `structuredContent` and retaining `resource_links`. Tool/protocol errors and failed/cancelled Tasks exit non-zero. Each HTTP request times out after 15 seconds.
+The CLI prints JSON, preferring `structuredContent` and retaining `resource_links`. Tool/protocol errors and failed/cancelled Tasks exit non-zero. Each HTTP request times out after 15 seconds. Responses must match the JSON-RPC version and request ID with exactly one of result/error; pre-dispatch errors may have `id:null`. Invalid Task identity, status, or completion result stops polling with an error, without repeating the mutation.
 
 Durable MCP Tasks are polled to a terminal state at the server interval, clamped to 250–30000 ms (`--poll-interval-ms` overrides it). `input_required` prints the Task and `inputRequests`, then exits **42**. Use another authorized MCP client for follow-up control; use `--no-wait` only if that client will manage the returned Task.
 
-After two consecutive connection, timeout, HTTP 404, unknown-tool/method, or protocol failures, stop and ask the user to check/restart or upgrade Gateway. Do not probe other commands or identities. For invalid arguments or permissions, report the error without unchanged retries. After an ambiguous mutation result, including memory deletion or file delivery, verify its outcome before any authorized retry.
+Report invalid arguments or permission denial without unchanged retries. Unknown Gateway tools/methods or protocol incompatibility require a Gateway version check; do not bypass them. Stop after two consecutive connection/timeout/HTTP 404 failures and ask the user to check/restart Gateway. For uncertain mutations, verify the outcome before retrying; recommendation receipts and memory checks are described above.
 
-Limits: JSON payload files 10 MiB, configuration files 1 MiB, MCP responses 20 MiB. Authenticated requests reject redirects, malformed JSON-RPC, and multiline/oversized Tokens.
+Limits: JSON payload files 10 MiB, configuration files 1 MiB, MCP responses 20 MiB. Authenticated requests reject redirects and multiline/oversized Tokens.

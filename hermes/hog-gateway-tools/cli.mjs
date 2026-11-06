@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.6.0";
+const VERSION = "3.7.1";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
@@ -300,14 +300,59 @@ function getWatchlistArgs(args) {
   return {};
 }
 
+function recommendationScore(value, minimum, maximum, option) {
+  const parsed = Number(value);
+  if (typeof value === "boolean" || String(value).trim() === "" || !Number.isFinite(parsed)
+    || parsed < minimum || parsed > maximum) {
+    throw new Error(`--${option} must be a finite number between ${minimum} and ${maximum}`);
+  }
+  return parsed;
+}
+
+function recommendationBatch(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || typeof value.batch_id !== "string" || !value.batch_id.trim()
+    || !["agent", "stock_news", "morning_briefing", "closing_summary"].includes(value.scene)
+    || !Array.isArray(value.candidates) || value.candidates.length < 1 || value.candidates.length > 90) {
+    throw new Error("--batch-file requires an object with batch_id, scene and 1–90 candidates");
+  }
+  for (const candidate of value.candidates) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)
+      || typeof candidate.source_type !== "string" || !candidate.source_type.trim()
+      || typeof candidate.title !== "string" || !candidate.title.trim()) {
+      throw new Error("Each recommendation candidate requires source_type and title");
+    }
+    for (const [name, minimum] of [["importance", -5], ["relevance", 1]]) {
+      if (candidate[name] !== undefined) {
+        if (typeof candidate[name] !== "number") throw new Error(`${name} must be a number`);
+        recommendationScore(candidate[name], minimum, 5, name);
+      }
+    }
+  }
+  const required = value.scene === "stock_news" ? ["stock_code"]
+    : ["morning_briefing", "closing_summary"].includes(value.scene) ? ["work_id", "task_id"] : [];
+  for (const field of required) {
+    if (typeof value[field] !== "string" || !value[field].trim()) throw new Error(`${value.scene} requires ${field}`);
+  }
+  return value;
+}
+
 function recommendResourceArgs(args) {
   const flags = parseFlags(args);
-  validateFlags(flags, ["source-type", "title", "content-type", "ciwei-id", "resource-url", "summary", "full-content", "recommend-reason"]);
+  validateFlags(flags, ["batch-file", "importance", "relevance", "score-source", "published-at", "source-type", "title", "content-type", "ciwei-id", "resource-url", "summary", "full-content", "recommend-reason"]);
   exactPositionals(args, 0, "Usage: hog-gateway-tools recommend-resource --source-type T --title X [options]");
+  if (flags["batch-file"]) {
+    if (Object.keys(flags).length !== 1) throw new Error("--batch-file cannot be combined with candidate flags");
+    return recommendationBatch(parseJsonFlagOrFile(flags, "batch", "batch-file"));
+  }
   if (!flags["source-type"] || !flags.title) {
     throw new Error("Usage: hog-gateway-tools recommend-resource --source-type T --title X [options]");
   }
   return {
+    ...(flags.importance !== undefined ? { importance: recommendationScore(flags.importance, -5, 5, "importance") } : {}),
+    ...(flags.relevance !== undefined ? { relevance: recommendationScore(flags.relevance, 1, 5, "relevance") } : {}),
+    ...(flags["score-source"] ? { score_source: flags["score-source"] } : {}),
+    ...(flags["published-at"] ? { published_at: flags["published-at"] } : {}),
     source_type: flags["source-type"],
     title: flags.title,
     ...(flags["content-type"] ? { content_type: flags["content-type"] } : {}),
@@ -409,6 +454,9 @@ Usage:
   hog-gateway-tools send-notification <type> <title> <body>
   hog-gateway-tools get-watchlist
   hog-gateway-tools recommend-resource --source-type T --title X [options]
+  hog-gateway-tools recommend-resource --batch-file <tmp-hog-gateway-tools-id.json>
+  hog-gateway-tools recommend-status <batch_id>
+  hog-gateway-tools recommend-retry <batch_id>
   hog-gateway-tools kb-search <query> [--type T] [--importance-min 0-5] [--date-from D] [--date-to D] [--limit 1-20]
   hog-gateway-tools kb-get <item_id>
   hog-gateway-tools memory-save <content> [--task-type T] [--tags a,b] [--task-desc D] [--work-id ID] [--session-id ID]
@@ -424,6 +472,7 @@ Global options:
   --poll-interval-ms <ms>    Task polling interval, integer from 250 through 30000 ms
   --no-wait                  Return a task creation acknowledgement without polling
 
+Recommendation options: --content-type T, --ciwei-id ID, --resource-url URL, --summary S, --full-content C, --recommend-reason R, --importance -5..5, --relevance 1..5, --score-source S, --published-at D.
 Memory update: use the revision from memory-recall; --task-type null / --task-desc null clear fields, --tags "" clears tags.
 Use the environment variable for tokens when possible so credentials do not appear in shell history.`;
 
@@ -439,6 +488,8 @@ async function execute(client, command, args, options) {
     case "send-notification": return callTool(client, "send_notification", sendNotificationArgs(args), options);
     case "get-watchlist": return callTool(client, "get_watchlist", getWatchlistArgs(args), options);
     case "recommend-resource": return callTool(client, "recommend_resource", recommendResourceArgs(args), options);
+    case "recommend-status": return callTool(client, "resource_recommend_batch", { id: decodeURIComponent(requiredResourceId(args, "recommend-status")) }, options);
+    case "recommend-retry": return callTool(client, "resource_recommend_retry", { id: decodeURIComponent(requiredResourceId(args, "recommend-retry")) }, options);
     case "kb-search": return callTool(client, "knowledge_search", kbSearchArgs(args), options);
     case "kb-get": return readResource(client, `hedgehog://knowledge/items/${requiredResourceId(args, "kb-get")}`);
     case "memory-save": return callTool(client, "memory_write", memorySaveArgs(args), options);
