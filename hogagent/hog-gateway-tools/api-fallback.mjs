@@ -4,6 +4,28 @@ import { readFileSync, statSync } from 'node:fs';
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
 
+// Explicit method + complete-path allowlist. Unknown/new routes stay denied until reviewed.
+// IDs are opaque single segments; no generic command, proxy or model-execution endpoints.
+const API_ALLOWLIST = {
+  GET: [
+    /^\/api\/status$/,
+    /^\/api\/agent\/(?:status|health|adapters|sessions)$/,
+    /^\/api\/agent\/(?:adapters|sessions)\/[A-Za-z0-9_-]+\/status$/,
+    /^\/api\/notifications$/,
+    /^\/api\/(?:logs(?:\/stats)?|audit-logs|works-logs(?:\/stats)?)$/,
+    /^\/api\/watchlist(?:\/[A-Za-z0-9_-]+)?$/,
+    /^\/api\/workflows$/,
+    /^\/api\/workflows\/[A-Za-z0-9_-]+$/,
+    /^\/api\/workflows\/tasks\/[A-Za-z0-9_-]+(?:\/usage)?$/,
+    /^\/api\/workflows\/[A-Za-z0-9_-]+\/(?:tasks|usage)$/,
+    /^\/api\/scheduled-jobs(?:\/[A-Za-z0-9_-]+(?:\/history)?)?$/,
+  ],
+  POST: [/^\/api\/watchlist(?:\/move)?$/],
+  PUT: [/^\/api\/watchlist\/reorder$/],
+  PATCH: [/^\/api\/watchlist\/[A-Za-z0-9_-]+\/mark$/],
+  DELETE: [/^\/api\/watchlist\/[A-Za-z0-9_-]+$/],
+};
+
 function readFile(path, limit) {
   const stat = statSync(path);
   if (!stat.isFile() || stat.size > limit) throw new Error(`Expected a regular file no larger than ${limit} bytes`);
@@ -31,6 +53,9 @@ export function previewApiRequest(path) {
   if (url.origin !== base.origin || url.pathname !== request.path.split('?')[0]
     || /%(?:2e|2f|5c|25)/i.test(url.pathname) || /\/internal(?:\/|$)/i.test(decodeURIComponent(url.pathname))) {
     throw new Error('Internal endpoints, path traversal and encoded path separators are not allowed');
+  }
+  if (!API_ALLOWLIST[request.method]?.some(route => route.test(url.pathname))) {
+    throw new Error('API fallback route is not allowlisted; LLM/Agent execution, Work/Task creation or recovery, scheduling mutations and generic proxies are forbidden even with user confirmation');
   }
   if (request.method === 'GET' && Object.hasOwn(request, 'body')) throw new Error('GET cannot contain body');
   const normalized = { base_url: base.origin, method: request.method, path: url.pathname + url.search,

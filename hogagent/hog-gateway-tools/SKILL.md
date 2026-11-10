@@ -1,6 +1,6 @@
 ---
 name: hog-gateway-tools
-version: 3.8.0
+version: 3.8.1
 description: >
   Use authenticated Gateway General MCP for Work/Task coordination, workspace file
   delivery, knowledge-base and cross-session memory retrieval, authorized memory
@@ -77,11 +77,13 @@ Adding is a short deterministic operation, not a new Work. Long research/filteri
 
 ## User-confirmed HTTP API fallback
 
-**Default: do not call Gateway HTTP API or WS directly.** Use named commands first. Only when the user explicitly approves a concrete HTTP request may this Skill's `api-call` send it. There is no WS fallback and no generic MCP call command.
+**Default: do not call Gateway HTTP API or WS directly.** Use named commands first. Only when the user explicitly approves a concrete allowlisted functional HTTP request may this Skill's `api-call` send it. There is no WS fallback and no generic MCP call command.
 
-Before preparing any fallback, read [Gateway HTTP API reference and approval flow](references/gateway-api.md). `api-preview --request-file <file>` is offline and produces the exact request plus SHA-256. Present its target, method, path, payload, reason and effects to the user; only after actual confirmation run `api-call --request-file <same-file> --confirmed-sha256 <approved-hash>`. A hash is a request-integrity gate, not proof of user consent. The request is not authorized merely because the model can compute its hash. Changed request/identity requires new confirmation; uncertain writes are not replayed.
+**Execution boundary:** `api-preview` and `api-call` enforce a method/path allowlist. LLM/Agent execution, Work/Task creation, orchestration, retry/continue/resume, scheduling mutations and generic proxies are excluded even with user confirmation. Use an authorized named MCP capability for model execution; if unavailable, stop. Do not change transport or disguise execution as maintenance. Existing watchlist business side effects (such as candidate classification) remain supported.
 
-Fallback uses a separately authorized local Gateway JWT via `HEDGEHOG_GATEWAY_API_TOKEN` or `HEDGEHOG_GATEWAY_API_TOKEN_FILE`, never the MCP token. Missing credentials, permission denial, sandbox restrictions and internal endpoint boundaries are not bypassed. The CLI supports only local loopback JSON `/api/` calls, no redirects or automatic retries. It neither reads private credential stores automatically nor obtains a new token. Do not replace this workflow with curl, an ad hoc script or WS.
+Before preparing any fallback, read the [Gateway HTTP API category index](references/gateway-api.md), then only the relevant category and its linked common request flow; do not preload every API document. `api-preview --request-file <file>` is offline and produces the exact request plus SHA-256. Present its target, method, path, payload, reason and effects to the user; only after actual confirmation run `api-call --request-file <same-file> --confirmed-sha256 <approved-hash>`. A hash is a request-integrity gate, not proof of user consent. The request is not authorized merely because the model can compute its hash. Changed request/identity requires new confirmation; uncertain writes are not replayed.
+
+Fallback uses a separately authorized local Gateway JWT via `HEDGEHOG_GATEWAY_API_TOKEN` or `HEDGEHOG_GATEWAY_API_TOKEN_FILE`, never the MCP token. Missing credentials, permission denial, sandbox restrictions and internal endpoint boundaries are not bypassed. The CLI supports only allowlisted local loopback JSON `/api/` calls, no redirects or automatic retries. It neither reads private credential stores automatically nor obtains a new token. Do not replace this workflow with curl, an ad hoc script or WS.
 
 ## File delivery
 

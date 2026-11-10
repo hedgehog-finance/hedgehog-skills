@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -124,13 +125,14 @@ test('API preview is offline and missing/mismatched approval sends nothing', asy
   const result = await runCli(['api-preview', '--request-file', path]);
   assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).sha256, preview.sha256);
   await assert.rejects(callApprovedApi(path, undefined, {}), /confirmation/);
-  writeFileSync(path, JSON.stringify({ ...REQUEST, method: 'DELETE' }));
+  writeFileSync(path, JSON.stringify({ ...REQUEST, path: '/api/watchlist' }));
   await assert.rejects(callApprovedApi(path, preview.sha256, {}), /confirmation/);
 });
 test('API request changes bind method, target, path, body and declared effect', t => {
-  const path = requestFile(t, REQUEST), original = previewApiRequest(path).sha256;
-  for (const change of [{ base_url: 'http://127.0.0.1:59101' }, { method: 'DELETE' }, { path: '/api/watchlist' }, { reason: 'changed' }, { effect: 'changed' }, { method: 'POST', body: { a: 1 } }]) {
-    writeFileSync(path, JSON.stringify({ ...REQUEST, ...change }));
+  const baseline = { ...REQUEST, path: '/api/watchlist/item-123' };
+  const path = requestFile(t, baseline), original = previewApiRequest(path).sha256;
+  for (const change of [{ base_url: 'http://127.0.0.1:59101' }, { method: 'DELETE' }, { path: '/api/watchlist' }, { reason: 'changed' }, { effect: 'changed' }, { method: 'PATCH', path: '/api/watchlist/item-123/mark', body: { mark: 'ready-to-buy' } }]) {
+    writeFileSync(path, JSON.stringify({ ...baseline, ...change }));
     assert.notEqual(previewApiRequest(path).sha256, original);
   }
 });
@@ -147,10 +149,10 @@ test('API fallback uses explicit JWT, returns receipt, rejects redirects and nev
   await withServer(async (req, res) => {
     calls++;
     assert.equal(req.headers.authorization, 'Bearer synthetic-local-jwt');
-    if (req.url === '/api/redirect') { res.writeHead(302, { location: '/api/target' }); res.end(); return; }
+    if (req.url === '/api/watchlist?fixture=redirect') { res.writeHead(302, { location: '/api/target' }); res.end(); return; }
     if (req.url === '/api/target') redirected++;
-    res.writeHead(req.url === '/api/denied' ? 403 : 200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(req.url === '/api/denied' ? { error: 'Forbidden' } : { success: true, id: 'receipt' }));
+    res.writeHead(req.url === '/api/watchlist?fixture=denied' ? 403 : 200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(req.url === '/api/watchlist?fixture=denied' ? { error: 'Forbidden' } : { success: true, id: 'receipt' }));
   }, async base => {
     const path = requestFile(t, { ...REQUEST, base_url: base });
     const hash = previewApiRequest(path).sha256;
@@ -159,7 +161,7 @@ test('API fallback uses explicit JWT, returns receipt, rejects redirects and nev
     const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
     const result = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', hash], env);
     assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).data.id, 'receipt');
-    for (const target of ['/api/denied', '/api/redirect']) {
+    for (const target of ['/api/watchlist?fixture=denied', '/api/watchlist?fixture=redirect']) {
       writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: target, method: 'POST' }));
       const failure = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', previewApiRequest(path).sha256], env);
       assert.equal(failure.code, 1);
@@ -170,15 +172,85 @@ test('API fallback uses explicit JWT, returns receipt, rejects redirects and nev
 });
 test('API fallback preserves business failure and rejects malformed/non-JSON responses', async t => {
   await withServer((req, res) => {
-    res.setHeader('content-type', req.url === '/api/html' ? 'text/html' : 'application/json');
-    res.end(req.url === '/api/bad' ? '{' : req.url === '/api/html' ? '<html/>' : '{"success":false,"message":"rejected"}');
+    res.setHeader('content-type', req.url === '/api/watchlist?fixture=html' ? 'text/html' : 'application/json');
+    res.end(req.url === '/api/watchlist?fixture=bad' ? '{' : req.url === '/api/watchlist?fixture=html' ? '<html/>' : '{"success":false,"message":"rejected"}');
   }, async base => {
     const path = requestFile(t, { ...REQUEST, base_url: base });
     const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
     assert.equal((await callApprovedApi(path, previewApiRequest(path).sha256, env)).ok, false);
-    for (const endpoint of ['/api/html', '/api/bad']) {
+    for (const endpoint of ['/api/watchlist?fixture=html', '/api/watchlist?fixture=bad']) {
       writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: endpoint, method: 'POST' }));
       await assert.rejects(callApprovedApi(path, previewApiRequest(path).sha256, env), /outcome is unknown/);
     }
   });
+});
+
+const ALLOWED_API_REQUESTS = [
+  ...[
+    '/api/status', '/api/agent/status', '/api/agent/health', '/api/agent/adapters', '/api/agent/sessions',
+    '/api/agent/adapters/adapter-1/status', '/api/agent/sessions/session-1/status',
+    '/api/notifications?unreadOnly=true', '/api/logs', '/api/logs/stats', '/api/audit-logs',
+    '/api/works-logs', '/api/works-logs/stats',
+    '/api/watchlist?list_type=candidate', '/api/watchlist/count', '/api/watchlist/sync', '/api/watchlist/item-1',
+    '/api/workflows', '/api/workflows/sync', '/api/workflows/work-1', '/api/workflows/tasks',
+    '/api/workflows/tasks/task-1', '/api/workflows/tasks/task-1/usage', '/api/workflows/work-1/tasks', '/api/workflows/work-1/usage',
+    '/api/scheduled-jobs', '/api/scheduled-jobs/job-1', '/api/scheduled-jobs/job-1/history',
+  ].map(path => ({ method: 'GET', path })),
+  { method: 'POST', path: '/api/watchlist', body: { stock_code: STOCK.stock_code, list_type: 'candidate' } },
+  { method: 'POST', path: '/api/watchlist/move', body: { id: 'item-1', list_type: 'candidate', target_list_type: 'watchlist' } },
+  { method: 'PUT', path: '/api/watchlist/reorder', body: { list_type: 'watchlist', items: [{ id: 'item-1', sort_order: 1 }] } },
+  { method: 'PATCH', path: '/api/watchlist/item-1/mark', body: { list_type: 'watchlist', mark: 'ready-to-buy' } },
+  { method: 'DELETE', path: '/api/watchlist/item-1?list_type=watchlist' },
+];
+const FORBIDDEN_API_REQUESTS = [
+  ...[
+    '/api/llm-request', '/api/agent/prompt', '/api/agent/follow-up', '/api/agent/command',
+    '/api/agent/sessions', '/api/agent/sessions/session-1/resume', '/api/agent/sessions/session-1/driver',
+    '/api/workflows', '/api/workflows/orchestrate', '/api/workflows/works/work-1/retry',
+    '/api/workflows/works/work-1/continue', '/api/workflows/tasks/task-1/retry', '/api/workflows/tasks/task-1/continue',
+    '/api/workflows/work-1/resume', '/api/workflows/work-1/checkpoint', '/api/workflows/work-1/migrate',
+    '/api/scheduled-jobs', '/api/scheduled-jobs/system-report', '/api/scheduled-jobs/job-1/run', '/api/scheduled-jobs/job-1/toggle',
+    '/api/request', '/api/rpc', '/api/proxy', '/api/development/research', '/api/unknown',
+    '/api/watchlist/move/extra', '/api/watchlist/item-1', '/api/status',
+  ].map(path => ({ method: 'POST', path })),
+  { method: 'PUT', path: '/api/scheduled-jobs/job-1' },
+  { method: 'PATCH', path: '/api/workflows/work-1' },
+  { method: 'GET', path: '/api/agent/sessions/session-1/history' },
+  { method: 'GET', path: '/api/future-model-execution' },
+  { method: 'POST', path: '/api/watchlist?next=/api/agent/prompt', headers: { 'x-http-method-override': 'POST' } },
+  { method: 'POST', path: '/api/%61gent/prompt' },
+  { method: 'POST', path: '/api/watchlist/../agent/prompt' },
+  { method: 'POST', path: '/api/watchlist%2f..%2fagent%2fprompt' },
+  { method: 'POST', path: '/api/watchlist//move' },
+  { method: 'POST', path: '/api/watchlist/move;action=agent_prompt' },
+];
+
+for (const platform of ['hogagent', 'openclaw', 'hermes']) {
+  test(`${platform} permits reviewed functional API operations and rejects execution routes offline`, async t => {
+    const api = await import(`../${platform}/hog-gateway-tools/api-fallback.mjs`);
+    for (const request of ALLOWED_API_REQUESTS) {
+      assert.equal(api.previewApiRequest(requestFile(t, { ...REQUEST, ...request })).request.path, request.path);
+    }
+    for (const request of FORBIDDEN_API_REQUESTS) {
+      assert.throws(() => api.previewApiRequest(requestFile(t, { ...REQUEST, ...request })), undefined, `${request.method} ${request.path}`);
+    }
+  });
+}
+
+test('even an exact confirmation hash and valid token cannot send forbidden execution requests', async t => {
+  let calls = 0;
+  await withServer((_req, res) => { calls++; res.end('{}'); }, async base => {
+    for (const input of FORBIDDEN_API_REQUESTS) {
+      const request = { ...REQUEST, base_url: base, ...input };
+      const file = requestFile(t, request);
+      const hash = createHash('sha256').update(JSON.stringify(request)).digest('hex');
+      await assert.rejects(callApprovedApi(file, hash, { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' }));
+    }
+    const request = { ...REQUEST, base_url: base, method: 'POST', path: '/api/workflows', body: { name: 'must not start' } };
+    const file = requestFile(t, request);
+    const hash = createHash('sha256').update(JSON.stringify({ base_url: base, method: request.method, path: request.path, body: request.body, reason: request.reason, effect: request.effect })).digest('hex');
+    const result = await runCli(['api-call', '--request-file', file, '--confirmed-sha256', hash], { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' });
+    assert.equal(result.code, 1); assert.match(result.stderr, /not allowlisted/);
+  });
+  assert.equal(calls, 0);
 });
