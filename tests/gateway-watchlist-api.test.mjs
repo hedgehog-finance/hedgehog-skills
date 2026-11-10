@@ -1,0 +1,184 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+import { addWatchlist, moveWatchlist, findStock } from '../hogagent/hog-gateway-tools/watchlist.mjs';
+import { previewApiRequest, callApprovedApi } from '../hogagent/hog-gateway-tools/api-fallback.mjs';
+
+const CLI = fileURLToPath(new URL('../hogagent/hog-gateway-tools/cli.mjs', import.meta.url));
+const STOCK = { stock_code: '600519.SH', name: '贵州茅台', exchange: 'SSE', market: '主板' };
+function client(handler) {
+  const calls = [];
+  return { calls, async callTool(name, input) { calls.push({ name, input }); return { structuredContent: await handler(name, input) }; } };
+}
+function stockClient(target = [], other = [], receipt = { id: 'new' }) {
+  return client((name, input) => {
+    if (name === 'get_stock_basic_info') return { success: true, data: STOCK };
+    if (name === 'get_watchlist') return { watchlist: input.list_type === 'watchlist' ? target : other };
+    if (name === 'watchlist_add') return receipt;
+    throw new Error(`Unexpected call ${name}`);
+  });
+}
+function runCli(args, overrides = {}) {
+  return new Promise((resolve, reject) => {
+    const env = { ...process.env };
+    for (const key of ['HEDGEHOG_MCP_GENERAL_URL', 'HEDGEHOG_MCP_GENERAL_TOKEN', 'HEDGEHOG_GATEWAY_API_TOKEN', 'HEDGEHOG_GATEWAY_API_TOKEN_FILE']) delete env[key];
+    const child = spawn(process.execPath, [CLI, ...args], { env: { ...env, ...overrides }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '', stderr = '';
+    child.stdout.on('data', data => { stdout += data; }); child.stderr.on('data', data => { stderr += data; });
+    child.on('error', reject); child.on('close', code => resolve({ code, stdout, stderr }));
+  });
+}
+async function withServer(handler, run) {
+  const server = createServer((req, res) => Promise.resolve(handler(req, res)).catch(error => { res.writeHead(500); res.end(error.message); }));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try { await run(`http://127.0.0.1:${server.address().port}`); }
+  finally { await new Promise(resolve => server.close(resolve)); }
+}
+function requestFile(t, request) {
+  const directory = mkdtempSync(join(tmpdir(), 'hog-api-test-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const path = join(directory, 'tmp-hog-gateway-tools-test.json');
+  writeFileSync(path, '\uFEFF' + JSON.stringify(request));
+  return path;
+}
+const REQUEST = { base_url: 'http://127.0.0.1:59100', method: 'GET', path: '/api/status', reason: 'Check service version', effect: 'Read only' };
+
+test('stock search preserves ambiguous matches without selecting one', async () => {
+  const result = await findStock(client(() => ({ success: true, data: [STOCK, { ...STOCK, stock_code: 'other.HK' }] })), '贵州茅台');
+  assert.equal(result.total, 2); assert.equal(result.matches.length, 2);
+});
+test('add uses verified metadata and the existing application capability once', async () => {
+  const c = stockClient();
+  const result = await addWatchlist(c, '600519.SS', 'watchlist');
+  assert.equal(result.status, 'added');
+  assert.deepEqual(c.calls[0].input, { stock_code: '600519.SH' });
+  assert.deepEqual(c.calls.at(-1), { name: 'watchlist_add', input: { stock_code: STOCK.stock_code, stock_name: STOCK.name, exchange: STOCK.exchange, market: STOCK.market, list_type: 'watchlist' } });
+});
+test('unverified stocks and dictionary failures cannot write', async () => {
+  const c = client(() => ({ success: true, data: null }));
+  await assert.rejects(addWatchlist(c, 'invented', 'watchlist'), /not verified/);
+  assert.equal(c.calls.length, 1);
+});
+test('same-list duplicates skip; other-list duplicates require an explicit move', async () => {
+  const item = { ...STOCK, id: 'existing' };
+  for (const [target, other, status] of [[[item], [], 'already_present'], [[], [item], 'move_required']]) {
+    const c = stockClient(target, other);
+    assert.equal((await addWatchlist(c, STOCK.stock_code, 'watchlist')).status, status);
+    assert.ok(c.calls.every(call => call.name.startsWith('get_')));
+  }
+});
+test('write error or missing receipt does not retry or fabricate success', async () => {
+  for (const receipt of [null, {}]) {
+    const c = stockClient([], [], receipt);
+    await assert.rejects(addWatchlist(c, STOCK.stock_code, 'watchlist'), /receipt/);
+    assert.equal(c.calls.filter(call => call.name === 'watchlist_add').length, 1);
+  }
+  let writes = 0;
+  const c = stockClient(); const invoke = c.callTool;
+  c.callTool = async (name, input) => {
+    if (name === 'watchlist_add') { writes++; return { isError: true, content: [{ type: 'text', text: 'capacity reached' }] }; }
+    return invoke(name, input);
+  };
+  await assert.rejects(addWatchlist(c, STOCK.stock_code, 'watchlist'), /capacity reached/); assert.equal(writes, 1);
+});
+test('move reuses original ID and does not delete/recreate or classify', async () => {
+  const c = client((name, input) => name === 'get_watchlist' ? { watchlist: [{ id: 'candidate' }] } : { id: input.id, list_type: input.target_list_type });
+  assert.equal((await moveWatchlist(c, 'candidate', 'candidate', 'watchlist')).status, 'moved');
+  assert.deepEqual(c.calls.map(call => call.name), ['get_watchlist', 'watchlist_move']);
+  assert.deepEqual(c.calls[1].input, { id: 'candidate', list_type: 'candidate', target_list_type: 'watchlist' });
+});
+test('already moved record verifies target membership without reissuing a mutation', async () => {
+  const c = client((_name, input) => ({ watchlist: input.list_type === 'watchlist' ? [{ id: 'candidate' }] : [] }));
+  assert.equal((await moveWatchlist(c, 'candidate', 'candidate', 'watchlist')).status, 'already_in_target');
+  await assert.rejects(moveWatchlist(c, 'foreign', 'candidate', 'watchlist'), /not in/);
+  await assert.rejects(moveWatchlist(c, 'candidate', 'watchlist', 'watchlist'), /must differ/);
+  assert.ok(c.calls.every(call => call.name === 'get_watchlist'));
+});
+test('watchlist CLI uses modern MCP and rejects invalid list/identity inputs', async () => {
+  const names = [];
+  await withServer(async (req, res) => {
+    let raw = ''; for await (const data of req) raw += data;
+    const rpc = JSON.parse(raw); names.push(rpc.params.name);
+    const c = stockClient(); const result = await c.callTool(rpc.params.name, rpc.params.arguments);
+    assert.equal(req.headers.authorization, 'Bearer synthetic-mcp');
+    res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }));
+  }, async base => {
+    const env = { HEDGEHOG_MCP_GENERAL_URL: base + '/mcp', HEDGEHOG_MCP_GENERAL_TOKEN: 'synthetic-mcp' };
+    const result = await runCli(['watchlist-add', STOCK.stock_code], env);
+    assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).status, 'added');
+    for (const args of [['get-watchlist', '--list-type', 'bad'], ['watchlist-add', STOCK.stock_code, '--user-id', 'foreign'], ['watchlist-move', 'id', '--from', 'candidate']]) {
+      assert.equal((await runCli(args, env)).code, 1);
+    }
+  });
+  assert.deepEqual(names, ['get_stock_basic_info', 'get_watchlist', 'get_watchlist', 'watchlist_add']);
+});
+
+test('API preview is offline and missing/mismatched approval sends nothing', async t => {
+  const path = requestFile(t, REQUEST); const preview = previewApiRequest(path);
+  assert.equal(preview.requires_user_confirmation, true); assert.match(preview.sha256, /^[0-9a-f]{64}$/);
+  const result = await runCli(['api-preview', '--request-file', path]);
+  assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).sha256, preview.sha256);
+  await assert.rejects(callApprovedApi(path, undefined, {}), /confirmation/);
+  writeFileSync(path, JSON.stringify({ ...REQUEST, method: 'DELETE' }));
+  await assert.rejects(callApprovedApi(path, preview.sha256, {}), /confirmation/);
+});
+test('API request changes bind method, target, path, body and declared effect', t => {
+  const path = requestFile(t, REQUEST), original = previewApiRequest(path).sha256;
+  for (const change of [{ base_url: 'http://127.0.0.1:59101' }, { method: 'DELETE' }, { path: '/api/watchlist' }, { reason: 'changed' }, { effect: 'changed' }, { method: 'POST', body: { a: 1 } }]) {
+    writeFileSync(path, JSON.stringify({ ...REQUEST, ...change }));
+    assert.notEqual(previewApiRequest(path).sha256, original);
+  }
+});
+for (const change of [
+  { base_url: 'http://example.com' }, { base_url: 'ws://127.0.0.1:59100' }, { base_url: 'http://user:secret@127.0.0.1' },
+  { path: '/internal/status' }, { path: '/api/../internal/status' }, { path: '/api/%2e%2e/internal/status' },
+  { path: '/api/internal/status' }, { path: '/api/%69nternal/status' }, { path: '//example.com/api/status' }, { path: '/api/%252e%252e/status' },
+  { headers: { authorization: 'secret' } }, { method: 'OPTIONS' }, { body: {} },
+]) test(`rejects unsupported/unsafe API request ${JSON.stringify(change)}`, t => {
+  assert.throws(() => previewApiRequest(requestFile(t, { ...REQUEST, ...change })));
+});
+test('API fallback uses explicit JWT, returns receipt, rejects redirects and never retries', async t => {
+  let calls = 0, redirected = 0;
+  await withServer(async (req, res) => {
+    calls++;
+    assert.equal(req.headers.authorization, 'Bearer synthetic-local-jwt');
+    if (req.url === '/api/redirect') { res.writeHead(302, { location: '/api/target' }); res.end(); return; }
+    if (req.url === '/api/target') redirected++;
+    res.writeHead(req.url === '/api/denied' ? 403 : 200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(req.url === '/api/denied' ? { error: 'Forbidden' } : { success: true, id: 'receipt' }));
+  }, async base => {
+    const path = requestFile(t, { ...REQUEST, base_url: base });
+    const hash = previewApiRequest(path).sha256;
+    for (const env of [{}, { HEDGEHOG_GATEWAY_API_TOKEN: 'hgmcp_invalid' }]) await assert.rejects(callApprovedApi(path, hash, env));
+    assert.equal(calls, 0);
+    const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
+    const result = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', hash], env);
+    assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).data.id, 'receipt');
+    for (const target of ['/api/denied', '/api/redirect']) {
+      writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: target, method: 'POST' }));
+      const failure = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', previewApiRequest(path).sha256], env);
+      assert.equal(failure.code, 1);
+      if (target.endsWith('redirect')) assert.match(failure.stderr, /unknown/);
+    }
+  });
+  assert.equal(calls, 3); assert.equal(redirected, 0);
+});
+test('API fallback preserves business failure and rejects malformed/non-JSON responses', async t => {
+  await withServer((req, res) => {
+    res.setHeader('content-type', req.url === '/api/html' ? 'text/html' : 'application/json');
+    res.end(req.url === '/api/bad' ? '{' : req.url === '/api/html' ? '<html/>' : '{"success":false,"message":"rejected"}');
+  }, async base => {
+    const path = requestFile(t, { ...REQUEST, base_url: base });
+    const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
+    assert.equal((await callApprovedApi(path, previewApiRequest(path).sha256, env)).ok, false);
+    for (const endpoint of ['/api/html', '/api/bad']) {
+      writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: endpoint, method: 'POST' }));
+      await assert.rejects(callApprovedApi(path, previewApiRequest(path).sha256, env), /outcome is unknown/);
+    }
+  });
+});

@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.7.1";
+const VERSION = "3.8.0";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
@@ -290,14 +290,19 @@ function sendNotificationArgs(args) {
   return { type, title, body };
 }
 
+function listType(value) {
+  if (!["watchlist", "candidate"].includes(value)) throw new Error("List type must be watchlist or candidate");
+  return value;
+}
+
 function getWatchlistArgs(args) {
   const flags = parseFlags(args);
   if (flags["user-id"] !== undefined) {
     throw new Error("--user-id is no longer supported; Gateway derives user identity from the MCP token");
   }
-  validateFlags(flags, []);
-  exactPositionals(args, 0, "Usage: hog-gateway-tools get-watchlist");
-  return {};
+  validateFlags(flags, ["list-type"]);
+  exactPositionals(args, 0, "Usage: hog-gateway-tools get-watchlist [--list-type watchlist|candidate]");
+  return flags["list-type"] ? { list_type: listType(flags["list-type"]) } : {};
 }
 
 function recommendationScore(value, minimum, maximum, option) {
@@ -452,7 +457,12 @@ Usage:
   hog-gateway-tools get-work-context <work_id> [--task-id ID]
   hog-gateway-tools get-task-status <task_id>
   hog-gateway-tools send-notification <type> <title> <body>
-  hog-gateway-tools get-watchlist
+  hog-gateway-tools get-watchlist [--list-type watchlist|candidate]
+  hog-gateway-tools find-stock <name-or-code>
+  hog-gateway-tools watchlist-add <verified-stock-code> [--list-type watchlist|candidate]
+  hog-gateway-tools watchlist-move <id> --from candidate|watchlist --to watchlist|candidate
+  hog-gateway-tools api-preview --request-file <tmp-hog-gateway-tools-id.json>
+  hog-gateway-tools api-call --request-file <same-file> --confirmed-sha256 <approved-preview-hash>
   hog-gateway-tools recommend-resource --source-type T --title X [options]
   hog-gateway-tools recommend-resource --batch-file <tmp-hog-gateway-tools-id.json>
   hog-gateway-tools recommend-status <batch_id>
@@ -466,7 +476,10 @@ Usage:
   hog-gateway-tools memory-delete <id>
   hog-gateway-tools memory-update <id> --expected-revision N [--content C] [--tags a,b] [--task-type T] [--task-desc D]
 
-Global options:
+API fallback: read references/gateway-api.md first. No MCP global options; separate authorized local API JWT.
+api-preview is offline. api-call requires actual user approval of the exact preview; no automatic WS/API fallback.
+
+Global MCP options:
   --url <url>                MCP endpoint; defaults to HEDGEHOG_MCP_GENERAL_URL or http://127.0.0.1:59102/mcp
   --token <token>            MCP Bearer token; defaults to HEDGEHOG_MCP_GENERAL_TOKEN
   --poll-interval-ms <ms>    Task polling interval, integer from 250 through 30000 ms
@@ -487,6 +500,30 @@ async function execute(client, command, args, options) {
     case "get-task-status": return readResource(client, `hedgehog://tasks/${requiredResourceId(args, "get-task-status")}`);
     case "send-notification": return callTool(client, "send_notification", sendNotificationArgs(args), options);
     case "get-watchlist": return callTool(client, "get_watchlist", getWatchlistArgs(args), options);
+    case "find-stock": {
+      validateFlags(parseFlags(args), []);
+      const [query] = exactPositionals(args, 1, "Usage: find-stock <name-or-code>");
+      if (!query.trim()) throw new Error("Stock query cannot be empty");
+      const { findStock } = await import("./watchlist.mjs");
+      return { output: await findStock(client, query), exitCode: 0 };
+    }
+    case "watchlist-add": {
+      const flags = parseFlags(args); validateFlags(flags, ["list-type"]);
+      const [code] = exactPositionals(args, 1, "Usage: watchlist-add <verified-stock-code> [--list-type watchlist|candidate]");
+      if (!code.trim()) throw new Error("Stock code cannot be empty");
+      const target = listType(flags["list-type"] ?? "watchlist");
+      const { addWatchlist } = await import("./watchlist.mjs");
+      const output = await addWatchlist(client, code, target);
+      return { output, exitCode: output.status === "move_required" ? 2 : 0 };
+    }
+    case "watchlist-move": {
+      const flags = parseFlags(args); validateFlags(flags, ["from", "to"]);
+      const [id] = exactPositionals(args, 1, "Usage: watchlist-move <id> --from candidate|watchlist --to watchlist|candidate");
+      if (!id.trim()) throw new Error("Stock ID cannot be empty");
+      const from = listType(flags.from), to = listType(flags.to);
+      const { moveWatchlist } = await import("./watchlist.mjs");
+      return { output: await moveWatchlist(client, id, from, to), exitCode: 0 };
+    }
     case "recommend-resource": return callTool(client, "recommend_resource", recommendResourceArgs(args), options);
     case "recommend-status": return callTool(client, "resource_recommend_batch", { id: decodeURIComponent(requiredResourceId(args, "recommend-status")) }, options);
     case "recommend-retry": return callTool(client, "resource_recommend_retry", { id: decodeURIComponent(requiredResourceId(args, "recommend-retry")) }, options);
@@ -514,6 +551,18 @@ async function main() {
     }
     console.log(HELP);
     return 0;
+  }
+  if (command === "api-preview" || command === "api-call") {
+    if (options.noWait || options.url || options.token || options.pollIntervalMs !== undefined) throw new Error("API fallback does not accept MCP global options");
+    const args = remaining.slice(1), flags = parseFlags(args);
+    validateFlags(flags, command === "api-preview" ? ["request-file"] : ["request-file", "confirmed-sha256"]);
+    exactPositionals(args, 0, "Use --request-file for API requests");
+    if (!flags["request-file"]) throw new Error("--request-file is required");
+    const { previewApiRequest, callApprovedApi } = await import("./api-fallback.mjs");
+    const output = command === "api-preview" ? previewApiRequest(flags["request-file"])
+      : await callApprovedApi(flags["request-file"], flags["confirmed-sha256"]);
+    printJson(output);
+    return command === "api-call" && !output.ok ? 1 : 0;
   }
   const client = new GeneralMcpClient({
     url: await resolveMcpUrl(options.url),

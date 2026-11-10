@@ -36,7 +36,7 @@ For CLIs that accept a business parameter object, all Agents use one parameter p
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.12.0 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
 | `hedgehog-financial-report-analysis` | 1.3.0 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
-| `hog-gateway-tools` | 3.7.1 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus bounded failure retries and durable Task polling |
+| `hog-gateway-tools` | 3.8.0 | Authenticated General MCP CLI with restricted file delivery, Work context, Task Resource status, Knowledge and persistent Memory commands plus verified watchlist additions/transfers, user-confirmed local HTTP API fallback and durable Task polling |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
 | `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |
@@ -50,7 +50,7 @@ For CLIs that accept a business parameter object, all Agents use one parameter p
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `company-valuation` | 3.0.5 | Valuation engine with Vega-Lite v6 sensitivity heatmap output |
-| `deliver_files` | 2.1.3 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.7.1 |
+| `deliver_files` | 2.1.3 | Compatibility wrapper for file delivery; the same restricted Resource Link flow is available in `hog-gateway-tools` 3.8.0 |
 | `doc-convert` | 2.1.2 | Document format conversion: MD / HTML / PDF / DOCX |
 | `fin-calc` | 1.0.4 | Financial calculator: PV, FV, PMT, NPV, IRR, RATE |
 | `gen-chart` | 2.4.2 | Chart generation with Vega-Lite v6, Mermaid, and ECharts |
@@ -69,13 +69,21 @@ scopes used by these Skills, so managed Agents do not create a client Token
 manually. External MCP clients create a scoped Token from the standalone MCP
 Clients card in Gateway settings.
 
-The `cli.mjs`, `mcp-client.mjs`, and `package.json` for `hog-gateway-tools` must remain identical across HogAgent, OpenClaw, and Hermes. The runtime files for `deliver_files` must remain identical across OpenClaw and Hermes; platform-specific `SKILL.md` runtime instructions remain separate.
+The `cli.mjs`, `mcp-client.mjs`, `watchlist.mjs`, `api-fallback.mjs`, and `package.json` for `hog-gateway-tools` must remain identical across HogAgent, OpenClaw, and Hermes. The runtime files for `deliver_files` must remain identical across OpenClaw and Hermes; platform-specific `SKILL.md` runtime instructions remain separate.
 
 After changing either MCP CLI, run:
 
 ```bash
 node --test tests/gateway-mcp-clis.test.mjs tests/gateway-mcp-regression.test.mjs
 ```
+
+### Watchlist and HTTP fallback (3.8.0)
+
+Use `find-stock`, `get-watchlist --list-type`, `watchlist-add`, and `watchlist-move` through General MCP. The companion Gateway runtime Profile needs the existing `watchlist:write` and `stock:read` scopes; business handlers, limits and tenant boundaries are reused. Formal-watchlist classification remains a separate consumer operation.
+
+The [bundled HTTP API reference](hogagent/hog-gateway-tools/references/gateway-api.md) documents the fallback. `api-preview` is offline; `api-call` requires explicit user approval of the exact request and its SHA-256, uses a separate authorized local JWT, and never falls back to WS or retries an uncertain write. The hash protects request integrity, not human authorization.
+
+Run `node --test tests/gateway-watchlist-api.test.mjs` as well as the MCP and version suites. All three platform copies and every maintained Git branch containing the Skill must receive the runtime files and reference together.
 
 ### Optional Extensions
 

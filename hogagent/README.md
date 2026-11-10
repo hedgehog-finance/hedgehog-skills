@@ -8,7 +8,7 @@ A collection of A-share investment research skills adapted for the HogAgent plat
 |-------|---------|-------------|
 | `hedgehog-company-index-data` | 1.12.0 | Query A-share company profiles, daily/minute quotes and financials, domestic/global index quotes and weights, Shenwan industry data, and trading calendars |
 | `hedgehog-financial-report-analysis` | 1.3.1 | Financial report interpretation with context-aware anomaly analysis, audit-note checks, cash flow and risk |
-| `hog-gateway-tools` | 3.7.1 | Authenticated General MCP CLI: task result reporting, restricted file delivery, Work context, Task Resource status, Knowledge, Memory, notifications, watchlist and resource recommendations |
+| `hog-gateway-tools` | 3.8.0 | Authenticated General MCP CLI: task result reporting, restricted file delivery, Work context, Task Resource status, Knowledge, Memory, notifications, verified watchlist additions/transfers, resource recommendations and user-confirmed HTTP API fallback |
 | `hedgehog-macro-industry-data` | 1.8.3 | Query China-US macro data: Shibor, LPR, CPI, PPI, PMI, M0/M1/M2, social financing, US Treasury yields |
 | `hedgehog-news-reports` | 1.9.3 | Unified search and analysis across financial news, A-share research reports, and listed company announcements |
 | `hedgehog-stock-research` | 2.4.0 | Four workflows: fundamentals, sentiment, technicals, and CIO research (existing-report integration or full research); focused data sub-agents, main-agent analysis and batch calculation, sectional writing |
@@ -32,3 +32,7 @@ Standard structure for each skill module:
 ## License
 
 [GPL-3.0](../LICENSE)
+
+## Gateway HTTP API fallback
+
+`hog-gateway-tools` 3.8.0 uses named MCP commands for normal work. See its [API reference](hog-gateway-tools/references/gateway-api.md) for offline request preview, explicit user confirmation, local JWT authentication and errors. No generic WS fallback is provided.

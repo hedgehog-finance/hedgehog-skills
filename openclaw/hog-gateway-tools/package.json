@@ -1,10 +1,10 @@
 {
   "name": "hog-gateway-tools",
   "license": "GPL-3.0",
-  "version": "3.7.1",
+  "version": "3.8.0",
   "private": true,
   "type": "module",
-  "description": "Gateway General MCP 2026-07-28 CLI with named workflow, file delivery, knowledge, memory and durable task operations.",
+  "description": "Named Gateway MCP operations, verified watchlist changes and user-confirmed local HTTP API fallback.",
   "bin": {
     "hog-gateway-tools": "cli.mjs"
   },

@@ -707,6 +707,8 @@ test("platform copies keep standalone runtime files synchronized", async () => {
   const gatewayFiles = [
     "cli.mjs",
     "mcp-client.mjs",
+    "watchlist.mjs",
+    "api-fallback.mjs",
     "package.json",
   ];
   for (const file of gatewayFiles) {

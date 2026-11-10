@@ -15,7 +15,7 @@ const EXPECTED = {
   "hedgehog-company-index-data": "1.12.0",
   "hedgehog-macro-industry-data": "1.8.3",
   "hedgehog-news-reports": "1.9.3",
-  "hog-gateway-tools": "3.7.1",
+  "hog-gateway-tools": "3.8.0",
   math_calc: "1.1.2",
   "table-convert": "1.1.2",
   "tech-indicators": "1.1.2",
@@ -81,7 +81,7 @@ test("platform manifests and embedded CLI versions match package versions", () =
 
   for (const platform of ["hogagent", "openclaw", "hermes"]) {
     const gateway = readFileSync(join(REPO_ROOT, platform, "hog-gateway-tools", "cli.mjs"), "utf8");
-    assert.match(gateway, /const VERSION = "3\.7\.1"/);
+    assert.match(gateway, /const VERSION = "3\.8\.0"/);
   }
   for (const platform of ["openclaw", "hermes"]) {
     const deliver = readFileSync(join(REPO_ROOT, platform, "deliver_files", "cli.mjs"), "utf8");

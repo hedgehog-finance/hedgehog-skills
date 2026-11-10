@@ -1,10 +1,11 @@
 ---
 name: hog-gateway-tools
-version: 3.7.1
+version: 3.8.0
 description: >
   Use authenticated Gateway General MCP for Work/Task coordination, workspace file
   delivery, knowledge-base and cross-session memory retrieval, authorized memory
-  changes, notifications, watchlists, and resource recommendations.
+  changes, notifications, verified watchlist additions/transfers, resource recommendations,
+  and explicitly user-confirmed local Gateway HTTP API troubleshooting.
 ---
 
 # Gateway General MCP Tools
@@ -13,7 +14,7 @@ Use Node.js >=18: `node <skill_path>/cli.mjs <command> [arguments]`. Run `--help
 
 ## Connection
 
-Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into managed Agents. The reserved `agent-runtime` Profile covers these commands; do not create a separate Token. External clients obtain a scoped Token from Gateway settings → MCP Clients.
+Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into managed Agents. The reserved `agent-runtime` Profile covers the named MCP commands (HTTP fallback uses separate credentials); do not create a separate Token. External clients obtain a scoped Token from Gateway settings → MCP Clients.
 
 - URL priority: `--url` → `HEDGEHOG_MCP_GENERAL_URL` → `gateway.mcpGeneralUrl` in `~/.hogagent/hogagent.json` → `http://127.0.0.1:59102/mcp`. Use HTTP(S), no embedded credentials, and the `/mcp` endpoint.
 - Token priority: `--token` → `HEDGEHOG_MCP_GENERAL_TOKEN`. Prefer the environment variable to avoid shell-history exposure.
@@ -29,7 +30,12 @@ Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into
 | `get-work-context <work_id>` | Read Work context; optional `--task-id` |
 | `get-task-status <task_id>` | Read business Task status, result, and deliveries |
 | `send-notification <type> <title> <body>` | Send a notification |
-| `get-watchlist` | Read the authenticated user's watchlist |
+| `get-watchlist [--list-type watchlist|candidate]` | Read the authenticated user's chosen list |
+| `find-stock <name-or-code>` | Resolve stock identity from the Gateway dictionary |
+| `watchlist-add <stock_code>` | Verify and add to the selected list |
+| `watchlist-move <id> --from candidate --to watchlist` | Move an existing record between lists |
+| `api-preview --request-file <file>` | Prepare a concrete HTTP fallback request offline |
+| `api-call --request-file <file> --confirmed-sha256 <hash>` | Send only the exact user-approved local HTTP request |
 | `recommend-resource --source-type T --title X` | Submit one recommendation candidate |
 | `recommend-resource --batch-file <file>` | Submit a candidate batch with a stable ID |
 | `recommend-status <batch_id>` / `recommend-retry <batch_id>` | Read a batch receipt / explicitly retry a failed batch |
@@ -55,6 +61,27 @@ node <skill_path>/cli.mjs memory-search "茅台" --stock-codes "600519.SH" --mod
 node <skill_path>/cli.mjs memory-recall memory-123
 node <skill_path>/cli.mjs memory-update memory-123 --expected-revision 1 --content "用户已确认的修订结论"
 ```
+
+## Watchlist changes
+
+Use explicit user intent, not a stock mention or a recommendation, to authorize a change. An unambiguous add instruction is sufficient; ask only to resolve ambiguous stocks/list changes. `get-watchlist --list-type candidate` reads candidates; no flag retains the existing formal-watchlist behavior.
+
+1. `find-stock <name-or-code>` searches the existing Gateway stock dictionary and returns up to 20 matches with a total/truncation flag. Resolve the exact stock code and market; never choose the first ambiguous match or invent a code. If the dictionary is missing, stop.
+2. `watchlist-add <verified-stock-code> [--list-type watchlist|candidate]` defaults to formal watchlist. It verifies the exact dictionary entry, queries both lists, and calls the existing `watchlist_add` with authoritative name/exchange/market. It does not set a ready-to-buy mark.
+3. The result is `added`, `already_present`, or `move_required` (exit 2; no write). For `move_required`, explain the source list and obtain the user's transfer intent, unless already explicit. Then call `watchlist-move <actual-id> --from candidate --to watchlist` (or the reverse). This queries source membership and uses `watchlist_move`; `already_in_target` means no new mutation. Preserve existing categories and marks.
+4. Report only the actual receipt. Capacity, duplicate and ownership checks remain server-side (currently 10 formal including ready-to-buy, 500 candidates). Never silently delete, replace or divert a stock when full. For a batch, resolve all targets and clarify insufficient capacity before sequential calls; preserve/report partial successes and stop on an unknown result. No blind mutation retries or automatic API fallback.
+
+These commands need `watchlist:read`, `watchlist:write` and `stock:read`; the companion Gateway update grants these existing scopes to its reserved `agent-runtime` Profile. External clients keep their explicitly granted scopes. An older runtime or denied scope must be reported, not bypassed with HTTP.
+
+Adding is a short deterministic operation, not a new Work. Long research/filtering remains Work/Task. Formal-watchlist classification is currently a separate consumer-side step, so the CLI does not claim completion or create a parallel LLM workflow. Candidate classification is already asynchronous server-side; move preserves existing tags. Read the list to verify persistence; this Skill does not promise a new push event or immediate refresh in every frontend.
+
+## User-confirmed HTTP API fallback
+
+**Default: do not call Gateway HTTP API or WS directly.** Use named commands first. Only when the user explicitly approves a concrete HTTP request may this Skill's `api-call` send it. There is no WS fallback and no generic MCP call command.
+
+Before preparing any fallback, read [Gateway HTTP API reference and approval flow](references/gateway-api.md). `api-preview --request-file <file>` is offline and produces the exact request plus SHA-256. Present its target, method, path, payload, reason and effects to the user; only after actual confirmation run `api-call --request-file <same-file> --confirmed-sha256 <approved-hash>`. A hash is a request-integrity gate, not proof of user consent. The request is not authorized merely because the model can compute its hash. Changed request/identity requires new confirmation; uncertain writes are not replayed.
+
+Fallback uses a separately authorized local Gateway JWT via `HEDGEHOG_GATEWAY_API_TOKEN` or `HEDGEHOG_GATEWAY_API_TOKEN_FILE`, never the MCP token. Missing credentials, permission denial, sandbox restrictions and internal endpoint boundaries are not bypassed. The CLI supports only local loopback JSON `/api/` calls, no redirects or automatic retries. It neither reads private credential stores automatically nor obtains a new token. Do not replace this workflow with curl, an ad hoc script or WS.
 
 ## File delivery
 
@@ -110,6 +137,6 @@ The CLI prints JSON, preferring `structuredContent` and retaining `resource_link
 
 Durable MCP Tasks are polled to a terminal state at the server interval, clamped to 250–30000 ms (`--poll-interval-ms` overrides it). `input_required` prints the Task and `inputRequests`, then exits **42**. Use another authorized MCP client for follow-up control; use `--no-wait` only if that client will manage the returned Task.
 
-Report invalid arguments or permission denial without unchanged retries. Unknown Gateway tools/methods or protocol incompatibility require a Gateway version check; do not bypass them. Stop after two consecutive connection/timeout/HTTP 404 failures and ask the user to check/restart Gateway. For uncertain mutations, verify the outcome before retrying; recommendation receipts and memory checks are described above.
+Report invalid arguments or permission denial without unchanged retries. Unknown Gateway tools/methods or protocol incompatibility require a Gateway version check; never silently switch transports. An independently documented HTTP operation is available only through the explicit fallback confirmation flow above, never to evade denied permissions. Stop after two consecutive connection/timeout/HTTP 404 failures and ask the user to check/restart Gateway. For uncertain mutations, verify the outcome before retrying; recommendation receipts and memory checks are described above.
 
 Limits: JSON payload files 10 MiB, configuration files 1 MiB, MCP responses 20 MiB. Authenticated requests reject redirects and multiline/oversized Tokens.
