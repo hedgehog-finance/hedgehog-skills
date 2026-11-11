@@ -104,37 +104,15 @@ Inspect `match_type`, `degraded`, `fragments`, and `rank_score`. Search combines
 
 ## Resource recommendations
 
-- Use the actual provider as `source_type`, a Knowledge category as `content_type`, and an evidenced source ID (`ciwei_id`) or URL. **Batch JSON uses `url`; single-candidate CLI uses `--resource-url`.** Put obtained original text in `full_content`, otherwise an excerpt in `summary`; include `published_at` only when known.
-- Scores must be finite: `importance` −5…5, `relevance` 1…5. Preserve importance's sign without inferring sentiment. Publication requires `abs(importance)>=4`, `relevance>=4`, and a non-empty `recommend_reason`. Relevance 4 means directly related to the current stock/watchlist/research; 5 affects a key judgment. Impact alone is not relevance. Omit unknown scores for Gateway evaluation; skip known ineligible candidates. Unscorable candidates are skipped; evaluation errors can fail the batch.
-- `--batch-file` takes an object with non-empty `batch_id`, `scene`, and 1–90 candidates, each with `source_type` and `title`. Scenes: `agent`; `stock_news` with a watched `stock_code`; `morning_briefing` / `closing_summary` with real `work_id` and `task_id`. Gateway validates ownership, sources, scoring, and quotas. Single-candidate mode supports the same content/scoring fields via named flags in `--help`.
-- Reuse the same batch ID and unchanged payload after an uncertain submission; this returns the existing receipt, **not a retry of a failed batch**. Changed payloads need a new ID. Single-candidate submissions receive fresh server IDs; use batch mode when submission retries must be idempotent.
+Before submitting candidates or checking/retrying receipts, read [recommendation rules and batch format](references/recommendations.md). It covers source evidence, signed scores, eligibility, scene/Work/Task associations, the 1–90 candidate limit, idempotency, publication quotas and receipts.
 
-Example batch file; replace placeholders with actual evidence:
-
-```json
-{
-  "batch_id": "stable-operation-id", "scene": "morning_briefing",
-  "work_id": "actual-work-id", "task_id": "actual-task-id",
-  "candidates": [{
-    "source_type": "ciwei", "content_type": "News", "ciwei_id": "actual-news-id",
-    "title": "Actual title", "summary": "Evidence used in the report",
-    "importance": -4, "relevance": 4, "recommend_reason": "Directly affects the watched company"
-  }]
-}
-```
-
-- For morning/closing reports, submit candidates actually used, including those awaiting scores, with the matching scene/Work/Task **before reporting completion**. If none remain after excluding known ineligible candidates, submit nothing. Gateway waits for successful Work completion, then publishes at most five per user/report date/type across Agents, retries, and remakes. Never bypass this quota with `agent` scene; finish the report without waiting for its pending batch.
-- Read the returned receipt ID with `recommend-status`; when `status=failed` and a retry is appropriate, use `recommend-retry`, then query again. `completed` may publish zero items after filtering; the receipt is not a publication count. Missing receipts fail. These application batches are separate from MCP Tasks, so Task polling/`--no-wait` do not control them.
-- Receipt commands require `resource:recommend` and the Gateway companion fixes. Recommendations expire after 30 days; duplicates do not extend expiry. Users choose classification, tags, and optional comments when saving to Knowledge.
+For morning/closing reports, submit candidates actually used, including those awaiting scores, **before reporting completion**; do not wait for their pending batch or bypass the report quota with `agent` scene. `completed` does not guarantee publication. Batch JSON uses `url`; single-candidate CLI uses `--resource-url`.
 
 ## Long-term memory
 
-- Search when the request depends on past preferences, decisions, research, or lessons. Ordinary Chat saves require an explicit request for that content; update/delete require authorization and an exact ID. Do not duplicate Gateway's automatic capture of successful Work, notes, completed courses, profiles, or user-selected Chats. Only the user UI enables Session persistence; Quick chats cannot use tools.
-- Store concise facts, preferences, decisions, conclusions, or lessons with key dates/limits, never source text, reports, or transcripts. `content` directly supplies embeddings; there is no summary field. The server rejects blank content or more than **1800 cl100k_base tokens**, without truncation or summarization; condense first.
-- Write “time + action + specifics”, using evidenced activity times at their known precision. Month-or-longer summaries may use supported periods. Omit unknown times; never substitute publication/report/save dates or note periods. Keep activity times, objects, and completion states distinct: plans are not completed actions, generated reports need not have been read, and generated courses need not have been learned. Ground preferences/profiles in expression, confirmation, or assessment.
-- Save options are in `--help`. Use real, authorized Work/Session associations; Gateway owns automatic source keys. Tag investment memories with stock codes, industry, and topic. Suggested task types: `market_insight`, `research_record`, `portfolio`, `review`, `strategy_quant`, `other`, `learning_record`, `investor_profile`; other strings are allowed.
-- Before updating, recall the memory and pass its `revision` as `--expected-revision`. On conflict, reread and reconcile. Change at least one of content/tags/task-type/task-desc; `--task-type null` / `--task-desc null` clear fields, `--tags ""` clears tags. Search filters and list pagination are in `--help`.
-- Embedding failure does not prove save failure; verify uncertain writes with list/search/recall before retrying. Legacy oversized memories are read-only; ask the user to condense and confirm migration in the management UI.
+Before any memory command, read [memory authorization, content and revision rules](references/memory.md). Search when prior preferences, decisions, research or lessons matter. Chat saves require an explicit request; update/delete require authorization and a real ID. Do not duplicate Gateway's automatic capture.
+
+Store concise facts and lessons, not source text or transcripts; `content` must be nonblank and at most **1800 cl100k_base tokens**. Recall before updating and pass `--expected-revision`; reread conflicts and verify uncertain saves before retrying. The reference preserves time/provenance rules, metadata options, field clearing and oversized-memory handling.
 
 ## Results and failures
 
