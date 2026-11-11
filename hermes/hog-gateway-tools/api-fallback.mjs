@@ -1,4 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
@@ -63,14 +65,35 @@ export function previewApiRequest(path) {
 }
 
 function apiToken(environment) {
-  if (environment.HEDGEHOG_GATEWAY_API_TOKEN && environment.HEDGEHOG_GATEWAY_API_TOKEN_FILE) throw new Error('Use one API token source');
-  const token = environment.HEDGEHOG_GATEWAY_API_TOKEN_FILE
-    ? readFile(environment.HEDGEHOG_GATEWAY_API_TOKEN_FILE, 16 * 1024).trim()
-    : environment.HEDGEHOG_GATEWAY_API_TOKEN;
-  if (typeof token !== 'string' || !token.trim() || token.length > 16 * 1024 || /[\r\n]/.test(token)) {
-    throw new Error('Set HEDGEHOG_GATEWAY_API_TOKEN or HEDGEHOG_GATEWAY_API_TOKEN_FILE to the authorized local Gateway JWT');
+  const expectedUserId = environment.HEDGEHOG_GATEWAY_USER_ID;
+  // A managed/MCP caller must not silently adopt a newly logged-in user's JWT.
+  if ((expectedUserId !== undefined && !expectedUserId?.trim())
+    || (environment.HEDGEHOG_MCP_GENERAL_TOKEN && !expectedUserId)) {
+    throw new Error('Gateway caller identity is missing; reconnect the Agent to the updated Gateway');
   }
-  if (token.startsWith('hgmcp_')) throw new Error('General MCP tokens cannot authenticate the local HTTP API');
+  const dataDir = environment.HEDGEHOG_DATA_DIR || join(homedir(), '.hedgehoggateway');
+  let token;
+  try {
+    // Read the existing login sync file on every call; never cache or copy it into Skill config.
+    token = readFile(join(dataDir, 'keys', 'latest-local-jwt.txt'), 16 * 1024).trim();
+  } catch {
+    throw new Error('Gateway login token is unavailable; log in to the local Gateway and check file access');
+  }
+  let payload;
+  try {
+    if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) throw new Error();
+    payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+    if (!payload || payload.iss !== 'hedgehog-gateway' || typeof payload.sub !== 'string' || !payload.sub.trim()
+      || typeof payload.exp !== 'number' || !Number.isFinite(payload.exp)) throw new Error();
+  } catch {
+    throw new Error('Gateway login token is invalid; log in again through Gateway');
+  }
+  if (payload.exp * 1000 <= Date.now()) throw new Error('Gateway login token has expired; log in again through Gateway');
+  if (expectedUserId && payload.sub !== expectedUserId) {
+    throw new Error('Gateway login user does not match this Agent; reconnect after switching accounts');
+  }
+  // These are local prechecks, not signature verification. Gateway validates signature,
+  // current user and revocation version. Do not read signing keys or mint credentials.
   return token;
 }
 

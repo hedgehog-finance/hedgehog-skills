@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.8.2";
+const VERSION = "3.8.3";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
@@ -476,7 +476,7 @@ Usage:
   hog-gateway-tools memory-delete <id>
   hog-gateway-tools memory-update <id> --expected-revision N [--content C] [--tags a,b] [--task-type T] [--task-desc D]
 
-API fallback: method/path allowlist only; no LLM/Agent execution, Work/Task writes or scheduling mutations. Read references/gateway-api.md first. No MCP global options; separate authorized local API JWT.
+API fallback: method/path allowlist only; no LLM/Agent execution, Work/Task writes or scheduling mutations. Read references/gateway-api.md first. No MCP global options; current Gateway login JWT is read automatically; no Skill token configuration.
 api-preview is optional and offline. api-call executes allowlisted requests without additional user confirmation or a confirmation hash; no WS fallback.
 
 Global MCP options:

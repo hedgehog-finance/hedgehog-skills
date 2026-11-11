@@ -29,8 +29,9 @@ PowerShell 使用双引号包路径，命令各占一行。通过文件工具写
 ## 连接、身份与限制
 
 - `base_url` 必须显式写入请求文件并核实为当前目标；仅支持当前机器上的 `localhost`、`127.0.0.1`、`[::1]`，默认部署端口通常为 59100。支持 HTTP/HTTPS，不允许 URL 内嵌凭据、路径、query 或 fragment。远端终端沿用产品连接机制，不把本机 API 暴露公网。
-- API 使用**本地登录 JWT**，通过 `HEDGEHOG_GATEWAY_API_TOKEN` 或 `HEDGEHOG_GATEWAY_API_TOKEN_FILE` 二选一提供。文件仅包含 JWT；工具只读取显式提供的文件，不搜索或打印私有凭据。不接受 MCP 的 `hgmcp_...` Token，也不使用 ciwei-ai Key/Token 替代本地 JWT。
-- 这些 API 凭据不会由本 Skill 自动获取或由 Gateway 的 MCP 环境自动提供。缺少合法凭据则停止，请用户通过既有登录/配置流程提供；不能调用 dev-token、签发/兑换 Token 或修改认证来绕过。账号改变后必须重新核对当前业务目标，不沿用旧账号资源 ID。
+- API 自动复用 **Gateway 当前登录用户的本地 JWT**。每次发送前读取 `<Gateway 数据目录>/keys/latest-local-jwt.txt`，不缓存、不复制到 Skill 配置；不再使用 `HEDGEHOG_GATEWAY_API_TOKEN` / `HEDGEHOG_GATEWAY_API_TOKEN_FILE`。普通 MCP 命令仍使用 Gateway 注入的 MCP Token，两者不混用。
+- Gateway 为托管 Agent 自动注入 `HEDGEHOG_DATA_DIR` 与 `HEDGEHOG_GATEWAY_USER_ID`，无需用户配置。CLI 核对登录 Token 的用户与绑定用户一致；有 MCP Token 但缺少绑定用户时停止，要求更新 Gateway 并重连 Agent，不自行填入用户 ID。独立本机 CLI 使用已有 `HEDGEHOG_DATA_DIR`，缺省为 `~/.hedgehoggateway`，跟随该 Gateway 当前登录用户。
+- 本地只预检 JWT 格式、签发者、有效期和用户；签名、吊销版本及当前账号仍由 Gateway 验证。缺少/无效/过期凭据则通过 Gateway 登录；账号不匹配则停止并重连。登出后不回退旧同步文件、手工 Token、ciwei-ai 凭据或 MCP Token；不读取 `jwt-secret.key`、不签发/兑换 Token、不调用登录接口绕过认证。文件权限或沙箱拒绝仍停止，不降低访问控制。
 - 仅支持下列白名单中的方法与路径组合，不按 `/api/` 前缀整体放行；未列出的方法、路由和未知新接口默认拒绝。JSON body 为可选项，GET 不带 body。query 放在 `path` 中并 URL 编码。内部端点、路径穿越、非本机地址和跳转均拒绝；不支持 WebSocket、任意 Header、文件上传/下载或 SSE。
 - 请求文件上限 10 MiB，Token 文件 16 KiB，JSON 响应上限 20 MiB，请求总超时 15 秒，无自动重试。非 JSON/超限/传输失败退出非零；写入可能已完成，不能称为已回滚。非 2xx 或业务 `success:false`/非空 `error` 同样失败；`ok:true` 只表示该回执无错误，异步任务是否完成仍按业务状态判断。
 
@@ -44,3 +45,5 @@ PowerShell 使用双引号包路径，命令各占一行。通过文件工具写
 | 409 | 按业务冲突处理，如容量已满、已在另一列表、账号运行时不匹配；不静默覆盖 |
 | 503 | 运行时未就绪，提示用户检查服务；不自动重放写入 |
 | 超时/断线/响应不完整 | 状态未知，先核实结果；不自动重放写入 |
+
+登录态来源复用 Gateway `src/utils/platform.ts`、`src/server/routes/auth.ts`、`src/auth/logout-service.ts` 及桌面端 `electron/shared/gateway-auth.ts` 已有同步机制。不要在 Skill 内维护另一份登录生命周期。

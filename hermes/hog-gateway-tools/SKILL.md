@@ -1,6 +1,6 @@
 ---
 name: hog-gateway-tools
-version: 3.8.2
+version: 3.8.3
 description: >
   Use authenticated Gateway General MCP for Work/Task coordination, workspace file
   delivery, knowledge-base and cross-session memory retrieval, authorized memory
@@ -17,7 +17,7 @@ Use Node.js >=18: `node ${HERMES_SKILL_DIR}/cli.mjs <command> [arguments]`. Run 
 
 ## Connection
 
-Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into managed Agents. The reserved `agent-runtime` Profile covers the named MCP commands (HTTP fallback uses separate credentials); do not create a separate Token. External clients obtain a scoped Token from Gateway settings → MCP Clients.
+Gateway injects `HEDGEHOG_MCP_GENERAL_URL` and `HEDGEHOG_MCP_GENERAL_TOKEN` into managed Agents. The reserved `agent-runtime` Profile covers the named MCP commands (HTTP fallback reuses the current Gateway login); do not create a separate Token. External clients obtain a scoped Token from Gateway settings → MCP Clients.
 
 - URL priority: `--url` → `HEDGEHOG_MCP_GENERAL_URL` → `gateway.mcpGeneralUrl` in `~/.hogagent/hogagent.json` → `http://127.0.0.1:59102/mcp`. Use HTTP(S), no embedded credentials, and the `/mcp` endpoint.
 - Token priority: `--token` → `HEDGEHOG_MCP_GENERAL_TOKEN`. Prefer the environment variable to avoid shell-history exposure.
@@ -86,7 +86,7 @@ Use named MCP commands first. When they do not cover the authorized business ope
 
 Read the [Gateway HTTP API category index](references/gateway-api.md), then only the relevant category and its linked common request flow; do not preload every API document. `api-preview --request-file <file>` is an optional offline request check. `api-call` independently validates the actual file before sending; a prior preview never authorizes a different or forbidden route. Report the receipt and verify uncertain writes before considering a retry.
 
-Fallback uses a separately authorized local Gateway JWT via `HEDGEHOG_GATEWAY_API_TOKEN` or `HEDGEHOG_GATEWAY_API_TOKEN_FILE`, never the MCP token. Missing credentials, permission denial, sandbox restrictions and internal endpoint boundaries are not bypassed. Only allowlisted local loopback JSON `/api/` calls are supported, without redirects or automatic retries. Do not read private credential stores, obtain a new token, or replace this flow with curl, ad hoc scripts or WS. There is no WS fallback or generic MCP call command.
+API authentication automatically reads the current Gateway login from `<Gateway data directory>/keys/latest-local-jwt.txt` on each call; no Skill token setting is needed. Managed Agents use Gateway-injected `HEDGEHOG_DATA_DIR` and `HEDGEHOG_GATEWAY_USER_ID`; missing binding or an account mismatch requires reconnecting. Standalone local use follows the current Gateway login. Missing/expired credentials require Gateway login, not token creation. Never use the MCP token for HTTP, read signing keys, or bypass permission/sandbox denial. Only allowlisted loopback JSON `/api/` requests are supported, with no redirects, automatic retries, curl/ad hoc scripts or WS fallback.
 
 ## File delivery
 
