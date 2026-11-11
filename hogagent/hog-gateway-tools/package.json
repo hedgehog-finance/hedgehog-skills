@@ -1,10 +1,10 @@
 {
   "name": "hog-gateway-tools",
   "license": "GPL-3.0",
-  "version": "3.8.1",
+  "version": "3.8.2",
   "private": true,
   "type": "module",
-  "description": "Named Gateway MCP operations, verified watchlist changes and user-confirmed allowlisted functional HTTP API fallback.",
+  "description": "Named Gateway MCP operations, verified watchlist changes and allowlisted functional HTTP API fallback without an extra confirmation step.",
   "bin": {
     "hog-gateway-tools": "cli.mjs"
   },

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
@@ -55,13 +54,12 @@ export function previewApiRequest(path) {
     throw new Error('Internal endpoints, path traversal and encoded path separators are not allowed');
   }
   if (!API_ALLOWLIST[request.method]?.some(route => route.test(url.pathname))) {
-    throw new Error('API fallback route is not allowlisted; LLM/Agent execution, Work/Task creation or recovery, scheduling mutations and generic proxies are forbidden even with user confirmation');
+    throw new Error('API fallback route is not allowlisted; LLM/Agent execution, Work/Task creation or recovery, scheduling mutations and generic proxies are forbidden');
   }
   if (request.method === 'GET' && Object.hasOwn(request, 'body')) throw new Error('GET cannot contain body');
   const normalized = { base_url: base.origin, method: request.method, path: url.pathname + url.search,
     ...(Object.hasOwn(request, 'body') ? { body: request.body } : {}), reason: request.reason, effect: request.effect };
-  const sha256 = createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
-  return { request: normalized, sha256, requires_user_confirmation: true };
+  return { request: normalized, requires_user_confirmation: false };
 }
 
 function apiToken(environment) {
@@ -76,9 +74,8 @@ function apiToken(environment) {
   return token;
 }
 
-export async function callApprovedApi(path, confirmedSha256, environment = process.env) {
+export async function callApi(path, environment = process.env) {
   const preview = previewApiRequest(path);
-  if (!confirmedSha256 || confirmedSha256 !== preview.sha256) throw new Error('Explicit user confirmation of this exact api-preview SHA-256 is required; no request sent');
   const request = preview.request;
   const token = apiToken(environment);
   const controller = new AbortController();
@@ -101,9 +98,9 @@ export async function callApprovedApi(path, confirmedSha256, environment = proce
     }
     const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     // Return business receipts intact. Never log the Authorization header or credentials.
-    return { http_status: response.status, ok: response.ok && data?.success !== false && !data?.error, data, request_sha256: preview.sha256 };
+    return { http_status: response.status, ok: response.ok && data?.success !== false && !data?.error, data };
   } catch (error) {
-    const unknown = sent && request.method !== 'GET' ? ' Mutation outcome is unknown; verify it before any user-authorized retry.' : '';
+    const unknown = sent && request.method !== 'GET' ? ' Mutation outcome is unknown; verify it before considering a retry.' : '';
     throw new Error(`API request failed: ${error.message}.${unknown}`);
   } finally {
     clearTimeout(timer);

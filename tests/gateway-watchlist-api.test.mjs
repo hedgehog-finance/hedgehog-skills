@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -8,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { addWatchlist, moveWatchlist, findStock } from '../hogagent/hog-gateway-tools/watchlist.mjs';
-import { previewApiRequest, callApprovedApi } from '../hogagent/hog-gateway-tools/api-fallback.mjs';
+import { previewApiRequest, callApi } from '../hogagent/hog-gateway-tools/api-fallback.mjs';
 
 const CLI = fileURLToPath(new URL('../hogagent/hog-gateway-tools/cli.mjs', import.meta.url));
 const STOCK = { stock_code: '600519.SH', name: '贵州茅台', exchange: 'SSE', market: '主板' };
@@ -119,22 +118,21 @@ test('watchlist CLI uses modern MCP and rejects invalid list/identity inputs', a
   assert.deepEqual(names, ['get_stock_basic_info', 'get_watchlist', 'get_watchlist', 'watchlist_add']);
 });
 
-test('API preview is offline and missing/mismatched approval sends nothing', async t => {
-  const path = requestFile(t, REQUEST); const preview = previewApiRequest(path);
-  assert.equal(preview.requires_user_confirmation, true); assert.match(preview.sha256, /^[0-9a-f]{64}$/);
+test('optional API preview is offline and does not require confirmation', async t => {
+  const path = requestFile(t, REQUEST);
+  const preview = previewApiRequest(path);
+  assert.equal(preview.requires_user_confirmation, false);
+  assert.deepEqual(preview.request, REQUEST);
   const result = await runCli(['api-preview', '--request-file', path]);
-  assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).sha256, preview.sha256);
-  await assert.rejects(callApprovedApi(path, undefined, {}), /confirmation/);
-  writeFileSync(path, JSON.stringify({ ...REQUEST, path: '/api/watchlist' }));
-  await assert.rejects(callApprovedApi(path, preview.sha256, {}), /confirmation/);
+  assert.equal(result.code, 0, result.stderr); assert.deepEqual(JSON.parse(result.stdout), preview);
+  await assert.rejects(callApi(path, {}), /authorized local Gateway JWT/);
 });
-test('API request changes bind method, target, path, body and declared effect', t => {
-  const baseline = { ...REQUEST, path: '/api/watchlist/item-123' };
-  const path = requestFile(t, baseline), original = previewApiRequest(path).sha256;
-  for (const change of [{ base_url: 'http://127.0.0.1:59101' }, { method: 'DELETE' }, { path: '/api/watchlist' }, { reason: 'changed' }, { effect: 'changed' }, { method: 'PATCH', path: '/api/watchlist/item-123/mark', body: { mark: 'ready-to-buy' } }]) {
-    writeFileSync(path, JSON.stringify({ ...baseline, ...change }));
-    assert.notEqual(previewApiRequest(path).sha256, original);
-  }
+test('API send revalidates a file changed after optional preview before reading credentials', async t => {
+  const path = requestFile(t, REQUEST);
+  previewApiRequest(path);
+  writeFileSync(path, JSON.stringify({ ...REQUEST, method: 'POST', path: '/api/workflows' }));
+  const env = { get HEDGEHOG_GATEWAY_API_TOKEN() { throw new Error('Credentials must not be read'); } };
+  await assert.rejects(callApi(path, env), /not allowlisted/);
 });
 for (const change of [
   { base_url: 'http://example.com' }, { base_url: 'ws://127.0.0.1:59100' }, { base_url: 'http://user:secret@127.0.0.1' },
@@ -155,15 +153,14 @@ test('API fallback uses explicit JWT, returns receipt, rejects redirects and nev
     res.end(JSON.stringify(req.url === '/api/watchlist?fixture=denied' ? { error: 'Forbidden' } : { success: true, id: 'receipt' }));
   }, async base => {
     const path = requestFile(t, { ...REQUEST, base_url: base });
-    const hash = previewApiRequest(path).sha256;
-    for (const env of [{}, { HEDGEHOG_GATEWAY_API_TOKEN: 'hgmcp_invalid' }]) await assert.rejects(callApprovedApi(path, hash, env));
+    for (const env of [{}, { HEDGEHOG_GATEWAY_API_TOKEN: 'hgmcp_invalid' }]) await assert.rejects(callApi(path, env));
     assert.equal(calls, 0);
     const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
-    const result = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', hash], env);
+    const result = await runCli(['api-call', '--request-file', path], env);
     assert.equal(result.code, 0, result.stderr); assert.equal(JSON.parse(result.stdout).data.id, 'receipt');
     for (const target of ['/api/watchlist?fixture=denied', '/api/watchlist?fixture=redirect']) {
       writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: target, method: 'POST' }));
-      const failure = await runCli(['api-call', '--request-file', path, '--confirmed-sha256', previewApiRequest(path).sha256], env);
+      const failure = await runCli(['api-call', '--request-file', path], env);
       assert.equal(failure.code, 1);
       if (target.endsWith('redirect')) assert.match(failure.stderr, /unknown/);
     }
@@ -177,10 +174,10 @@ test('API fallback preserves business failure and rejects malformed/non-JSON res
   }, async base => {
     const path = requestFile(t, { ...REQUEST, base_url: base });
     const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
-    assert.equal((await callApprovedApi(path, previewApiRequest(path).sha256, env)).ok, false);
+    assert.equal((await callApi(path, env)).ok, false);
     for (const endpoint of ['/api/watchlist?fixture=html', '/api/watchlist?fixture=bad']) {
       writeFileSync(path, JSON.stringify({ ...REQUEST, base_url: base, path: endpoint, method: 'POST' }));
-      await assert.rejects(callApprovedApi(path, previewApiRequest(path).sha256, env), /outcome is unknown/);
+      await assert.rejects(callApi(path, env), /outcome is unknown/);
     }
   });
 });
@@ -237,20 +234,39 @@ for (const platform of ['hogagent', 'openclaw', 'hermes']) {
   });
 }
 
-test('even an exact confirmation hash and valid token cannot send forbidden execution requests', async t => {
+test('direct API calls with valid credentials still cannot send forbidden execution requests', async t => {
   let calls = 0;
   await withServer((_req, res) => { calls++; res.end('{}'); }, async base => {
     for (const input of FORBIDDEN_API_REQUESTS) {
       const request = { ...REQUEST, base_url: base, ...input };
       const file = requestFile(t, request);
-      const hash = createHash('sha256').update(JSON.stringify(request)).digest('hex');
-      await assert.rejects(callApprovedApi(file, hash, { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' }));
+      await assert.rejects(callApi(file, { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' }));
     }
     const request = { ...REQUEST, base_url: base, method: 'POST', path: '/api/workflows', body: { name: 'must not start' } };
     const file = requestFile(t, request);
-    const hash = createHash('sha256').update(JSON.stringify({ base_url: base, method: request.method, path: request.path, body: request.body, reason: request.reason, effect: request.effect })).digest('hex');
-    const result = await runCli(['api-call', '--request-file', file, '--confirmed-sha256', hash], { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' });
+    const result = await runCli(['api-call', '--request-file', file], { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' });
     assert.equal(result.code, 1); assert.match(result.stderr, /not allowlisted/);
   });
   assert.equal(calls, 0);
+});
+
+test('allowlisted writes execute without preview or confirmation and report the actual receipt', async t => {
+  const calls = [];
+  await withServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    calls.push({ method: req.method, path: req.url, body: JSON.parse(raw) });
+    res.writeHead(201, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: { id: 'new-item', stock_code: STOCK.stock_code } }));
+  }, async base => {
+    const body = { stock_code: STOCK.stock_code, list_type: 'watchlist' };
+    const file = requestFile(t, { ...REQUEST, base_url: base, method: 'POST', path: '/api/watchlist', body });
+    const env = { HEDGEHOG_GATEWAY_API_TOKEN: 'synthetic-local-jwt' };
+    const result = await runCli(['api-call', '--request-file', file], env);
+    assert.equal(result.code, 0, result.stderr);
+    const receipt = JSON.parse(result.stdout);
+    assert.equal(receipt.http_status, 201); assert.equal(receipt.ok, true); assert.equal(receipt.data.data.id, 'new-item');
+    assert.deepEqual(calls, [{ method: 'POST', path: '/api/watchlist', body }]);
+    const legacy = await runCli(['api-call', '--request-file', file, '--confirmed-sha256', 'obsolete'], env);
+    assert.equal(legacy.code, 1); assert.equal(calls.length, 1);
+  });
 });

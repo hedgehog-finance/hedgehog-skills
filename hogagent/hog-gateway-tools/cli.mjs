@@ -16,7 +16,7 @@ import {
   waitForTask,
 } from "./mcp-client.mjs";
 
-const VERSION = "3.8.1";
+const VERSION = "3.8.2";
 const INPUT_REQUIRED_EXIT_CODE = 42;
 
 function parseFlags(argv) {
@@ -462,7 +462,7 @@ Usage:
   hog-gateway-tools watchlist-add <verified-stock-code> [--list-type watchlist|candidate]
   hog-gateway-tools watchlist-move <id> --from candidate|watchlist --to watchlist|candidate
   hog-gateway-tools api-preview --request-file <tmp-hog-gateway-tools-id.json>
-  hog-gateway-tools api-call --request-file <same-file> --confirmed-sha256 <approved-preview-hash>
+  hog-gateway-tools api-call --request-file <tmp-hog-gateway-tools-id.json>
   hog-gateway-tools recommend-resource --source-type T --title X [options]
   hog-gateway-tools recommend-resource --batch-file <tmp-hog-gateway-tools-id.json>
   hog-gateway-tools recommend-status <batch_id>
@@ -476,8 +476,8 @@ Usage:
   hog-gateway-tools memory-delete <id>
   hog-gateway-tools memory-update <id> --expected-revision N [--content C] [--tags a,b] [--task-type T] [--task-desc D]
 
-API fallback: method/path allowlist only; no LLM/Agent execution, Work/Task writes or scheduling mutations, even with approval. Read references/gateway-api.md first. No MCP global options; separate authorized local API JWT.
-api-preview is offline. api-call requires actual user approval of the exact preview; no automatic WS/API fallback.
+API fallback: method/path allowlist only; no LLM/Agent execution, Work/Task writes or scheduling mutations. Read references/gateway-api.md first. No MCP global options; separate authorized local API JWT.
+api-preview is optional and offline. api-call executes allowlisted requests without additional user confirmation or a confirmation hash; no WS fallback.
 
 Global MCP options:
   --url <url>                MCP endpoint; defaults to HEDGEHOG_MCP_GENERAL_URL or http://127.0.0.1:59102/mcp
@@ -555,12 +555,12 @@ async function main() {
   if (command === "api-preview" || command === "api-call") {
     if (options.noWait || options.url || options.token || options.pollIntervalMs !== undefined) throw new Error("API fallback does not accept MCP global options");
     const args = remaining.slice(1), flags = parseFlags(args);
-    validateFlags(flags, command === "api-preview" ? ["request-file"] : ["request-file", "confirmed-sha256"]);
+    validateFlags(flags, ["request-file"]);
     exactPositionals(args, 0, "Use --request-file for API requests");
     if (!flags["request-file"]) throw new Error("--request-file is required");
-    const { previewApiRequest, callApprovedApi } = await import("./api-fallback.mjs");
+    const { previewApiRequest, callApi } = await import("./api-fallback.mjs");
     const output = command === "api-preview" ? previewApiRequest(flags["request-file"])
-      : await callApprovedApi(flags["request-file"], flags["confirmed-sha256"]);
+      : await callApi(flags["request-file"]);
     printJson(output);
     return command === "api-call" && !output.ok ? 1 : 0;
   }

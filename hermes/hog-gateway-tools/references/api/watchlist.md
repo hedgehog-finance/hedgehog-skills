@@ -1,6 +1,6 @@
 # 自选股 API
 
-正常使用 `find-stock`、`get-watchlist`、`watchlist-add`、`watchlist-move`。以下表格用于经用户确认后的诊断/兼容处理。所有 ID 和代码必须来自实际查询。
+正常使用 `find-stock`、`get-watchlist`、`watchlist-add`、`watchlist-move`。以下表格用于当前业务请求所需的诊断/兼容处理，无需额外 API 确认。所有 ID 和代码必须来自实际查询。
 
 | 方法/路径 | 输入与结果 |
 |---|---|
@@ -20,6 +20,6 @@
 
 股票字典通过现有 MCP `get_stock_basic_list` / `get_stock_basic_info` 使用。不要凭 action 名发明 `/api/get_stock_basic_info` HTTP 路径。
 
-请求确认与认证遵循[公共流程](request-flow.md)；[返回分类入口](../gateway-api.md)。
+请求执行与认证遵循[公共流程](request-flow.md)；[返回分类入口](../gateway-api.md)。
 
 源码：Gateway `src/server/routes/watchlist.ts`，通过 `src/index.ts` 挂载 `/api/watchlist`。
